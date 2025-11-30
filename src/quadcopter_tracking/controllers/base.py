@@ -15,18 +15,30 @@ class BaseController:
     Attributes:
         name (str): Controller identifier for logging/comparison.
         config (dict): Controller-specific configuration.
+        mass (float): Quadcopter mass in kg (default: 1.0).
+        gravity (float): Gravitational acceleration in m/s² (default: 9.81).
     """
 
-    def __init__(self, name: str = "base", config: dict | None = None):
+    def __init__(
+        self,
+        name: str = "base",
+        config: dict | None = None,
+        mass: float = 1.0,
+        gravity: float = 9.81,
+    ):
         """
         Initialize the controller.
 
         Args:
             name: Human-readable controller name.
             config: Controller configuration parameters.
+            mass: Quadcopter mass in kg (default: 1.0).
+            gravity: Gravitational acceleration in m/s² (default: 9.81).
         """
         self.name = name
         self.config = config or {}
+        self.mass = mass
+        self.gravity = gravity
 
     def compute_action(self, observation: dict) -> dict:
         """

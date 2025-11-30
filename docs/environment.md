@@ -71,13 +71,15 @@ The target generates smooth trajectories with perfect information (position, vel
 
 ### Motion Types
 
-| Type | Description | Parameters |
-|------|-------------|------------|
-| `linear` | Constant velocity motion | speed, direction |
-| `circular` | Orbital motion in horizontal plane | radius, speed, center |
-| `sinusoidal` | Multi-axis sinusoidal oscillation | amplitude, frequency |
-| `figure8` | Lemniscate (figure-8) pattern | scale, speed |
-| `stationary` | Fixed position (hover reference) | position |
+| Type | Description | Parameters | Default |
+|------|-------------|------------|---------|
+| `stationary` | Fixed position (hover reference) | position | **Yes** |
+| `linear` | Constant velocity motion | speed, direction | No |
+| `circular` | Orbital motion in horizontal plane | radius, speed, center | No |
+| `sinusoidal` | Multi-axis sinusoidal oscillation | amplitude, frequency | No |
+| `figure8` | Lemniscate (figure-8) pattern | scale, speed | No |
+
+**Note:** The default motion type is `stationary`, providing a stable hover reference point for new users to start with a solvable tracking task.
 
 ### Target State
 
@@ -193,6 +195,28 @@ info["success"] = True  # Met success criteria?
 | max_angular_rate | 3.0 rad/s | Maximum angular rate |
 | drag_coeff_linear | 0.1 | Linear drag coefficient |
 | drag_coeff_angular | 0.01 | Angular drag coefficient |
+
+### Physics Parameters for Controllers
+
+The `mass` and `gravity` parameters are surfaced to controller constructors (PID, LQR) to enable proper hover thrust calculation. This allows controllers to compute the baseline thrust required to counteract gravity:
+
+```python
+hover_thrust = mass * gravity  # e.g., 1.0 kg × 9.81 m/s² = 9.81 N
+```
+
+Controllers receive these values through their configuration:
+
+```python
+from quadcopter_tracking.controllers import PIDController, LQRController
+
+# Controllers automatically use mass=1.0, gravity=9.81 by default
+pid = PIDController()
+
+# Custom physics parameters
+lqr = LQRController(config={"mass": 1.5, "gravity": 9.81})
+```
+
+The `BaseController` class stores `mass` and `gravity` attributes that subclasses can access for physics-based calculations.
 
 ### Simulation Parameters
 
