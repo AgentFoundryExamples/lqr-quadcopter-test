@@ -72,6 +72,130 @@ The utilities package owns:
 - Logging captures sufficient data for post-hoc analysis
 - Plotting provides standardized visualizations
 
+## Classical Controller Pipeline
+
+The repository provides two classical controllers (PID and LQR) that share a common pipeline for processing observations and generating control actions.
+
+### Observation Processing
+
+Both classical controllers extract state information from the observation dictionary:
+
+```python
+observation = {
+    "quadcopter": {
+        "position": [x, y, z],           # meters
+        "velocity": [vx, vy, vz],        # m/s
+        "attitude": [roll, pitch, yaw],  # radians
+        "angular_velocity": [p, q, r],   # rad/s
+    },
+    "target": {
+        "position": [x, y, z],           # meters
+        "velocity": [vx, vy, vz],        # m/s
+    },
+    "time": float,                       # seconds
+}
+```
+
+### Control Output Mapping
+
+Both controllers output a dictionary with the following keys:
+
+```python
+action = {
+    "thrust": float,      # Total thrust in Newtons [0, max_thrust]
+    "roll_rate": float,   # Desired roll rate in rad/s [-max_rate, max_rate]
+    "pitch_rate": float,  # Desired pitch rate in rad/s [-max_rate, max_rate]
+    "yaw_rate": float,    # Desired yaw rate in rad/s [-max_rate, max_rate]
+}
+```
+
+### PID Controller Pipeline
+
+The PID controller uses a cascaded structure for position tracking:
+
+```
+                    Position Error              PID Terms
+Target Position ──┬─────────────────►  ┌─────────────────┐
+                  │                    │  P: kp * error  │
+Quad Position   ──┴─────►  error ────► │  I: ki * ∫error │ ──► Desired Accel
+                                       │  D: kd * ḋerror │
+Target Velocity ──┬─────────────────►  └─────────────────┘
+                  │                            │
+Quad Velocity   ──┴─────► vel_error ──────────┘
+
+Desired Accel ──► Control Mapping ──► [thrust, roll_rate, pitch_rate, yaw_rate]
+```
+
+**Control Mapping:**
+- Z-axis acceleration → thrust adjustment above hover
+- X-axis acceleration → pitch rate (negative sign: pitch forward to move +X)
+- Y-axis acceleration → roll rate (positive: roll right to move +Y)
+- Yaw rate → zero (no heading tracking)
+
+**Key Features:**
+- Integral windup prevention via configurable clamp
+- Per-axis gain tuning (3D arrays)
+- Automatic hover thrust calculation from mass/gravity
+
+### LQR Controller Pipeline
+
+The LQR controller uses a pre-computed feedback gain matrix:
+
+```
+                State Error Vector (6D)
+Target State ──┬──────────────────────────────────────────┐
+               │                                          │
+Quad State   ──┴──► [pos_error(3), vel_error(3)] ──────► │
+                                                          ▼
+                                            ┌─────────────────────┐
+                                            │   u = K @ state     │
+                                            │   K: 4x6 gain matrix│
+                                            └──────────┬──────────┘
+                                                       │
+                                                       ▼
+                              [thrust_adj, roll_rate, pitch_rate, yaw_rate]
+```
+
+**Gain Computation:**
+For the linearized hover dynamics, LQR gains are computed from cost matrices:
+- `Q`: State cost matrix (6x6 diagonal)
+- `R`: Control cost matrix (4x4 diagonal)
+
+The feedback law minimizes: `J = ∫(x'Qx + u'Ru) dt`
+
+**Operating Envelope:**
+The LQR linearization assumes:
+- Small attitude angles (< 30 degrees from hover)
+- Moderate velocities (< 5 m/s)
+- Position errors up to ±10 meters
+
+For aggressive maneuvers outside this envelope, performance degrades.
+
+### Metrics and Logging Integration
+
+Classical controllers integrate with the metrics infrastructure:
+
+```python
+from quadcopter_tracking.controllers import PIDController
+from quadcopter_tracking.eval import Evaluator
+
+# Create controller and evaluator
+controller = PIDController(config={"kp_pos": [2.0, 2.0, 4.0]})
+evaluator = Evaluator(controller=controller)
+
+# Run evaluation - generates metrics and plots
+summary = evaluator.evaluate(num_episodes=10)
+evaluator.save_report(summary)
+evaluator.generate_all_plots(summary)
+```
+
+The evaluation pipeline records:
+- Tracking error at each timestep
+- On-target ratio (time within target radius)
+- Control effort (action magnitudes)
+- Overshoot events
+- Action violations (clipping events)
+
 ## Environment-Controller Separation
 
 ### Boundary Definition
@@ -130,6 +254,26 @@ The utilities package owns:
 | `target.motion_type` | linear | Target motion pattern |
 | `success_criteria.min_on_target_ratio` | 0.8 | Required on-target time fraction |
 
+### Classical Controller Configuration
+
+Controller gains are configured via YAML:
+
+```yaml
+# PID Controller
+pid:
+  kp_pos: [2.0, 2.0, 4.0]   # Proportional gains [x, y, z]
+  ki_pos: [0.1, 0.1, 0.2]   # Integral gains [x, y, z]
+  kd_pos: [1.5, 1.5, 2.0]   # Derivative gains [x, y, z]
+  integral_limit: 5.0        # Windup prevention
+
+# LQR Controller
+lqr:
+  q_pos: [10.0, 10.0, 20.0]  # Position cost weights
+  q_vel: [5.0, 5.0, 10.0]    # Velocity cost weights
+  r_thrust: 0.1               # Thrust control cost
+  r_rate: 1.0                 # Rate control cost
+```
+
 ## Success Criteria
 
 A tracking episode is considered **successful** when:
@@ -141,6 +285,14 @@ This criteria ensures:
 - Controllers handle sustained tracking (not just instantaneous)
 - Some tolerance for transient errors (20% off-target allowed)
 - Clear, measurable benchmark for comparison
+
+## Controller Comparison Guide
+
+| Controller | Strengths | Weaknesses | Best For |
+|------------|-----------|------------|----------|
+| **PID** | Simple, intuitive tuning, integral eliminates steady-state error | Can oscillate, requires manual tuning | Stationary targets, slow motion |
+| **LQR** | Optimal for linearized system, systematic gain design | Assumes linear dynamics, no integral action | Moderate velocities, known dynamics |
+| **Deep** | Can learn complex mappings, adapts to nonlinearities | Requires training data, black-box | Complex motion, nonlinear scenarios |
 
 ## Future Iteration Workflow
 
@@ -178,6 +330,10 @@ This criteria ensures:
 - No obstacle avoidance
 - Deterministic environment (given seed)
 
+### Classical Controller Limitations
+- **PID**: Performance degrades for fast-moving targets; integral windup during large transients
+- **LQR**: Linearization breaks down for large attitude angles (> 30°) or high velocities
+
 ## Development Guidelines
 
 ### Adding a New Controller
@@ -202,6 +358,15 @@ make run-experiment CONFIG=configs/circular.yaml SEED=123
 
 # With environment overrides
 QUADCOPTER_SEED=456 make run-experiment
+```
+
+### Evaluating Classical Controllers
+```bash
+# Evaluate PID controller
+python -m quadcopter_tracking.eval --controller pid --episodes 10
+
+# Evaluate LQR controller
+python -m quadcopter_tracking.eval --controller lqr --motion-type stationary
 ```
 
 ## Installation Notes
