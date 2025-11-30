@@ -123,9 +123,10 @@ class PIDController(BaseController):
             config: Configuration with PID gain parameters.
         """
         super().__init__(name="pid", config=config)
-        self.kp = config.get("kp", 1.0) if config else 1.0
-        self.ki = config.get("ki", 0.1) if config else 0.1
-        self.kd = config.get("kd", 0.5) if config else 0.5
+        config = config or {}
+        self.kp = config.get("kp", 1.0)
+        self.ki = config.get("ki", 0.1)
+        self.kd = config.get("kd", 0.5)
         self.integral_error = None
         self.last_error = None
 

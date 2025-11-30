@@ -13,14 +13,19 @@ Design Philosophy:
 - Logging captures enough data for post-hoc analysis
 """
 
+import datetime
 import json
+import logging
 import os
 from pathlib import Path
 
+import numpy as np
 import yaml
 from dotenv import load_dotenv
 
 __all__ = ["load_config", "DataLogger", "Plotter", "get_default_config"]
+
+logger = logging.getLogger(__name__)
 
 
 def get_default_config() -> dict:
@@ -88,6 +93,11 @@ def load_config(
 
     Returns:
         Merged configuration dictionary.
+
+    Raises:
+        FileNotFoundError: If config_path is specified but file doesn't exist.
+        PermissionError: If config file cannot be read.
+        ValueError: If config file format is unsupported or malformed.
     """
     # Start with defaults
     config = get_default_config()
@@ -95,17 +105,33 @@ def load_config(
     # Load from file if provided
     if config_path is not None:
         config_path = Path(config_path)
-        if config_path.exists():
+
+        # Validate file exists and is readable
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+        if not config_path.is_file():
+            raise ValueError(f"Configuration path is not a file: {config_path}")
+
+        try:
             with open(config_path) as f:
                 if config_path.suffix in (".yaml", ".yml"):
                     file_config = yaml.safe_load(f)
                 elif config_path.suffix == ".json":
                     file_config = json.load(f)
                 else:
-                    raise ValueError(f"Unsupported config format: {config_path.suffix}")
+                    raise ValueError(
+                        f"Unsupported config format: {config_path.suffix}"
+                    )
+        except PermissionError as e:
+            raise PermissionError(
+                f"Cannot read configuration file: {config_path}"
+            ) from e
+        except (yaml.YAMLError, json.JSONDecodeError) as e:
+            raise ValueError(f"Malformed configuration file: {config_path}") from e
 
-            if file_config:
-                config = _deep_merge(config, file_config)
+        if file_config:
+            config = _deep_merge(config, file_config)
 
     # Apply environment variable overrides
     if load_env:
@@ -154,16 +180,16 @@ def _json_serializer(obj):
         TypeError: If object type is not supported.
     """
     # Handle numpy arrays
-    if hasattr(obj, "tolist"):
+    if isinstance(obj, np.ndarray):
         return obj.tolist()
     # Handle datetime objects
-    if hasattr(obj, "isoformat"):
+    if isinstance(obj, (datetime.datetime, datetime.date)):
         return obj.isoformat()
     # Handle Path objects
     if isinstance(obj, Path):
         return str(obj)
     # Raise for unsupported types to catch serialization issues
-    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+    raise TypeError("Object is not JSON serializable")
 
 
 def _apply_env_overrides(config: dict) -> dict:
@@ -186,7 +212,12 @@ def _apply_env_overrides(config: dict) -> dict:
     for env_var, (config_key, type_fn) in env_mappings.items():
         value = os.getenv(env_var)
         if value is not None:
-            config[config_key] = type_fn(value)
+            try:
+                config[config_key] = type_fn(value)
+            except ValueError:
+                logger.warning(
+                    "Invalid value for %s: '%s', using default", env_var, value
+                )
 
     # Nested target overrides
     target_env_mappings = {
@@ -200,7 +231,12 @@ def _apply_env_overrides(config: dict) -> dict:
     for env_var, (config_key, type_fn) in target_env_mappings.items():
         value = os.getenv(env_var)
         if value is not None:
-            config["target"][config_key] = type_fn(value)
+            try:
+                config["target"][config_key] = type_fn(value)
+            except ValueError:
+                logger.warning(
+                    "Invalid value for %s: '%s', using default", env_var, value
+                )
 
     return config
 

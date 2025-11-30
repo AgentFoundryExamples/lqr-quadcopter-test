@@ -47,18 +47,28 @@ format:
 	$(PYTHON) -m ruff format src/ tests/
 	$(PYTHON) -m ruff check --fix src/ tests/
 
+# Note: CONFIG and SEED are validated by Python code, not shell interpolation
+# to prevent command injection vulnerabilities
 run-experiment:
 	@echo "Running experiment with config=$(CONFIG), seed=$(SEED)"
-	$(PYTHON) -c "from src.utils import load_config; from src.env import QuadcopterEnv; \
-		config = load_config(); \
-		print('Loaded configuration:'); \
-		print(f'  Seed: {config[\"seed\"]}'); \
-		print(f'  Episode length: {config[\"episode_length\"]}s'); \
-		print(f'  Target radius: {config[\"target\"][\"radius_requirement\"]}m'); \
-		print(f'  Motion type: {config[\"target\"][\"motion_type\"]}'); \
-		env = QuadcopterEnv(config); \
-		obs = env.reset(seed=$(SEED)); \
-		print('Environment initialized successfully!')"
+	@$(PYTHON) -c "\
+from pathlib import Path; \
+from quadcopter_tracking.utils import load_config; \
+from quadcopter_tracking.env import QuadcopterEnv; \
+import sys; \
+seed_str = '$(SEED)'; \
+seed = int(seed_str) if seed_str.lstrip('-').isdigit() else (print('Error: SEED must be an integer', file=sys.stderr) or sys.exit(1)); \
+config_path = '$(CONFIG)'; \
+config_file = Path(config_path) if config_path != 'config.yaml' or Path(config_path).exists() else None; \
+config = load_config(config_path=config_file); \
+print('Loaded configuration:'); \
+print(f'  Seed: {config[\"seed\"]}'); \
+print(f'  Episode length: {config[\"episode_length\"]}s'); \
+print(f'  Target radius: {config[\"target\"][\"radius_requirement\"]}m'); \
+print(f'  Motion type: {config[\"target\"][\"motion_type\"]}'); \
+env = QuadcopterEnv(config); \
+obs = env.reset(seed=seed); \
+print('Environment initialized successfully!')"
 
 clean:
 	rm -rf build/

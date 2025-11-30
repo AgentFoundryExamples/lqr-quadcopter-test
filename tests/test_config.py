@@ -6,7 +6,7 @@ from unittest import mock
 
 def test_get_default_config_has_required_keys():
     """Test that default config has all required keys."""
-    from src.utils import get_default_config
+    from quadcopter_tracking.utils import get_default_config
 
     config = get_default_config()
 
@@ -20,7 +20,7 @@ def test_get_default_config_has_required_keys():
 
 def test_get_default_config_values():
     """Test that default config has expected values."""
-    from src.utils import get_default_config
+    from quadcopter_tracking.utils import get_default_config
 
     config = get_default_config()
 
@@ -32,7 +32,7 @@ def test_get_default_config_values():
 
 def test_load_config_without_file():
     """Test config loading with defaults only."""
-    from src.utils import load_config
+    from quadcopter_tracking.utils import load_config
 
     config = load_config(config_path=None, load_env=False)
 
@@ -42,7 +42,7 @@ def test_load_config_without_file():
 
 def test_load_config_env_override():
     """Test that environment variables override defaults."""
-    from src.utils import load_config
+    from quadcopter_tracking.utils import load_config
 
     with mock.patch.dict(os.environ, {"QUADCOPTER_SEED": "123"}):
         config = load_config(config_path=None, load_env=True)
@@ -51,7 +51,7 @@ def test_load_config_env_override():
 
 def test_load_config_target_env_override():
     """Test that target-specific env vars are applied."""
-    from src.utils import load_config
+    from quadcopter_tracking.utils import load_config
 
     with mock.patch.dict(os.environ, {"QUADCOPTER_TARGET_RADIUS": "1.0"}):
         config = load_config(config_path=None, load_env=True)

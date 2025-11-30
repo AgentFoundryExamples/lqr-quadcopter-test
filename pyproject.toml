@@ -37,11 +37,12 @@ dev = [
     "ruff>=0.1.0,<1.0.0",
 ]
 
-[project.scripts]
-run-experiment = "quadcopter_tracking.cli:main"
+# CLI entry point commented out until cli.py is implemented
+# [project.scripts]
+# run-experiment = "quadcopter_tracking.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/env", "src/controllers", "src/utils"]
+packages = ["src/quadcopter_tracking"]
 
 [tool.ruff]
 line-length = 88
