@@ -1,0 +1,85 @@
+# Controller comparison configuration
+# Use this config to generate side-by-side metrics for PID, LQR, and Deep controllers.
+#
+# Usage with Makefile:
+#   make compare-controllers CONFIG=experiments/configs/comparison_default.yaml
+#
+# Manual usage:
+#   # Run comparison sweep
+#   python -m quadcopter_tracking.eval --sweep experiments/configs/comparison_default.yaml
+#
+# Output:
+#   - reports/comparison/sweep_results.json - Ranked results for all controllers
+#   - reports/comparison/<controller>/metrics.json - Per-controller metrics
+#   - reports/comparison/<controller>/plots/*.png - Visualization plots
+
+# =============================================================================
+# Comparison Configuration
+# =============================================================================
+# List of controller configurations to compare
+# Each configuration runs the same number of episodes with identical seeds
+
+configurations:
+  # PID Controller - Classical proportional-integral-derivative control
+  - name: pid_baseline
+    controller_type: pid
+    num_episodes: 10
+    seed: 42
+    motion_type: circular
+    episode_length: 30.0
+    target_radius: 0.5
+    pid:
+      kp_pos: [2.0, 2.0, 4.0]
+      ki_pos: [0.1, 0.1, 0.2]
+      kd_pos: [1.5, 1.5, 2.0]
+      integral_limit: 5.0
+
+  # LQR Controller - Linear Quadratic Regulator (optimal linear control)
+  - name: lqr_baseline
+    controller_type: lqr
+    num_episodes: 10
+    seed: 42
+    motion_type: circular
+    episode_length: 30.0
+    target_radius: 0.5
+    lqr:
+      q_pos: [10.0, 10.0, 20.0]
+      q_vel: [5.0, 5.0, 10.0]
+      r_thrust: 0.1
+      r_rate: 1.0
+
+  # Deep Controller - Neural network policy (requires trained checkpoint)
+  # Uncomment and update checkpoint_path after training a model
+  # The checkpoint filename is generated during training - check checkpoints/
+  # for the actual filename (e.g., train_20240115_143022_42_best.pt)
+  # - name: deep_trained
+  #   controller_type: deep
+  #   checkpoint_path: checkpoints/train_*_best.pt  # Update with actual filename
+  #   num_episodes: 10
+  #   seed: 42
+  #   motion_type: circular
+  #   episode_length: 30.0
+  #   target_radius: 0.5
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: reports/comparison
+generate_plots: true
+
+# =============================================================================
+# Comparison Metrics
+# =============================================================================
+# The comparison report will include these metrics for each controller:
+#
+# Primary Metrics:
+#   - success_rate: Fraction of episodes meeting success criteria
+#   - mean_on_target_ratio: Average time within target radius
+#   - mean_tracking_error: Average distance to target (meters)
+#
+# Secondary Metrics:
+#   - std_on_target_ratio: Consistency measure
+#   - std_tracking_error: Error variance
+#   - mean_control_effort: Average control magnitude
+#
+# Rankings are sorted by success_rate (primary) and mean_on_target_ratio (secondary)
