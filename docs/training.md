@@ -459,3 +459,80 @@ class Trainer:
     def _train_epoch() -> dict
     def _save_checkpoint(epoch, metrics, is_best=False)
 ```
+
+## Extending to Alternative Controllers
+
+### Implementing Custom Learning Algorithms
+
+To implement alternative learning approaches (e.g., PPO, SAC, model-based RL):
+
+1. **Create a new controller class** inheriting from `BaseController`
+2. **Implement the training loop** with your algorithm
+3. **Use the existing loss functions** or define custom ones
+
+```python
+from quadcopter_tracking.controllers import BaseController
+from quadcopter_tracking.env import QuadcopterEnv
+
+class CustomRLController(BaseController):
+    def __init__(self, config=None):
+        super().__init__(name="custom_rl", config=config)
+        # Initialize your policy, value networks, etc.
+    
+    def compute_action(self, observation):
+        # Your policy inference
+        pass
+    
+    def train_step(self, batch):
+        # Your training update
+        pass
+```
+
+### Imperfect Information Controllers
+
+For controllers that must handle partial observability:
+
+1. **State estimation**: Implement filtering (Kalman, particle filter)
+2. **Memory-based architectures**: Use LSTM/GRU networks
+3. **Uncertainty-aware policies**: Output distributions over actions
+
+```python
+class PartialObservabilityController(BaseController):
+    def __init__(self, config=None):
+        super().__init__(name="partial_obs", config=config)
+        self.state_estimator = KalmanFilter(...)
+        self.policy = RecurrentPolicy(...)
+    
+    def compute_action(self, observation):
+        # Add simulated noise for training
+        noisy_obs = self.add_observation_noise(observation)
+        # Estimate true state
+        estimated_state = self.state_estimator.update(noisy_obs)
+        # Compute action from estimated state
+        return self.policy(estimated_state)
+```
+
+### Transfer Learning
+
+To adapt trained controllers to new scenarios:
+
+1. Load pretrained checkpoint
+2. Freeze early layers (optional)
+3. Fine-tune on new target motion patterns
+
+```python
+# Load pretrained model
+controller = DeepTrackingPolicy(config={
+    "checkpoint_path": "checkpoints/pretrained.pt"
+})
+
+# Fine-tune on figure-8 motion
+config = TrainingConfig()
+config.target_motion_type = "figure8"
+config.learning_rate = 0.0001  # Lower LR for fine-tuning
+config.epochs = 50
+
+trainer = Trainer(config)
+trainer.controller = controller  # Use pretrained weights
+trainer.train()
+```
