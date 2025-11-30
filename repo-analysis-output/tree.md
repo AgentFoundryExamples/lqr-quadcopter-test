@@ -1,4 +1,4 @@
-# agent-foundry-template
+# lqr-quadcopter-test
 
 ├── .github
   ├── af-config
@@ -8,6 +8,10 @@
   └── workflows
     └── af_maintenance.yml
 ├── repo-analysis-output
-  └── SUMMARY.md
+  ├── dependencies.json
+  ├── dependencies.md
+  ├── SUMMARY.md
+  ├── tree.json
+  └── tree.md
 ├── LICENSE
 └── README.md

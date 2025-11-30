@@ -1,6 +1,6 @@
 {
   "type": "directory",
-  "name": "agent-foundry-template",
+  "name": "lqr-quadcopter-test",
   "children": [
     {
       "type": "directory",
@@ -42,7 +42,23 @@
       "children": [
         {
           "type": "file",
+          "name": "dependencies.json"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md"
+        },
+        {
+          "type": "file",
           "name": "SUMMARY.md"
+        },
+        {
+          "type": "file",
+          "name": "tree.json"
+        },
+        {
+          "type": "file",
+          "name": "tree.md"
         }
       ]
     },
