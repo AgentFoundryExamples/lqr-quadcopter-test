@@ -24,6 +24,16 @@ import numpy as np
 import yaml
 from dotenv import load_dotenv
 
+from .diagnostics import (
+    Diagnostics,
+    DiagnosticsConfig,
+    EpochDiagnostics,
+    GradientStats,
+    StepDiagnostics,
+    compute_action_stats,
+    compute_gradient_stats,
+    compute_observation_stats,
+)
 from .losses import (
     CombinedLoss,
     LossLogger,
@@ -65,6 +75,15 @@ __all__ = [
     "compute_episode_metrics",
     "compute_evaluation_summary",
     "format_metrics_report",
+    # Diagnostics
+    "Diagnostics",
+    "DiagnosticsConfig",
+    "StepDiagnostics",
+    "EpochDiagnostics",
+    "GradientStats",
+    "compute_gradient_stats",
+    "compute_observation_stats",
+    "compute_action_stats",
 ]
 
 logger = logging.getLogger(__name__)

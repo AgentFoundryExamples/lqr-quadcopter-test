@@ -420,6 +420,134 @@ CUDA_VISIBLE_DEVICES=0 python -m quadcopter_tracking.train
 - Use GPU if available
 - Profile with `torch.profiler`
 
+## Training Diagnostics
+
+The training pipeline includes an opt-in diagnostics system for analyzing training behavior and identifying failure modes.
+
+### Enabling Diagnostics
+
+Enable diagnostics via command line:
+
+```bash
+python -m quadcopter_tracking.train \
+    --epochs 50 \
+    --diagnostics \
+    --diagnostics-log-interval 1
+```
+
+Or via configuration file:
+
+```yaml
+# experiments/configs/my_config.yaml
+diagnostics_enabled: true
+diagnostics_log_observations: true
+diagnostics_log_actions: true
+diagnostics_log_gradients: true
+diagnostics_log_interval: 10
+diagnostics_generate_plots: true
+```
+
+### Diagnostic Output Files
+
+When enabled, diagnostics creates the following files in `<log_dir>/diagnostics/`:
+
+| File | Contents |
+|------|----------|
+| `*_step_diagnostics.json` | Per-step observation, action, loss, gradient stats |
+| `*_epoch_diagnostics.json` | Aggregated per-epoch metrics |
+| `*_epoch_diagnostics.csv` | CSV format for easy analysis |
+| `*_diagnostics_summary.json` | Summary with identified issues |
+| `*_loss_trajectory.png` | Loss over epochs plot |
+| `*_error_trajectory.png` | Tracking error over epochs plot |
+| `*_gradient_trajectory.png` | Gradient norm over epochs plot |
+| `*_on_target_trajectory.png` | On-target ratio over epochs plot |
+
+### Key Diagnostic Metrics
+
+| Metric | Description | Healthy Range |
+|--------|-------------|---------------|
+| `mean_gradient_norm` | Gradient magnitude | 0.1 - 10.0 |
+| `action_magnitude_mean` | Control output scale | Match actuator limits |
+| `observation_range` | Input feature bounds | Reasonably bounded |
+| `num_nan_gradients` | NaN gradient count | 0 |
+| `num_inf_gradients` | Inf gradient count | 0 |
+
+### Interpreting Diagnostics
+
+**Gradient Norms:**
+- Very small (< 1e-7): Vanishing gradients, network stuck
+- Very large (> 100): Exploding gradients, reduce learning rate
+- Near clip threshold: Training may be fighting gradient clipping
+
+**Loss Trajectory:**
+- Steady decrease: Healthy training
+- Increasing loss: Learning rate too high or loss misaligned
+- Flat loss: Network not learning, check data flow
+
+**Action Statistics:**
+- Saturated actions: Bounds too tight or network over-confident
+- Very small actions: Network under-confident or initialization issue
+- High variance: Unstable policy
+
+### Example Diagnostic Config
+
+```yaml
+# experiments/configs/diagnostics_experiment.yaml
+epochs: 20
+episodes_per_epoch: 5
+max_steps_per_episode: 500
+batch_size: 16
+
+learning_rate: 0.001
+optimizer: adam
+hidden_sizes: [64, 64]
+
+target_motion_type: stationary
+episode_length: 10.0
+
+# Enable all diagnostics
+diagnostics_enabled: true
+diagnostics_log_observations: true
+diagnostics_log_actions: true
+diagnostics_log_gradients: true
+diagnostics_log_interval: 1
+diagnostics_generate_plots: true
+```
+
+### Programmatic Access
+
+```python
+from quadcopter_tracking.utils import Diagnostics, DiagnosticsConfig
+
+# Create diagnostics manager
+config = DiagnosticsConfig(
+    enabled=True,
+    log_interval=5,
+    generate_plots=True,
+)
+diag = Diagnostics(config=config, output_dir="my_diagnostics")
+
+# In training loop
+diag.log_step(epoch=0, step=i, observation=obs, action=action, losses=losses)
+
+# At epoch end
+epoch_diag = diag.log_epoch(epoch=0, metrics=epoch_metrics)
+
+# Save all outputs
+diag.save_summary()
+diag.generate_plots()
+```
+
+### Known Training Issues
+
+Based on diagnostic analysis, the current deep controller training exhibits:
+
+1. **Training Regression**: Loss increases after initial epochs
+2. **Tracking Error Growth**: Error increases from ~50m to ~100m over training
+3. **Low On-Target Ratio**: Never exceeds 15%, far below 80% target
+
+See [docs/results.md](results.md#training-diagnostics-results) for detailed analysis and recommended remediation.
+
 ## API Reference
 
 ### DeepTrackingPolicy

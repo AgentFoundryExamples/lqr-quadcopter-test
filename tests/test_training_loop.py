@@ -564,3 +564,276 @@ class TestIntegration:
             trainer = Trainer(config)
             summary = trainer.train()
             assert summary["epochs_completed"] == 2
+
+
+class TestDiagnostics:
+    """Tests for training diagnostics."""
+
+    def test_diagnostics_config_defaults(self):
+        """Test DiagnosticsConfig default values."""
+        from quadcopter_tracking.utils.diagnostics import DiagnosticsConfig
+
+        config = DiagnosticsConfig()
+        assert config.enabled is False
+        assert config.log_observations is True
+        assert config.log_actions is True
+        assert config.log_gradients is True
+        assert config.log_interval == 10
+
+    def test_diagnostics_config_from_dict(self):
+        """Test creating DiagnosticsConfig from dictionary."""
+        from quadcopter_tracking.utils.diagnostics import DiagnosticsConfig
+
+        config_dict = {
+            "enabled": True,
+            "log_observations": False,
+            "log_interval": 5,
+        }
+        config = DiagnosticsConfig.from_dict(config_dict)
+
+        assert config.enabled is True
+        assert config.log_observations is False
+        assert config.log_interval == 5
+
+    def test_diagnostics_disabled_by_default(self, tmp_path):
+        """Test diagnostics are disabled by default."""
+        from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
+
+        config = DiagnosticsConfig(enabled=False)
+        diag = Diagnostics(config=config, output_dir=tmp_path)
+
+        assert diag.enabled is False
+
+        # Logging should be no-op when disabled
+        result = diag.log_step(epoch=0, step=0)
+        assert result is None
+
+    def test_diagnostics_enabled_logging(self, tmp_path):
+        """Test diagnostics logging when enabled."""
+        from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
+
+        config = DiagnosticsConfig(
+            enabled=True,
+            log_interval=1,  # Log every step
+            output_dir=str(tmp_path),
+        )
+        diag = Diagnostics(config=config)
+
+        assert diag.enabled is True
+
+        # Log some steps
+        for step in range(5):
+            action = {
+                "thrust": 10.0,
+                "roll_rate": 0.0,
+                "pitch_rate": 0.0,
+                "yaw_rate": 0.0,
+            }
+            diag.log_step(
+                epoch=0,
+                step=step,
+                observation=np.random.randn(18),
+                action=action,
+                losses={"total": 1.0, "position": 0.5, "velocity": 0.3},
+                tracking_error=0.4,
+                on_target=True,
+            )
+
+        # End epoch
+        epoch_diag = diag.log_epoch(epoch=0)
+
+        assert len(diag.step_log) == 5
+        assert len(diag.epoch_log) == 1
+        assert epoch_diag.epoch == 0
+
+    def test_diagnostics_gradient_stats(self):
+        """Test gradient statistics computation."""
+        from quadcopter_tracking.utils.diagnostics import compute_gradient_stats
+
+        # Create a simple model
+        model = torch.nn.Linear(10, 5)
+        x = torch.randn(4, 10)
+        y = model(x)
+        loss = y.sum()
+        loss.backward()
+
+        stats = compute_gradient_stats(model.parameters())
+
+        assert stats.norm > 0
+        assert stats.num_nan == 0
+        assert stats.num_inf == 0
+
+    def test_diagnostics_observation_stats(self):
+        """Test observation statistics computation."""
+        from quadcopter_tracking.utils.diagnostics import compute_observation_stats
+
+        obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        stats = compute_observation_stats(obs)
+
+        assert stats["mean"] == 3.0
+        assert stats["min"] == 1.0
+        assert stats["max"] == 5.0
+        assert stats["num_nan"] == 0
+        assert stats["num_inf"] == 0
+
+    def test_diagnostics_observation_stats_handles_nan(self):
+        """Test observation stats handle NaN gracefully."""
+        from quadcopter_tracking.utils.diagnostics import compute_observation_stats
+
+        obs = np.array([1.0, float("nan"), 3.0])
+        stats = compute_observation_stats(obs)
+
+        assert stats["num_nan"] == 1
+        # Mean should be computed from valid values only
+        assert stats["mean"] == 2.0
+
+    def test_diagnostics_action_stats(self):
+        """Test action statistics computation."""
+        from quadcopter_tracking.utils.diagnostics import compute_action_stats
+
+        action = {
+            "thrust": 10.0,
+            "roll_rate": 0.5,
+            "pitch_rate": -0.5,
+            "yaw_rate": 0.0,
+        }
+        stats = compute_action_stats(action)
+
+        assert stats["thrust_mean"] == 10.0
+        assert stats["total_magnitude"] > 0
+
+    def test_diagnostics_save_files(self, tmp_path):
+        """Test diagnostics file saving."""
+        from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
+
+        config = DiagnosticsConfig(
+            enabled=True,
+            log_interval=1,
+            output_dir=str(tmp_path),
+            generate_plots=False,  # Skip plots for this test
+        )
+        diag = Diagnostics(config=config)
+
+        # Log some data
+        for epoch in range(2):
+            for step in range(3):
+                diag.log_step(
+                    epoch=epoch,
+                    step=step,
+                    observation=np.random.randn(18),
+                    losses={"total": float(epoch + step)},
+                    tracking_error=0.5,
+                    on_target=True,
+                )
+            diag.log_epoch(epoch=epoch)
+
+        # Save files
+        step_path = diag.save_step_log()
+        epoch_path = diag.save_epoch_log()
+        csv_path = diag.save_epoch_csv()
+        summary_path = diag.save_summary()
+
+        assert step_path is not None and step_path.exists()
+        assert epoch_path is not None and epoch_path.exists()
+        assert csv_path is not None and csv_path.exists()
+        assert summary_path is not None and summary_path.exists()
+
+    def test_training_with_diagnostics_enabled(self, tmp_path):
+        """Test training with diagnostics enabled."""
+        config = TrainingConfig(
+            epochs=2,
+            episodes_per_epoch=2,
+            max_steps_per_episode=50,
+            batch_size=4,
+            hidden_sizes=[16, 16],
+            checkpoint_dir=str(tmp_path / "checkpoints"),
+            log_dir=str(tmp_path / "logs"),
+            device="cpu",
+            diagnostics_enabled=True,
+            diagnostics_log_interval=1,
+            diagnostics_generate_plots=False,
+        )
+
+        trainer = Trainer(config)
+        summary = trainer.train()
+
+        assert summary["epochs_completed"] == 2
+
+        # Check diagnostics were saved
+        diag_dir = Path(config.log_dir) / "diagnostics"
+        assert diag_dir.exists()
+
+    def test_training_with_diagnostics_disabled(self, tmp_path):
+        """Test training with diagnostics disabled doesn't create files."""
+        config = TrainingConfig(
+            epochs=2,
+            episodes_per_epoch=2,
+            max_steps_per_episode=50,
+            batch_size=4,
+            hidden_sizes=[16, 16],
+            checkpoint_dir=str(tmp_path / "checkpoints"),
+            log_dir=str(tmp_path / "logs"),
+            device="cpu",
+            diagnostics_enabled=False,
+        )
+
+        trainer = Trainer(config)
+        summary = trainer.train()
+
+        assert summary["epochs_completed"] == 2
+
+        # Diagnostics dir should not have diagnostic files
+        diag_dir = Path(config.log_dir) / "diagnostics"
+        # The directory may or may not exist, but should be empty or not have many files
+        if diag_dir.exists():
+            # If it exists, should have no or minimal files
+            files = list(diag_dir.glob("*diagnostics*.json"))
+            assert len(files) == 0
+
+    def test_diagnostics_throttling(self, tmp_path):
+        """Test diagnostics respects log_interval for throttling."""
+        from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
+
+        config = DiagnosticsConfig(
+            enabled=True,
+            log_interval=5,  # Only log every 5th step
+            output_dir=str(tmp_path),
+        )
+        diag = Diagnostics(config=config)
+
+        # Log 20 steps
+        for step in range(20):
+            diag.log_step(
+                epoch=0,
+                step=step,
+                observation=np.random.randn(18),
+                losses={"total": 1.0},
+            )
+
+        # With log_interval=5, logs at internal step counts 5, 10, 15, 20
+        # (every 5th internal step counter increment)
+        assert len(diag.step_log) == 4
+
+    def test_diagnostics_max_entries_per_epoch(self, tmp_path):
+        """Test diagnostics respects max_entries_per_epoch."""
+        from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
+
+        config = DiagnosticsConfig(
+            enabled=True,
+            log_interval=1,
+            max_entries_per_epoch=5,
+            output_dir=str(tmp_path),
+        )
+        diag = Diagnostics(config=config)
+
+        # Try to log 100 steps
+        for step in range(100):
+            diag.log_step(
+                epoch=0,
+                step=step,
+                observation=np.random.randn(18),
+                losses={"total": 1.0},
+            )
+
+        # Should only have max_entries_per_epoch entries
+        assert len(diag.step_log) == 5

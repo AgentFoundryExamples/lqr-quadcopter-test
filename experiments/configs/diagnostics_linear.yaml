@@ -1,0 +1,57 @@
+# Diagnostic training configuration for linear target
+# This configuration enables full diagnostics for analyzing training behavior
+# with a linear (constant velocity) target motion.
+
+# Training parameters
+epochs: 20
+episodes_per_epoch: 5
+max_steps_per_episode: 500
+batch_size: 16
+
+# Optimizer parameters
+learning_rate: 0.001
+optimizer: adam
+weight_decay: 0.0
+grad_clip: 1.0
+
+# Network architecture
+hidden_sizes: [64, 64]
+activation: relu
+
+# Loss function weights
+position_weight: 1.0
+velocity_weight: 0.1
+control_weight: 0.01
+error_type: l2
+tracking_weight: 1.0
+reward_weight: 0.0
+
+# Environment parameters
+env_seed: 42
+target_motion_type: linear
+episode_length: 10.0
+target_radius: 0.5
+
+# Checkpointing
+checkpoint_dir: checkpoints/diagnostics_linear
+checkpoint_interval: 5
+save_best: true
+
+# Logging
+log_dir: experiments/logs/diagnostics_linear
+log_interval: 1
+
+# Curriculum learning (disabled for baseline analysis)
+use_curriculum: false
+
+# Recovery settings
+nan_recovery_attempts: 3
+lr_reduction_factor: 0.5
+
+# Diagnostics (ENABLED for this experiment)
+diagnostics_enabled: true
+diagnostics_log_observations: true
+diagnostics_log_actions: true
+diagnostics_log_gradients: true
+diagnostics_log_interval: 1
+diagnostics_generate_plots: true
