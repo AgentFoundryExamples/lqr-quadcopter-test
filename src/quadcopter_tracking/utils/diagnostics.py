@@ -677,9 +677,6 @@ class Diagnostics:
             writer.writeheader()
             for e in self.epoch_log:
                 row = e.to_dict()
-                # Flatten observation_range
-                row.pop("observation_range", None)
-                row.pop("loss_breakdown", None)
                 writer.writerow(row)
 
         logger.info("Saved epoch CSV to %s", path)

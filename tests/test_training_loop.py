@@ -810,7 +810,8 @@ class TestDiagnostics:
                 losses={"total": 1.0},
             )
 
-        # Should only have 4 entries (steps 5, 10, 15, 20)
+        # With log_interval=5, logs at internal step counts 5, 10, 15, 20
+        # (every 5th internal step counter increment)
         assert len(diag.step_log) == 4
 
     def test_diagnostics_max_entries_per_epoch(self, tmp_path):

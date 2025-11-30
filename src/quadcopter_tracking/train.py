@@ -535,9 +535,11 @@ class Trainer:
         if self.diagnostics.enabled:
             # Use mean tracking error and on-target for the batch
             mean_tracking_error = tracking_error.mean().item()
+            # Consider batch "on target" if majority (>50%) of samples are within radius
+            on_target_threshold = 0.5
             mean_on_target = (
                 tracking_error <= self.config.target_radius
-            ).float().mean().item() > 0.5
+            ).float().mean().item() > on_target_threshold
 
             losses_dict = {
                 k: v.item() if isinstance(v, torch.Tensor) else v
