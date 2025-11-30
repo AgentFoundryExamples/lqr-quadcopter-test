@@ -117,7 +117,11 @@ class EnvConfig:
         if "episode_length" in config_dict:
             sim_dict["max_episode_time"] = config_dict["episode_length"]
 
-        # Handle target config mapping
+        # Map target.radius_requirement to success_criteria.target_radius
+        # These refer to the same concept: the distance threshold for "on-target".
+        # target.radius_requirement is used in TargetParams for motion generation,
+        # while success_criteria.target_radius is used for episode evaluation.
+        # Default both from the same source for consistency.
         if "radius_requirement" in target_dict:
             success_dict.setdefault(
                 "target_radius", target_dict["radius_requirement"]

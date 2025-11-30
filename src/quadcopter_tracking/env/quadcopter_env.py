@@ -392,7 +392,11 @@ class QuadcopterEnv:
         deriv[self.VEL_X:self.VEL_Z + 1] = accel
 
         # Attitude derivative (using body rates)
-        # Simplified: assume small angles for rate transformation
+        # Simplification: Direct assignment of angular velocity to Euler rate.
+        # This is accurate for small attitude angles. For large angles, a proper
+        # kinematic transformation (involving sin/cos of angles) would be needed.
+        # The attitude clipping in _apply_state_constraints() helps keep angles
+        # within a range where this approximation remains reasonable.
         deriv[self.ROLL:self.YAW + 1] = ang_vel
 
         # Angular rate derivative (simple rate control model)

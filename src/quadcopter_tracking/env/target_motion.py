@@ -205,7 +205,12 @@ class Figure8Motion:
             0.0,
         ])
 
-        # Numerical approximation for acceleration (avoid complex analytic form)
+        # Numerical approximation for acceleration
+        # The analytic second derivative of the lemniscate is complex.
+        # Using numerical differentiation with a small fixed step is acceptable
+        # here because: (1) the acceleration is only used for limiting/smoothing,
+        # (2) TargetMotion.get_state() clamps acceleration to max_acceleration,
+        # and (3) the primary outputs (position, velocity) are computed exactly.
         dt = 1e-6
         theta_plus = self.omega * (t + dt)
         cos_tp = np.cos(theta_plus)
