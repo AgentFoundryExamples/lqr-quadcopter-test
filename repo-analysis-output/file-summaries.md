@@ -18,13 +18,16 @@ Total files: 19
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 3.43 KB  
-**LOC:** 89  
+**Size:** 14.34 KB  
+**LOC:** 272  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 2  
+**Declarations:** 3  
 **Top-level declarations:**
-  - class LQRController
+  - function _validate_observation
   - class PIDController
+  - class LQRController
+**External Dependencies:**
+  - **Third-party:** `numpy`
 
 ## src/quadcopter_tracking/controllers/base.py
 **Language:** Python  
@@ -264,15 +267,18 @@ Total files: 19
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 17.36 KB  
-**LOC:** 396  
+**Size:** 33.97 KB  
+**LOC:** 737  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 4  
+**Declarations:** 7  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
   - class TestEnvConfig
   - class TestIntegration
+  - class TestPIDController
+  - class TestLQRController
+  - class TestClassicalControllerIntegration
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 

@@ -32,15 +32,16 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 3512,
-        "loc": 89,
+        "size_bytes": 14688,
+        "loc": 272,
         "todo_count": 0,
-        "declaration_count": 2
+        "declaration_count": 3
       },
       "structure": {
         "declarations": [
-          "class LQRController",
-          "class PIDController"
+          "function _validate_observation",
+          "class PIDController",
+          "class LQRController"
         ]
       },
       "dependencies": {
@@ -48,7 +49,9 @@
         "exports": [],
         "external": {
           "stdlib": [],
-          "third-party": []
+          "third-party": [
+            "numpy"
+          ]
         }
       }
     },
@@ -561,17 +564,20 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 17777,
-        "loc": 396,
+        "size_bytes": 34789,
+        "loc": 737,
         "todo_count": 0,
-        "declaration_count": 4
+        "declaration_count": 7
       },
       "structure": {
         "declarations": [
           "class TestTargetMotion",
           "class TestQuadcopterEnv",
           "class TestEnvConfig",
-          "class TestIntegration"
+          "class TestIntegration",
+          "class TestPIDController",
+          "class TestLQRController",
+          "class TestClassicalControllerIntegration"
         ]
       },
       "dependencies": {

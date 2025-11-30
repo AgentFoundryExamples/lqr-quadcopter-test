@@ -7,7 +7,7 @@ Includes classification of external dependencies as stdlib vs third-party.
 ## Statistics
 
 - **Total files**: 19
-- **Intra-repo dependencies**: 26
+- **Intra-repo dependencies**: 27
 - **External stdlib dependencies**: 19
 - **External third-party dependencies**: 9
 
@@ -54,7 +54,7 @@ Total: 9 unique packages
 ## Most Depended Upon Files (Intra-Repo)
 
 - `src/quadcopter_tracking/env/__init__.py` (6 dependents)
-- `src/quadcopter_tracking/controllers/__init__.py` (4 dependents)
+- `src/quadcopter_tracking/controllers/__init__.py` (5 dependents)
 - `src/quadcopter_tracking/utils/metrics.py` (3 dependents)
 - `src/quadcopter_tracking/utils/diagnostics.py` (3 dependents)
 - `src/quadcopter_tracking/utils/losses.py` (3 dependents)
@@ -73,5 +73,5 @@ Total: 9 unique packages
 - `src/quadcopter_tracking/eval.py` (3 dependencies)
 - `src/quadcopter_tracking/utils/__init__.py` (3 dependencies)
 - `src/quadcopter_tracking/env/__init__.py` (2 dependencies)
+- `tests/test_env_dynamics.py` (2 dependencies)
 - `tests/test_config.py` (1 dependencies)
-- `tests/test_env_dynamics.py` (1 dependencies)

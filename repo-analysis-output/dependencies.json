@@ -15,7 +15,9 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [],
-        "third-party": []
+        "third-party": [
+          "numpy"
+        ]
       }
     },
     {
@@ -346,6 +348,10 @@
     {
       "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
     },
     {
       "source": "tests/test_eval.py",
