@@ -18,6 +18,7 @@
     ├── diagnostics_stationary.yaml
     ├── training_default.yaml
     ├── training_fast.yaml
+    ├── training_imitation.yaml
     └── training_large.yaml
 ├── repo-analysis-output
   ├── dependencies.json

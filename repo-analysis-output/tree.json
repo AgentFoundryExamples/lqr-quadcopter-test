@@ -84,6 +84,10 @@
             },
             {
               "type": "file",
+              "name": "training_imitation.yaml"
+            },
+            {
+              "type": "file",
               "name": "training_large.yaml"
             }
           ]

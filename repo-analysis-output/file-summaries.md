@@ -139,8 +139,8 @@ Total files: 19
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 38.32 KB  
-**LOC:** 816  
+**Size:** 44.27 KB  
+**LOC:** 927  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -152,7 +152,7 @@ Total files: 19
 **External Dependencies:**
   - **Stdlib:** `argparse`, `csv`, `datetime`, `json`, `logging`
     _(and 3 more)_
-  - **Third-party:** `numpy`, `torch`, `torch.optim`, `yaml`
+  - **Third-party:** `numpy`, `torch`, `torch.nn.functional`, `torch.optim`, `yaml`
 
 ## src/quadcopter_tracking/utils/__init__.py
 **Language:** Python  
@@ -306,10 +306,10 @@ Total files: 19
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 31.94 KB  
-**LOC:** 723  
+**Size:** 38.27 KB  
+**LOC:** 846  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 10  
+**Declarations:** 11  
 **Top-level declarations:**
   - class TestPolicyNetwork
   - class TestDeepTrackingPolicy
@@ -318,9 +318,10 @@ Total files: 19
   - class TestLossLogger
   - class TestTrainingConfig
   - class TestTrainer
+  - class TestTrainingModes
   - class TestControllerSelection
   - class TestIntegration
-  - class TestDiagnostics
+  - ... and 1 more
 **External Dependencies:**
   - **Stdlib:** `pathlib.Path`, `tempfile`
   - **Third-party:** `numpy`, `pytest`, `torch`

@@ -294,8 +294,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 39239,
-        "loc": 816,
+        "size_bytes": 45333,
+        "loc": 927,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -325,6 +325,7 @@
           "third-party": [
             "numpy",
             "torch",
+            "torch.nn.functional",
             "torch.optim",
             "yaml"
           ]
@@ -636,10 +637,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 32709,
-        "loc": 723,
+        "size_bytes": 39190,
+        "loc": 846,
         "todo_count": 0,
-        "declaration_count": 10
+        "declaration_count": 11
       },
       "structure": {
         "declarations": [
@@ -650,6 +651,7 @@
           "class TestLossLogger",
           "class TestTrainingConfig",
           "class TestTrainer",
+          "class TestTrainingModes",
           "class TestControllerSelection",
           "class TestIntegration",
           "class TestDiagnostics"

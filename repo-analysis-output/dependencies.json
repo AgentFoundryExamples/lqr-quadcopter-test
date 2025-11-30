@@ -137,6 +137,7 @@
         "third-party": [
           "numpy",
           "torch",
+          "torch.nn.functional",
           "torch.optim",
           "yaml"
         ]
@@ -420,10 +421,11 @@
       "pytest",
       "torch",
       "torch.nn",
+      "torch.nn.functional",
       "torch.optim",
       "yaml"
     ],
     "stdlib_count": 19,
-    "third-party_count": 9
+    "third-party_count": 10
   }
 }

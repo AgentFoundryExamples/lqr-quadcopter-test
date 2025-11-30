@@ -9,7 +9,7 @@ Includes classification of external dependencies as stdlib vs third-party.
 - **Total files**: 19
 - **Intra-repo dependencies**: 27
 - **External stdlib dependencies**: 19
-- **External third-party dependencies**: 9
+- **External third-party dependencies**: 10
 
 ## External Dependencies
 
@@ -39,7 +39,7 @@ Total: 19 unique modules
 
 ### Third-Party Packages
 
-Total: 9 unique packages
+Total: 10 unique packages
 
 - `dotenv.load_dotenv`
 - `matplotlib`
@@ -48,6 +48,7 @@ Total: 9 unique packages
 - `pytest`
 - `torch`
 - `torch.nn`
+- `torch.nn.functional`
 - `torch.optim`
 - `yaml`
 
