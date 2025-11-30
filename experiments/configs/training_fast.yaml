@@ -29,6 +29,15 @@ error_type: l2
 tracking_weight: 1.0
 reward_weight: 0.0
 
+# =============================================================================
+# Training Mode Configuration
+# =============================================================================
+# training_mode: Options: tracking, imitation, reward_weighted
+training_mode: tracking
+supervisor_controller: pid
+imitation_weight: 1.0
+supervisor_blend_ratio: 0.0
+
 # Environment parameters
 env_seed: 42
 target_motion_type: stationary  # Easier task for testing

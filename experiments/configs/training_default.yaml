@@ -32,6 +32,29 @@ error_type: l2  # Options: l2, l1, huber
 tracking_weight: 1.0
 reward_weight: 0.0  # Set > 0 to include reward shaping
 
+# =============================================================================
+# Training Mode Configuration
+# =============================================================================
+# training_mode: Determines the learning signal used for training
+# Options:
+#   - tracking: Pure tracking loss (position/velocity error) - default
+#   - imitation: Learn from PID/LQR supervisor actions
+#   - reward_weighted: Combine tracking loss with supervisor hints
+training_mode: tracking
+
+# supervisor_controller: Classical controller to generate target actions
+# Options: pid, lqr
+# Used when training_mode is 'imitation' or 'reward_weighted'
+supervisor_controller: pid
+
+# imitation_weight: Weight for imitation loss when training_mode='imitation'
+# Higher values make the policy follow supervisor more closely
+imitation_weight: 1.0
+
+# supervisor_blend_ratio: How much to blend supervisor actions (future use)
+# 0.0 = use policy actions only, 1.0 = use supervisor actions only
+supervisor_blend_ratio: 0.0
+
 # Environment parameters
 env_seed: 42
 target_motion_type: circular  # Options: linear, circular, sinusoidal, figure8, stationary

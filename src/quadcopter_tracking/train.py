@@ -31,6 +31,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 import yaml
 
@@ -57,6 +58,9 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     """Configuration class for training parameters."""
 
+    # Valid training modes
+    VALID_TRAINING_MODES = ("tracking", "imitation", "reward_weighted")
+
     def __init__(
         self,
         # Controller type
@@ -81,6 +85,11 @@ class TrainingConfig:
         error_type: str = "l2",
         tracking_weight: float = 1.0,
         reward_weight: float = 0.0,
+        # Training mode parameters
+        training_mode: str = "tracking",
+        supervisor_controller: str = "pid",
+        imitation_weight: float = 1.0,
+        supervisor_blend_ratio: float = 0.0,
         # Environment parameters
         env_seed: int = 42,
         target_motion_type: str = "circular",
@@ -140,6 +149,25 @@ class TrainingConfig:
         self.tracking_weight = tracking_weight
         self.reward_weight = reward_weight
 
+        # Validate and set training mode
+        if training_mode not in self.VALID_TRAINING_MODES:
+            raise ValueError(
+                f"Invalid training_mode: '{training_mode}'. "
+                f"Valid choices are: {', '.join(self.VALID_TRAINING_MODES)}"
+            )
+        self.training_mode = training_mode
+
+        # Validate supervisor controller (used in imitation mode)
+        valid_supervisors = ("pid", "lqr")
+        if supervisor_controller not in valid_supervisors:
+            raise ValueError(
+                f"Invalid supervisor_controller: '{supervisor_controller}'. "
+                f"Valid choices are: {', '.join(valid_supervisors)}"
+            )
+        self.supervisor_controller = supervisor_controller
+        self.imitation_weight = imitation_weight
+        self.supervisor_blend_ratio = supervisor_blend_ratio
+
         self.env_seed = env_seed
         self.target_motion_type = target_motion_type
         self.episode_length = episode_length
@@ -177,7 +205,9 @@ class TrainingConfig:
         """Create config from dictionary."""
         valid_keys = cls.__init__.__code__.co_varnames
         filtered = {k: v for k, v in config_dict.items() if k in valid_keys}
-        return cls(**filtered)
+        instance = cls(**filtered)
+        instance.full_config = config_dict  # Store the original config
+        return instance
 
     @classmethod
     def from_file(cls, path: str | Path) -> "TrainingConfig":
@@ -212,6 +242,10 @@ class TrainingConfig:
             "error_type": self.error_type,
             "tracking_weight": self.tracking_weight,
             "reward_weight": self.reward_weight,
+            "training_mode": self.training_mode,
+            "supervisor_controller": self.supervisor_controller,
+            "imitation_weight": self.imitation_weight,
+            "supervisor_blend_ratio": self.supervisor_blend_ratio,
             "env_seed": self.env_seed,
             "target_motion_type": self.target_motion_type,
             "episode_length": self.episode_length,
@@ -257,6 +291,7 @@ class Trainer:
             config: Training configuration.
         """
         self.config = config
+        self.full_config = getattr(config, "full_config", {})
         self.device = torch.device(config.device)
         self.is_deep_controller = config.controller == "deep"
 
@@ -340,6 +375,21 @@ class Trainer:
         if config.diagnostics_enabled:
             logger.info("Diagnostics enabled, output: %s", diag_output_dir)
 
+        # Create supervisor controller for imitation mode
+        self.supervisor = None
+        if self.is_deep_controller and self._uses_supervisor_mode:
+            self.supervisor = self._create_supervisor()
+            logger.info(
+                "Supervisor controller (%s) created for %s mode",
+                config.supervisor_controller,
+                config.training_mode,
+            )
+
+    @property
+    def _uses_supervisor_mode(self) -> bool:
+        """Check if training mode requires a supervisor controller."""
+        return self.config.training_mode in ("imitation", "reward_weighted")
+
     def _create_controller(self) -> BaseController:
         """Create controller based on config type."""
         config = self.config
@@ -362,6 +412,23 @@ class Trainer:
             return LQRController(config={})
         else:
             raise ValueError(f"Unknown controller type: {config.controller}")
+
+    def _create_supervisor(self) -> BaseController:
+        """Create supervisor controller for imitation/reward-weighted modes."""
+        config = self.config
+        supervisor_type = config.supervisor_controller
+
+        # Get the supervisor-specific config from the full config dictionary
+        supervisor_config = self.full_config.get(supervisor_type, {})
+
+        if supervisor_type == "pid":
+            return PIDController(config=supervisor_config)
+        elif supervisor_type == "lqr":
+            return LQRController(config=supervisor_config)
+        else:
+            raise ValueError(
+                f"Unknown supervisor controller type: {supervisor_type}"
+            )
 
     def _warn_incompatible_options(self) -> None:
         """Warn about options that don't apply to classical controllers."""
@@ -580,12 +647,16 @@ class Trainer:
             episode_seed = self.config.env_seed + self.current_epoch * 1000 + episode
             obs = self.env.reset(seed=episode_seed)
 
+            # Reset supervisor state for each episode (important for PID integral)
+            if self.supervisor is not None:
+                self.supervisor.reset()
+
             episode_data = []
             done = False
             step = 0
 
             while not done and step < self.config.max_steps_per_episode:
-                # Compute action
+                # Compute action from deep policy
                 features = self.controller._extract_features(obs)
                 features_tensor = torch.tensor(
                     features, dtype=torch.float32, device=self.device
@@ -593,6 +664,21 @@ class Trainer:
                 features_tensor.requires_grad_(True)
 
                 action_tensor = self.controller.network(features_tensor)
+
+                # Get supervisor action for imitation learning
+                supervisor_action = None
+                if self.supervisor is not None:
+                    supervisor_action_dict = self.supervisor.compute_action(obs)
+                    supervisor_action = torch.tensor(
+                        [
+                            supervisor_action_dict["thrust"],
+                            supervisor_action_dict["roll_rate"],
+                            supervisor_action_dict["pitch_rate"],
+                            supervisor_action_dict["yaw_rate"],
+                        ],
+                        dtype=torch.float32,
+                        device=self.device,
+                    ).unsqueeze(0)
 
                 # Convert to action dict
                 action_array = action_tensor.detach().cpu().numpy().squeeze()
@@ -611,6 +697,7 @@ class Trainer:
                     {
                         "features": features_tensor,
                         "action": action_tensor,
+                        "supervisor_action": supervisor_action,
                         "obs": obs,
                         "next_obs": next_obs,
                         "reward": reward,
@@ -680,9 +767,43 @@ class Trainer:
         vel_error = target_vel - quad_vel
         tracking_error = torch.norm(target_pos - quad_pos, dim=1)
 
-        # Single loss computation for the batch
-        losses = self.loss_fn(pos_error, vel_error, actions_batch, tracking_error)
-        total_loss = losses["total"]
+        # Get supervisor actions for imitation/reward-weighted modes
+        action_target = None
+        if self.config.training_mode in ("imitation", "reward_weighted"):
+            supervisor_actions = [d.get("supervisor_action") for d in batch_data]
+            if supervisor_actions[0] is not None:
+                action_target = torch.cat(supervisor_actions, dim=0)
+
+        # Compute loss based on training mode
+        if self.config.training_mode == "imitation" and action_target is not None:
+            # Pure imitation loss: match supervisor actions
+            imitation_loss = F.mse_loss(actions_batch, action_target)
+            # Compute standard loss for logging
+            tracking_losses = self.loss_fn(
+                pos_error, vel_error, actions_batch, tracking_error
+            )
+            # Combine: imitation_weight * imitation + tracking_weight * tracking
+            total_loss = (
+                self.config.imitation_weight * imitation_loss
+                + self.config.tracking_weight * tracking_losses["total"]
+            )
+            # Override total in losses dict for logging
+            losses = {
+                **tracking_losses,
+                "imitation": imitation_loss,
+                "total": total_loss,
+            }
+        elif self.config.training_mode == "reward_weighted":
+            # Reward-weighted mode: standard loss with supervisor hint
+            # Pass supervisor actions to loss function for control term
+            losses = self.loss_fn(
+                pos_error, vel_error, actions_batch, tracking_error, action_target
+            )
+            total_loss = losses["total"]
+        else:
+            # Default tracking mode
+            losses = self.loss_fn(pos_error, vel_error, actions_batch, tracking_error)
+            total_loss = losses["total"]
 
         # Log losses
         self.loss_logger.log(losses)
@@ -952,6 +1073,25 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=["relu", "tanh", "elu", "leaky_relu"],
         help="Activation function",
+    )
+
+    # Training mode
+    parser.add_argument(
+        "--training-mode",
+        type=str,
+        choices=["tracking", "imitation", "reward_weighted"],
+        help="Training mode: tracking (default), imitation, or reward_weighted",
+    )
+    parser.add_argument(
+        "--supervisor-controller",
+        type=str,
+        choices=["pid", "lqr"],
+        help="Supervisor controller for imitation/reward-weighted modes",
+    )
+    parser.add_argument(
+        "--imitation-weight",
+        type=float,
+        help="Weight for imitation loss in imitation mode",
     )
 
     # Environment

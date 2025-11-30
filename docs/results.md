@@ -450,3 +450,65 @@ Based on diagnostic findings, the following remediation areas are recommended:
    - Increase batch size for more stable gradients
    - Reduce episodes_per_epoch for more frequent updates
    - Add validation episodes for early stopping
+
+## Imitation Learning Mode Results
+
+As part of implementing learning signals (Issue: Effective Learning Signals), imitation learning mode was added to provide supervisory signals from classical controllers.
+
+### Imitation Mode Configuration
+
+```yaml
+training_mode: imitation
+supervisor_controller: pid
+imitation_weight: 2.0
+tracking_weight: 0.5
+```
+
+### Stationary Target Experiment
+
+| Epoch | Loss | Tracking Error (m) | On-Target Ratio |
+|-------|------|-------------------|-----------------|
+| 0 | 731.62 | 49.68 | 10.2% |
+| 1 | 624.91 | 42.19 | 7.1% |
+| 2 | 650.17 | 56.64 | 17.4% |
+| 5 | 394.58 | 49.40 | 10.6% |
+| 8 | 1588.48 | 101.24 | 7.5% |
+
+**Observations:**
+- Initial epochs (0-5) show loss decreasing from 731 to 394
+- Best tracking error achieved: 42.19m at epoch 1
+- Training becomes unstable after epoch 5, similar to baseline
+- Imitation provides clearer gradient signal in early epochs
+
+### Key Findings
+
+1. **Imitation provides early improvement**: Loss decreases 46% in first 5 epochs (731 → 394)
+2. **Training instability persists**: Without additional regularization, training still diverges
+3. **Supervisor quality matters**: PID controller provides smooth but bounded performance ceiling
+
+### Training Mode Comparison
+
+| Mode | Initial Loss | Best Loss | Epochs to Best |
+|------|-------------|-----------|----------------|
+| Tracking (baseline) | ~930 | ~575 | 2 |
+| Imitation (PID) | ~730 | ~395 | 5 |
+
+### Recommendations for Imitation Mode
+
+1. **Use early stopping**: Monitor loss and stop when improvement plateaus
+2. **Lower learning rate**: Use 0.0001-0.0005 for more stable learning
+3. **Adjust imitation weight**: Higher values (2-5) for strict imitation, lower (0.5-1) for flexibility
+4. **Combine with curriculum**: Start with stationary targets, progress to moving targets
+
+### Configuration Files
+
+The following preset configurations are available:
+
+| Config | Mode | Use Case |
+|--------|------|----------|
+| `training_default.yaml` | tracking | Baseline training |
+| `training_fast.yaml` | tracking | Quick testing |
+| `training_large.yaml` | tracking | Complex tasks |
+| `training_imitation.yaml` | imitation | Supervised learning |
+
+See [docs/training.md](training.md) for detailed configuration options.

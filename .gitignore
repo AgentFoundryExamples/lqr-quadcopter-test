@@ -56,8 +56,11 @@ checkpoints/
 # Reports output (but keep directory structure)
 reports/*.json
 reports/*.txt
+reports/*.csv
 reports/plots/*.png
 reports/sweeps/
+reports/checkpoints_*/
+reports/logs_*/
 !reports/.gitkeep
 !reports/plots/.gitkeep
 
