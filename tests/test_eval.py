@@ -382,8 +382,8 @@ class TestEvaluator:
 
     def test_evaluator_generate_all_plots(self, evaluator):
         """Test generating all plots."""
-        evaluator.evaluate(num_episodes=1, verbose=False)
-        saved_plots = evaluator.generate_all_plots()
+        summary = evaluator.evaluate(num_episodes=1, verbose=False)
+        saved_plots = evaluator.generate_all_plots(summary)
 
         assert len(saved_plots) >= 1
         for path in saved_plots:
@@ -464,11 +464,11 @@ class TestIntegration:
 
         # Save outputs
         evaluator.save_report(summary)
-        evaluator.generate_all_plots()
+        evaluator.generate_all_plots(summary)
 
         # Verify outputs
         assert (tmp_path / "reports" / "metrics.json").exists()
-        assert (tmp_path / "reports" / "plots" / "position_tracking.png").exists()
+        assert (tmp_path / "reports" / "plots" / "position_tracking_best.png").exists()
 
     def test_evaluation_with_different_motion_types(self, tmp_path):
         """Test evaluation with various target motions."""

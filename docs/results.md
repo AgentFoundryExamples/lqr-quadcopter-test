@@ -83,13 +83,15 @@ configurations:
 
 ```
 reports/
-├── metrics.json           # Detailed metrics in JSON format
-├── eval_*_report.txt      # Human-readable summary
+├── metrics.json               # Detailed metrics in JSON format
+├── eval_*_report.txt          # Human-readable summary
 ├── plots/
-│   ├── position_tracking.png   # Quadcopter vs target positions
-│   └── tracking_error.png      # Error over time with on-target highlighting
+│   ├── position_tracking_best.png   # Quadcopter vs target for best episode
+│   ├── tracking_error_best.png      # Error over time for best episode
+│   ├── position_tracking_worst.png  # Quadcopter vs target for worst episode
+│   └── tracking_error_worst.png     # Error over time for worst episode
 └── sweeps/
-    └── sweep_results.json      # Ranked hyperparameter results
+    └── sweep_results.json           # Ranked hyperparameter results
 ```
 
 ### Metrics JSON Format

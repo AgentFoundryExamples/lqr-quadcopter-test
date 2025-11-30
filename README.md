@@ -279,8 +279,9 @@ python -m quadcopter_tracking.eval --controller lqr --episodes 10
 
 Evaluation generates:
 - `reports/metrics.json` - Detailed metrics
-- `reports/plots/position_tracking.png` - Trajectory visualization
-- `reports/plots/tracking_error.png` - Error analysis
+- `reports/plots/position_tracking_best.png` - Best episode trajectory visualization
+- `reports/plots/tracking_error_best.png` - Best episode error analysis
+- `reports/plots/*_worst.png` - Worst episode plots (if different from best)
 
 See [docs/results.md](docs/results.md) for complete evaluation documentation.
 

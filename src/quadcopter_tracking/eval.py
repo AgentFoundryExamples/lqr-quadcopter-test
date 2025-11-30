@@ -123,6 +123,14 @@ class Evaluator:
                 action = self.controller.compute_action(obs)
             except Exception as e:
                 logger.error("Controller error at step %d: %s", step, e)
+                info = {
+                    "termination_reason": "controller_error",
+                    "time": step * env.dt,
+                    "tracking_error": 0.0,
+                    "on_target": False,
+                    "on_target_ratio": 0.0,
+                    "action_violations": 0,
+                }
                 break
 
             # Step environment
@@ -401,12 +409,14 @@ class Evaluator:
 
     def generate_all_plots(
         self,
+        summary: EvaluationSummary | None = None,
         experiment_name: str | None = None,
     ) -> list[Path]:
         """
         Generate all evaluation plots.
 
         Args:
+            summary: The evaluation summary containing best/worst episode indices.
             experiment_name: Base name for plot files.
 
         Returns:
@@ -418,17 +428,41 @@ class Evaluator:
         plots_dir = self.output_dir / "plots"
         saved_plots = []
 
-        # Plot best and worst episodes
-        if self.episode_data_list:
-            # Position tracking plot (first episode by default)
-            path = plots_dir / "position_tracking.png"
-            self.plot_trajectory(episode_idx=0, save_path=path)
+        if not self.episode_data_list:
+            return saved_plots
+
+        # Determine which episodes to plot
+        if summary is not None:
+            best_idx = summary.best_episode_idx
+            worst_idx = summary.worst_episode_idx
+        else:
+            best_idx = 0
+            worst_idx = 0
+
+        # Ensure indices are valid
+        best_idx = min(best_idx, len(self.episode_data_list) - 1)
+        worst_idx = min(worst_idx, len(self.episode_data_list) - 1)
+
+        # Plot best episode
+        path = plots_dir / "position_tracking_best.png"
+        self.plot_trajectory(episode_idx=best_idx, save_path=path)
+        saved_plots.append(path)
+        plt.close()
+
+        path = plots_dir / "tracking_error_best.png"
+        self.plot_tracking_error(episode_idx=best_idx, save_path=path)
+        saved_plots.append(path)
+        plt.close()
+
+        # Plot worst episode (if different from best)
+        if best_idx != worst_idx:
+            path = plots_dir / "position_tracking_worst.png"
+            self.plot_trajectory(episode_idx=worst_idx, save_path=path)
             saved_plots.append(path)
             plt.close()
 
-            # Tracking error plot
-            path = plots_dir / "tracking_error.png"
-            self.plot_tracking_error(episode_idx=0, save_path=path)
+            path = plots_dir / "tracking_error_worst.png"
+            self.plot_tracking_error(episode_idx=worst_idx, save_path=path)
             saved_plots.append(path)
             plt.close()
 
@@ -713,7 +747,7 @@ def main() -> int:
 
     # Generate plots
     if not args.no_plots and evaluator.episode_data_list:
-        evaluator.generate_all_plots()
+        evaluator.generate_all_plots(summary)
 
     # Exit code based on success criteria
     if summary.meets_criteria:

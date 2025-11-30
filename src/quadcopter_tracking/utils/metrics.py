@@ -213,44 +213,52 @@ def detect_overshoots(
     Detect overshoot events where error increases after being on-target.
 
     An overshoot is detected when:
-    1. Error was within target radius
-    2. Error increases above threshold for sustained period
+    1. Error was within target radius.
+    2. Error increases above threshold for a sustained period (>= window_size).
 
     Args:
         tracking_errors: Array of tracking error distances.
         target_radius: On-target threshold distance.
-        window_size: Minimum samples for overshoot detection.
+        window_size: Minimum consecutive samples off-target to count as an overshoot.
 
     Returns:
         Tuple of (overshoot_count, max_overshoot_distance).
     """
-    if len(tracking_errors) < window_size * 2:
+    if len(tracking_errors) < window_size:
         return 0, 0.0
 
     on_target = tracking_errors <= target_radius
     overshoot_count = 0
     max_overshoot = 0.0
 
-    # Find transitions from on-target to off-target
-    was_on_target = False
-    current_overshoot = 0.0
+    in_overshoot_phase = False
+    off_target_streak = 0
+    current_overshoot_max = 0.0
 
-    for i, (is_on, error) in enumerate(zip(on_target, tracking_errors)):
-        if is_on:
-            was_on_target = True
-            if current_overshoot > 0:
+    for i in range(1, len(on_target)):
+        # Transition from on-target to off-target
+        if on_target[i - 1] and not on_target[i]:
+            in_overshoot_phase = True
+            off_target_streak = 1
+            current_overshoot_max = tracking_errors[i] - target_radius
+        elif in_overshoot_phase and not on_target[i]:
+            off_target_streak += 1
+            current_overshoot_max = max(
+                current_overshoot_max, tracking_errors[i] - target_radius
+            )
+        # Transition from off-target to on-target
+        elif in_overshoot_phase and on_target[i]:
+            if off_target_streak >= window_size:
                 overshoot_count += 1
-                max_overshoot = max(max_overshoot, current_overshoot)
-                current_overshoot = 0.0
-        elif was_on_target:
-            # Off target after being on target
-            overshoot_amount = error - target_radius
-            current_overshoot = max(current_overshoot, overshoot_amount)
+                max_overshoot = max(max_overshoot, current_overshoot_max)
+            in_overshoot_phase = False
+            off_target_streak = 0
+            current_overshoot_max = 0.0
 
-    # Check final overshoot
-    if current_overshoot > 0:
+    # Handle case where episode ends during an overshoot
+    if in_overshoot_phase and off_target_streak >= window_size:
         overshoot_count += 1
-        max_overshoot = max(max_overshoot, current_overshoot)
+        max_overshoot = max(max_overshoot, current_overshoot_max)
 
     return overshoot_count, float(max_overshoot)
 
