@@ -10,7 +10,7 @@ Do not change any of the below sections
 
 ## License
 
-All Agent Foundry work is licensed under the GPLv3 License - see the LICENSE file for details.
+This project is distributed under the MIT license - see the LICENSE file for details.
 
 ## Contributing
 
