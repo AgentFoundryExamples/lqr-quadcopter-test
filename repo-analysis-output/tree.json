@@ -68,11 +68,23 @@
           "children": [
             {
               "type": "file",
+              "name": "comparison_default.yaml"
+            },
+            {
+              "type": "file",
               "name": "diagnostics_linear.yaml"
             },
             {
               "type": "file",
               "name": "diagnostics_stationary.yaml"
+            },
+            {
+              "type": "file",
+              "name": "eval_circular_baseline.yaml"
+            },
+            {
+              "type": "file",
+              "name": "eval_stationary_baseline.yaml"
             },
             {
               "type": "file",
@@ -145,6 +157,16 @@
         {
           "type": "file",
           "name": ".gitkeep"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "scripts",
+      "children": [
+        {
+          "type": "file",
+          "name": "generate_comparison_report.py"
         }
       ]
     },

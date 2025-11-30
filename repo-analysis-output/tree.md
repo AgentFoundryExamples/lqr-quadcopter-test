@@ -14,8 +14,11 @@
   └── training.md
 ├── experiments
   └── configs
+    ├── comparison_default.yaml
     ├── diagnostics_linear.yaml
     ├── diagnostics_stationary.yaml
+    ├── eval_circular_baseline.yaml
+    ├── eval_stationary_baseline.yaml
     ├── training_default.yaml
     ├── training_fast.yaml
     ├── training_imitation.yaml
@@ -32,6 +35,8 @@
   ├── plots
     └── .gitkeep
   └── .gitkeep
+├── scripts
+  └── generate_comparison_report.py
 ├── src
   └── quadcopter_tracking
     ├── controllers

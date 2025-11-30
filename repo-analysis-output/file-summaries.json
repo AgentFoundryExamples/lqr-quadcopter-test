@@ -1,7 +1,38 @@
 {
   "schema_version": "2.0",
-  "total_files": 19,
+  "total_files": 20,
   "files": [
+    {
+      "schema_version": "2.0",
+      "path": "scripts/generate_comparison_report.py",
+      "language": "Python",
+      "role": "script",
+      "role_justification": "located in 'scripts' directory",
+      "metrics": {
+        "size_bytes": 3171,
+        "loc": 88,
+        "todo_count": 0,
+        "declaration_count": 1
+      },
+      "structure": {
+        "declarations": [
+          "function main"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "argparse",
+            "json",
+            "pathlib.Path",
+            "sys"
+          ],
+          "third-party": []
+        }
+      }
+    },
     {
       "schema_version": "2.0",
       "path": "src/quadcopter_tracking/__init__.py",

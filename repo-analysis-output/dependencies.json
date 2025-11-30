@@ -1,6 +1,20 @@
 {
   "nodes": [
     {
+      "id": "scripts/generate_comparison_report.py",
+      "path": "scripts/generate_comparison_report.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "argparse",
+          "json",
+          "pathlib.Path",
+          "sys"
+        ],
+        "third-party": []
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/__init__.py",
       "path": "src/quadcopter_tracking/__init__.py",
       "type": "file",

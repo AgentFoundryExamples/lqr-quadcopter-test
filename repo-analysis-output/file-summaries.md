@@ -4,7 +4,20 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 19
+Total files: 20
+
+## scripts/generate_comparison_report.py
+**Language:** Python  
+**Role:** script  
+**Role Justification:** located in 'scripts' directory  
+**Size:** 3.10 KB  
+**LOC:** 88  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 1  
+**Top-level declarations:**
+  - function main
+**External Dependencies:**
+  - **Stdlib:** `argparse`, `json`, `pathlib.Path`, `sys`
 
 ## src/quadcopter_tracking/__init__.py
 **Language:** Python  
