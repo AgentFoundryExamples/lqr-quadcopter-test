@@ -340,11 +340,17 @@ class DeepTrackingPolicy(BaseController):
 
         Returns:
             Metadata from checkpoint if present.
+
+        Raises:
+            FileNotFoundError: If checkpoint file does not exist.
+            ValueError: If checkpoint architecture is incompatible.
         """
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {path}")
 
+        # Note: weights_only=False is required to load custom metadata.
+        # Only load checkpoints from trusted sources.
         checkpoint = torch.load(path, map_location=self.device, weights_only=False)
 
         # Validate architecture compatibility
@@ -355,10 +361,10 @@ class DeepTrackingPolicy(BaseController):
             )
 
         if checkpoint.get("hidden_sizes") != self.network.hidden_sizes:
-            logger.warning(
-                "Hidden sizes mismatch: checkpoint %s, network %s",
-                checkpoint.get("hidden_sizes"),
-                self.network.hidden_sizes,
+            raise ValueError(
+                f"Hidden sizes mismatch: checkpoint has "
+                f"{checkpoint.get('hidden_sizes')}, but network is configured "
+                f"with {self.network.hidden_sizes}. Cannot load incompatible model."
             )
 
         self.network.load_state_dict(checkpoint["model_state_dict"])

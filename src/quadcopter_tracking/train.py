@@ -425,56 +425,45 @@ class Trainer:
         }
 
     def _update_from_episode(self, episode_data: list[dict]) -> None:
-        """Update network parameters from episode data."""
-        # Batch the episode data
+        """Update network parameters from episode data using vectorized batching."""
+        if not episode_data:
+            return
+
         batch_size = min(self.config.batch_size, len(episode_data))
         indices = np.random.choice(len(episode_data), batch_size, replace=False)
+        batch_data = [episode_data[i] for i in indices]
 
-        # Accumulate losses - start with None to initialize with first value
-        total_loss = None
+        # Collate batch data into tensors for vectorized processing
+        features_batch = torch.cat([d["features"] for d in batch_data], dim=0)
 
-        for idx in indices:
-            step_data = episode_data[idx]
+        obs_batch = [d["obs"] for d in batch_data]
+        quad_pos = torch.from_numpy(
+            np.array([o["quadcopter"]["position"] for o in obs_batch], dtype=np.float32)
+        ).to(self.device)
+        quad_vel = torch.from_numpy(
+            np.array([o["quadcopter"]["velocity"] for o in obs_batch], dtype=np.float32)
+        ).to(self.device)
+        target_pos = torch.from_numpy(
+            np.array([o["target"]["position"] for o in obs_batch], dtype=np.float32)
+        ).to(self.device)
+        target_vel = torch.from_numpy(
+            np.array([o["target"]["velocity"] for o in obs_batch], dtype=np.float32)
+        ).to(self.device)
 
-            # Recompute action for gradient
-            features = step_data["features"]
-            action = self.controller.network(features)
+        # Single forward pass for the entire batch
+        actions_batch = self.controller.network(features_batch)
 
-            # Extract errors
-            obs = step_data["obs"]
-            quad_pos = torch.tensor(
-                obs["quadcopter"]["position"], dtype=torch.float32, device=self.device
-            )
-            quad_vel = torch.tensor(
-                obs["quadcopter"]["velocity"], dtype=torch.float32, device=self.device
-            )
-            target_pos = torch.tensor(
-                obs["target"]["position"], dtype=torch.float32, device=self.device
-            )
-            target_vel = torch.tensor(
-                obs["target"]["velocity"], dtype=torch.float32, device=self.device
-            )
+        # Compute errors for the batch
+        pos_error = target_pos - quad_pos
+        vel_error = target_vel - quad_vel
+        tracking_error = torch.norm(target_pos - quad_pos, dim=1)
 
-            pos_error = (target_pos - quad_pos).unsqueeze(0)
-            vel_error = (target_vel - quad_vel).unsqueeze(0)
-            tracking_error = torch.norm(target_pos - quad_pos).unsqueeze(0)
+        # Single loss computation for the batch
+        losses = self.loss_fn(pos_error, vel_error, actions_batch, tracking_error)
+        total_loss = losses["total"]
 
-            # Compute loss
-            losses = self.loss_fn(pos_error, vel_error, action, tracking_error)
-
-            # Accumulate - initialize with first loss or add to existing
-            if total_loss is None:
-                total_loss = losses["total"]
-            else:
-                total_loss = total_loss + losses["total"]
-
-            # Log losses
-            self.loss_logger.log(losses)
-
-        # Average loss (handle edge case of empty batch)
-        if total_loss is None:
-            return
-        total_loss = total_loss / batch_size
+        # Log losses
+        self.loss_logger.log(losses)
 
         # Backward pass
         self.optimizer.zero_grad()
@@ -519,22 +508,25 @@ class Trainer:
             self.config.nan_recovery_attempts,
         )
 
-        # Reduce learning rate
-        new_lr = self.config.learning_rate * (
-            self.config.lr_reduction_factor**self.nan_recovery_count
-        )
-
-        # Reinitialize optimizer with reduced LR
-        for param_group in self.optimizer.param_groups:
-            param_group["lr"] = new_lr
-
+        # Reduce learning rate for the next optimizer
+        self.config.learning_rate *= self.config.lr_reduction_factor
+        new_lr = self.config.learning_rate
         logger.info("Reduced learning rate to %f", new_lr)
+
+        # Re-create the optimizer to reset its internal state (may be corrupted by NaNs)
+        self.optimizer = self._create_optimizer()
+        logger.info("Optimizer state has been reset")
 
         # Try to load best checkpoint
         best_path = self.checkpoint_dir / f"{self.experiment_id}_best.pt"
         if best_path.exists():
             self.controller.load_checkpoint(best_path)
             logger.info("Loaded best checkpoint for recovery")
+        else:
+            logger.warning(
+                "No best checkpoint found to recover from. "
+                "Continuing with current model."
+            )
 
         return True
 
