@@ -220,6 +220,31 @@ See example configurations in `experiments/configs/`:
 - `training_default.yaml`: Standard training setup
 - `training_fast.yaml`: Quick testing configuration
 - `training_large.yaml`: Extended training with larger network
+- `diagnostics_stationary.yaml`: Diagnostic run with stationary target
+- `diagnostics_linear.yaml`: Diagnostic run with linear target
+
+### Training Diagnostics
+
+Enable training diagnostics to analyze behavior and troubleshoot issues:
+
+```bash
+# Enable diagnostics via command line
+python -m quadcopter_tracking.train \
+    --epochs 50 \
+    --diagnostics \
+    --diagnostics-log-interval 1
+
+# Or use a diagnostic config file
+python -m quadcopter_tracking.train --config experiments/configs/diagnostics_stationary.yaml
+```
+
+Diagnostics output includes:
+- Step-level observations, actions, and gradient statistics
+- Epoch-level aggregated metrics
+- Trajectory plots (loss, tracking error, gradient norms, on-target ratio)
+- Summary with identified issues
+
+See [docs/training.md](docs/training.md#training-diagnostics) for complete diagnostics documentation.
 
 ### Using Trained Controllers
 

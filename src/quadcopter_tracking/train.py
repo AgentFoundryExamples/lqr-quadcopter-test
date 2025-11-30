@@ -8,10 +8,12 @@ This script provides a complete training pipeline for neural network controllers
 - Experiment tracking with CSV/JSON logs and checkpointing
 - NaN detection and optimizer recovery
 - Support for curriculum learning and adaptive weighting
+- Opt-in diagnostics for training analysis
 
 Usage:
     python -m quadcopter_tracking.train --config configs/training.yaml
     python -m quadcopter_tracking.train --epochs 100 --lr 0.001 --seed 42
+    python -m quadcopter_tracking.train --epochs 50 --diagnostics  # Enable diagnostics
 """
 
 import argparse
@@ -30,6 +32,7 @@ import yaml
 
 from quadcopter_tracking.controllers.deep_tracking_policy import DeepTrackingPolicy
 from quadcopter_tracking.env import EnvConfig, QuadcopterEnv
+from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
 from quadcopter_tracking.utils.losses import (
     LossLogger,
     create_loss_from_config,
@@ -88,6 +91,14 @@ class TrainingConfig:
         lr_reduction_factor: float = 0.5,
         # Device
         device: str | None = None,
+        # Diagnostics (opt-in)
+        diagnostics_enabled: bool = False,
+        diagnostics_log_observations: bool = True,
+        diagnostics_log_actions: bool = True,
+        diagnostics_log_gradients: bool = True,
+        diagnostics_log_interval: int = 10,
+        diagnostics_output_dir: str | None = None,
+        diagnostics_generate_plots: bool = True,
     ):
         self.epochs = epochs
         self.episodes_per_epoch = episodes_per_epoch
@@ -131,6 +142,15 @@ class TrainingConfig:
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
+
+        # Diagnostics configuration
+        self.diagnostics_enabled = diagnostics_enabled
+        self.diagnostics_log_observations = diagnostics_log_observations
+        self.diagnostics_log_actions = diagnostics_log_actions
+        self.diagnostics_log_gradients = diagnostics_log_gradients
+        self.diagnostics_log_interval = diagnostics_log_interval
+        self.diagnostics_output_dir = diagnostics_output_dir
+        self.diagnostics_generate_plots = diagnostics_generate_plots
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> "TrainingConfig":
@@ -186,6 +206,13 @@ class TrainingConfig:
             "nan_recovery_attempts": self.nan_recovery_attempts,
             "lr_reduction_factor": self.lr_reduction_factor,
             "device": self.device,
+            "diagnostics_enabled": self.diagnostics_enabled,
+            "diagnostics_log_observations": self.diagnostics_log_observations,
+            "diagnostics_log_actions": self.diagnostics_log_actions,
+            "diagnostics_log_gradients": self.diagnostics_log_gradients,
+            "diagnostics_log_interval": self.diagnostics_log_interval,
+            "diagnostics_output_dir": self.diagnostics_output_dir,
+            "diagnostics_generate_plots": self.diagnostics_generate_plots,
         }
 
 
@@ -194,7 +221,7 @@ class Trainer:
     Training loop for deep learning controllers.
 
     Handles episode collection, gradient computation, optimization,
-    checkpointing, and logging.
+    checkpointing, logging, and optional diagnostics.
     """
 
     def __init__(self, config: TrainingConfig):
@@ -267,6 +294,28 @@ class Trainer:
         )
         self.experiment_id = f"train_{timestamp}_{config.env_seed}"
 
+        # Step counter for diagnostics
+        self._step_counter = 0
+
+        # Setup diagnostics (opt-in)
+        diag_output_dir = config.diagnostics_output_dir or str(
+            self.log_dir / "diagnostics"
+        )
+        self.diagnostics = Diagnostics(
+            config=DiagnosticsConfig(
+                enabled=config.diagnostics_enabled,
+                log_observations=config.diagnostics_log_observations,
+                log_actions=config.diagnostics_log_actions,
+                log_gradients=config.diagnostics_log_gradients,
+                log_interval=config.diagnostics_log_interval,
+                output_dir=diag_output_dir,
+                generate_plots=config.diagnostics_generate_plots,
+                headless=True,
+            )
+        )
+        if config.diagnostics_enabled:
+            logger.info("Diagnostics enabled, output: %s", diag_output_dir)
+
     def _create_optimizer(self) -> optim.Optimizer:
         """Create optimizer based on config."""
         params = self.controller.get_parameters()
@@ -322,6 +371,9 @@ class Trainer:
             epoch_losses = self.loss_logger.end_epoch()
             epoch_metrics.update(epoch_losses)
 
+            # Log diagnostics for the epoch
+            self.diagnostics.log_epoch(epoch, epoch_metrics)
+
             # Log progress
             if epoch % self.config.log_interval == 0:
                 self._log_epoch(epoch, epoch_metrics)
@@ -345,6 +397,9 @@ class Trainer:
         # Save final model and logs
         self._save_checkpoint(self.current_epoch, {}, is_final=True)
         self._save_experiment_log()
+
+        # Save diagnostics if enabled
+        self._save_diagnostics()
 
         return self._get_training_summary()
 
@@ -408,6 +463,7 @@ class Trainer:
 
             # Update network with episode data
             if episode_data:
+                self._step_counter += 1
                 self._update_from_episode(episode_data)
 
         # Compute metrics
@@ -473,6 +529,29 @@ class Trainer:
         if self.config.grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(
                 self.controller.get_parameters(), self.config.grad_clip
+            )
+
+        # Log diagnostics (after backward, before optimizer step)
+        if self.diagnostics.enabled:
+            # Use mean tracking error and on-target for the batch
+            mean_tracking_error = tracking_error.mean().item()
+            mean_on_target = (
+                tracking_error <= self.config.target_radius
+            ).float().mean().item() > 0.5
+
+            losses_dict = {
+                k: v.item() if isinstance(v, torch.Tensor) else v
+                for k, v in losses.items()
+            }
+            self.diagnostics.log_step(
+                epoch=self.current_epoch,
+                step=self._step_counter,
+                observation=features_batch,
+                action=actions_batch,
+                losses=losses_dict,
+                parameters=self.controller.get_parameters(),
+                tracking_error=mean_tracking_error,
+                on_target=mean_on_target,
             )
 
         # Optimizer step
@@ -599,6 +678,23 @@ class Trainer:
 
         logger.info("Saved experiment logs to %s", self.log_dir)
 
+    def _save_diagnostics(self) -> None:
+        """Save diagnostics if enabled."""
+        if not self.diagnostics.enabled:
+            return
+
+        # Save all diagnostic files
+        self.diagnostics.save_step_log(f"{self.experiment_id}_step_diagnostics.json")
+        self.diagnostics.save_epoch_log(f"{self.experiment_id}_epoch_diagnostics.json")
+        self.diagnostics.save_epoch_csv(f"{self.experiment_id}_epoch_diagnostics.csv")
+        self.diagnostics.save_summary(f"{self.experiment_id}_diagnostics_summary.json")
+
+        # Generate plots
+        if self.config.diagnostics_generate_plots:
+            self.diagnostics.generate_plots(prefix=self.experiment_id)
+
+        logger.info("Saved diagnostics to %s", self.diagnostics.output_dir)
+
     def _get_training_summary(self) -> dict:
         """Get summary of training results."""
         best_epoch, best_loss = self.loss_logger.get_best_epoch("total")
@@ -700,6 +796,31 @@ def parse_args() -> argparse.Namespace:
     # Device
     parser.add_argument(
         "--device", type=str, choices=["cpu", "cuda"], help="Device to use"
+    )
+
+    # Diagnostics
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        dest="diagnostics_enabled",
+        help="Enable training diagnostics",
+    )
+    parser.add_argument(
+        "--diagnostics-output-dir",
+        type=str,
+        help="Output directory for diagnostics",
+    )
+    parser.add_argument(
+        "--diagnostics-log-interval",
+        type=int,
+        help="Steps between diagnostic log entries",
+    )
+    parser.add_argument(
+        "--no-diagnostics-plots",
+        action="store_false",
+        dest="diagnostics_generate_plots",
+        default=None,
+        help="Disable diagnostic plot generation",
     )
 
     return parser.parse_args()

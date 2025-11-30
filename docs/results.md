@@ -331,3 +331,122 @@ python -m quadcopter_tracking.eval \
 # Document metrics for release notes
 cat reports/release_validation/metrics.json | python -m json.tool
 ```
+
+## Training Diagnostics Results
+
+This section documents the findings from diagnostic experiments analyzing the deep controller training regression.
+
+### Experiment Configuration
+
+Two diagnostic experiments were run to analyze training behavior:
+
+1. **Stationary Target**: Simplest tracking scenario with a fixed target position
+2. **Linear Target**: Moving target with constant velocity
+
+Both experiments used:
+- 20 epochs, 5 episodes per epoch
+- Network: 2 hidden layers (64, 64 neurons)
+- Learning rate: 0.001 (Adam optimizer)
+- Batch size: 16
+
+### Stationary Target Results
+
+| Epoch | Loss | On-Target Ratio | Tracking Error (m) |
+|-------|------|-----------------|-------------------|
+| 0 | 931.89 | 9.2% | 70.26 |
+| 2 | 575.00 | 14.2% | 60.34 |
+| 5 | 1242.13 | 7.3% | 89.64 |
+| 10 | 1613.99 | 4.7% | 96.40 |
+| 15 | 2395.14 | 6.5% | 98.37 |
+| 19 | 1753.26 | 3.6% | 99.95 |
+
+**Key Observations:**
+- Loss initially decreases (931 → 575) then increases dramatically
+- Best performance at epoch 2 (lowest loss)
+- Tracking error increases from ~60m to ~100m over training
+- On-target ratio remains low (3-14%), never approaching 80% target
+
+### Linear Target Results
+
+| Epoch | Loss | On-Target Ratio | Tracking Error (m) |
+|-------|------|-----------------|-------------------|
+| 0 | 499.30 | 4.1% | 52.60 |
+| 4 | 1208.60 | 8.5% | 82.99 |
+| 10 | 1346.26 | 4.7% | 96.99 |
+| 15 | 2310.18 | 2.5% | 101.74 |
+| 19 | 2417.92 | 3.1% | 100.86 |
+
+**Key Observations:**
+- Best loss at epoch 0 (initial weights)
+- Loss increases 5x over training (499 → 2418)
+- Tracking error roughly doubles (53m → 101m)
+- On-target ratio stays below 10%
+
+### Identified Failure Modes
+
+Based on diagnostic analysis, the following issues contribute to training regression:
+
+1. **Loss Function Misalignment**
+   - The tracking loss penalizes position/velocity error but doesn't incentivize getting closer to target
+   - Control penalty may dominate when large corrections are needed
+   - Gradient signal doesn't clearly indicate desired improvement direction
+
+2. **Action Scaling Issues**
+   - Action magnitudes (~40-50 units) suggest thrust/rate commands may be saturated
+   - Bounded sigmoid outputs may limit controller expressiveness
+   - Initial random weights may produce reasonable baseline performance that training disrupts
+
+3. **Reward Signal Problems**
+   - Reward weight defaults to 0.0, so reward shaping is unused
+   - Negative distance reward alone may provide weak learning signal
+   - No bonus for being on-target during training updates
+
+4. **Data Flow Concerns**
+   - Feature extraction may lose relevant state information
+   - Batch sampling may not capture temporal dependencies
+   - Episode-level updates may average out important corrections
+
+### Diagnostic Metrics Summary
+
+The diagnostics system captures the following per-epoch metrics:
+
+| Metric | Purpose | Observed Range |
+|--------|---------|---------------|
+| mean_gradient_norm | Training signal strength | 0.99-1.0 (clipped) |
+| action_magnitude_mean | Control output magnitude | 40-50 units |
+| observation_range | Input feature spread | [-35, 25] |
+| num_nan_gradients | Numerical stability | 0 (stable) |
+
+Gradient norms being clipped to ~1.0 suggests the raw gradients are larger, which may indicate:
+- Loss landscape is steep
+- Learning rate may be too high for the loss scale
+- Network architecture may need adjustment
+
+### Recommended Next Steps
+
+Based on diagnostic findings, the following remediation areas are recommended:
+
+1. **Loss Function Tuning**
+   - Increase reward_weight to > 0 to incorporate shaped rewards
+   - Adjust position_weight relative to control_weight
+   - Consider Huber loss for more robust gradients
+
+2. **Learning Rate Schedule**
+   - Start with lower learning rate (1e-4 instead of 1e-3)
+   - Implement learning rate decay
+   - Consider warmup period
+
+3. **Curriculum Learning**
+   - Enable `use_curriculum: true`
+   - Start with smaller episode lengths
+   - Gradually increase target motion complexity
+
+4. **Architecture Modifications**
+   - Experiment with deeper/wider networks
+   - Consider residual connections
+   - Try different activation functions (tanh, leaky_relu)
+
+5. **Training Procedure**
+   - Increase batch size for more stable gradients
+   - Reduce episodes_per_epoch for more frequent updates
+   - Add validation episodes for early stopping
