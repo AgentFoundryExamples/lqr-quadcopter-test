@@ -113,6 +113,73 @@ See [.env.example](.env.example) for all available options.
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 
+## Environment Usage
+
+The simulation environment provides a realistic quadcopter dynamics model with target tracking capabilities.
+
+### Basic Example
+
+```python
+from quadcopter_tracking.env import QuadcopterEnv
+
+# Create environment
+env = QuadcopterEnv()
+obs = env.reset(seed=42)
+
+# Run simulation
+done = False
+while not done:
+    # Get state information
+    quad_pos = obs["quadcopter"]["position"]
+    target_pos = obs["target"]["position"]
+    
+    # Compute control action
+    error = target_pos - quad_pos
+    action = {
+        "thrust": 9.81 + error[2] * 2.0,
+        "roll_rate": error[1] * 0.5,
+        "pitch_rate": -error[0] * 0.5,
+        "yaw_rate": 0.0,
+    }
+    
+    obs, reward, done, info = env.step(action)
+
+print(f"Success: {info['success']}")
+print(f"On-target ratio: {info['on_target_ratio']:.1%}")
+```
+
+### State Vector
+
+| Component | Variables | Units |
+|-----------|-----------|-------|
+| Position | x, y, z | meters |
+| Velocity | vx, vy, vz | m/s |
+| Attitude | roll, pitch, yaw | radians |
+| Angular rate | p, q, r | rad/s |
+
+### Target Motion Patterns
+
+- **linear**: Constant velocity in random direction
+- **circular**: Orbital motion in horizontal plane
+- **sinusoidal**: Multi-axis oscillation
+- **figure8**: Lemniscate trajectory
+- **stationary**: Fixed position (hover reference)
+
+### Configuration
+
+```python
+from quadcopter_tracking.env import QuadcopterEnv, EnvConfig
+
+config = EnvConfig()
+config.target.motion_type = "circular"
+config.target.radius = 3.0
+config.simulation.max_episode_time = 60.0
+
+env = QuadcopterEnv(config=config)
+```
+
+See [docs/environment.md](docs/environment.md) for complete documentation.
+
 ## Development
 
 ```bash
