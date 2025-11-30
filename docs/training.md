@@ -14,6 +14,141 @@ The training system provides:
 - **Experiment tracking** with CSV/JSON logs and checkpointing
 - **Reproducibility** via seed control and checkpoint recovery
 
+## Step-by-Step Training Workflow
+
+This section provides a complete walkthrough for training controllers.
+
+### Prerequisites
+
+1. **Install the package**:
+   ```bash
+   git clone https://github.com/AgentFoundryExamples/lqr-quadcopter-test.git
+   cd lqr-quadcopter-test
+   make dev-install
+   ```
+
+2. **Configure environment** (optional):
+   ```bash
+   cp .env.example .env
+   # Edit .env to customize paths, seeds, or enable tracking integrations
+   ```
+
+3. **Verify installation**:
+   ```bash
+   make test
+   ```
+
+### Step 1: Establish Baselines (PID/LQR)
+
+Before training a deep controller, establish baseline performance with classical controllers:
+
+```bash
+# Quick baseline evaluation
+make eval-baseline-stationary EPISODES=10
+make eval-baseline-circular EPISODES=10
+
+# Or run individual evaluations
+python -m quadcopter_tracking.eval --controller pid --episodes 10 --motion-type circular
+python -m quadcopter_tracking.eval --controller lqr --episodes 10 --motion-type circular
+```
+
+Review the results in `reports/` to understand achievable performance targets.
+
+### Step 2: Train Deep Controller
+
+Choose a configuration based on your goals:
+
+| Config File | Use Case | Training Time |
+|-------------|----------|---------------|
+| `training_fast.yaml` | Quick testing, debugging | ~2 minutes |
+| `training_default.yaml` | Standard training | ~15 minutes |
+| `training_large.yaml` | Complex tasks, best performance | ~1+ hours |
+| `training_imitation.yaml` | Learning from PID/LQR supervision | ~10 minutes |
+
+```bash
+# Fast training for testing
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+
+# Standard training
+python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+
+# Or with Makefile
+make train-deep EPOCHS=100 SEED=42
+```
+
+### Step 3: Monitor Training Progress
+
+Training creates logs in `experiments/logs/`:
+
+```bash
+# View training logs
+ls experiments/logs/
+
+# Example files created:
+# train_20240101_120000_42_config.yaml  - Configuration snapshot
+# train_20240101_120000_42_log.json     - Detailed metrics
+# train_20240101_120000_42_log.csv      - CSV for plotting
+```
+
+For real-time monitoring with diagnostics:
+
+```bash
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_default.yaml \
+    --diagnostics \
+    --diagnostics-log-interval 1
+```
+
+### Step 4: Evaluate Trained Model
+
+```bash
+# Evaluate the trained deep controller
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/train_YYYYMMDD_HHMMSS_42_best.pt \
+    --episodes 10 \
+    --motion-type circular
+
+# Or use Makefile (uses default checkpoint path)
+make eval-deep EPISODES=10
+```
+
+### Step 5: Compare Controllers
+
+Generate a comparison report:
+
+```bash
+# Run comparison across all controllers
+make compare-controllers EPISODES=10
+
+# Generate summary report
+make generate-comparison-report
+
+# View results
+cat reports/comparison/comparison_summary.json
+```
+
+### Workflow Diagram
+
+```mermaid
+flowchart TD
+    A[Install & Configure] --> B[Establish Baselines]
+    B --> C{Choose Training Approach}
+    C -->|Quick Test| D[training_fast.yaml]
+    C -->|Standard| E[training_default.yaml]
+    C -->|Imitation| F[training_imitation.yaml]
+    D --> G[Train Controller]
+    E --> G
+    F --> G
+    G --> H[Monitor Progress]
+    H --> I{Satisfactory?}
+    I -->|No| J[Adjust Config]
+    J --> G
+    I -->|Yes| K[Evaluate Model]
+    K --> L[Compare Controllers]
+    L --> M[Generate Reports]
+```
+
 ## Controller Selection
 
 The `--controller` flag lets you choose between controller types:
@@ -925,3 +1060,130 @@ lqr:
   r_thrust: 0.1
   r_rate: 1.0
 ```
+
+## Configuration File Reference
+
+### Available Configuration Files
+
+The `experiments/configs/` directory contains preset configurations:
+
+| Config File | Purpose | Training Time | Recommended Use |
+|-------------|---------|---------------|-----------------|
+| `training_default.yaml` | Standard training | ~15 min | General purpose |
+| `training_fast.yaml` | Quick testing | ~2 min | Debugging, testing |
+| `training_large.yaml` | Extended training | ~1+ hour | Complex tasks |
+| `training_imitation.yaml` | Learn from PID/LQR | ~10 min | Bootstrapping |
+| `diagnostics_stationary.yaml` | Training analysis | ~5 min | Troubleshooting |
+| `diagnostics_linear.yaml` | Training analysis | ~5 min | Troubleshooting |
+| `eval_stationary_baseline.yaml` | Baseline evaluation | ~1 min | PID/LQR baselines |
+| `eval_circular_baseline.yaml` | Baseline evaluation | ~1 min | PID/LQR baselines |
+| `comparison_default.yaml` | Controller comparison | ~5 min | Side-by-side metrics |
+
+### Creating Custom Configurations
+
+Copy an existing config and modify:
+
+```bash
+cp experiments/configs/training_default.yaml experiments/configs/my_config.yaml
+# Edit my_config.yaml as needed
+python -m quadcopter_tracking.train --config experiments/configs/my_config.yaml
+```
+
+## Low-Resource / CPU-Only Training
+
+For machines without GPU acceleration or with limited resources, use these strategies:
+
+### Option 1: Use Fast Config
+
+```bash
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+### Option 2: Reduce Workload via CLI
+
+```bash
+python -m quadcopter_tracking.train \
+    --controller deep \
+    --epochs 20 \
+    --episodes-per-epoch 3 \
+    --batch-size 8 \
+    --hidden-sizes 32 32 \
+    --episode-length 10.0
+```
+
+### Option 3: Environment Variables
+
+Set these in your `.env` file:
+
+```bash
+# Force CPU execution
+CUDA_VISIBLE_DEVICES=""
+
+# Reduce workload
+QUADCOPTER_EPISODE_LENGTH=10.0
+```
+
+### Low-Resource Configuration Reference
+
+| Parameter | Default | Low-Resource | Effect |
+|-----------|---------|--------------|--------|
+| `batch_size` | 32 | 8-16 | Lower memory |
+| `episodes_per_epoch` | 10 | 3-5 | Faster epochs |
+| `hidden_sizes` | [64, 64] | [32, 32] | Faster forward pass |
+| `episode_length` | 30.0 | 10.0-15.0 | Shorter episodes |
+| `max_steps_per_episode` | 3000 | 500-1000 | Limits episode steps |
+
+### CPU vs GPU Performance
+
+| Configuration | GPU Time | CPU Time | Notes |
+|---------------|----------|----------|-------|
+| `training_fast.yaml` | ~30s | ~2 min | Good for testing |
+| `training_default.yaml` | ~2 min | ~15 min | Standard training |
+| `training_large.yaml` | ~10 min | ~1+ hour | Use GPU if possible |
+
+## Cross-Platform Notes
+
+### File Paths
+
+- Use forward slashes (`/`) in config files - they work on all platforms
+- Relative paths are resolved from the project root
+- Absolute paths are supported but reduce portability
+
+### Windows-Specific
+
+```bash
+# Windows Command Prompt
+set CUDA_VISIBLE_DEVICES=
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+
+# Windows PowerShell
+$env:CUDA_VISIBLE_DEVICES=""
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+### Linux/macOS
+
+```bash
+# Force CPU
+export CUDA_VISIBLE_DEVICES=""
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+
+# Or inline
+CUDA_VISIBLE_DEVICES="" python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+## Known Limitations (v0.2)
+
+The following features are stubs or planned for future releases:
+
+1. **Deep Controller Training Regression**: The current deep controller exhibits training instability (see [docs/results.md](results.md#training-diagnostics-results) for details). PID and LQR controllers are recommended for production use.
+
+2. **Transfer Learning**: Loading pretrained weights for fine-tuning is not yet supported via the Trainer class. Use `DeepTrackingPolicy.load_checkpoint()` for inference only.
+
+3. **Distributed Training**: Multi-GPU and distributed training are not supported.
+
+4. **Experiment Tracking Integration**: WandB, MLflow, and TensorBoard integrations are placeholder only - not fully implemented.
+
+5. **Real-time Control**: The training pipeline is for research/simulation only. Hardware-in-the-loop support is planned for future releases.
+
+See [ROADMAP.md](../ROADMAP.md) for planned enhancements.

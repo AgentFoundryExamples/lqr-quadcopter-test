@@ -242,11 +242,56 @@ To systematically compare controllers:
 3. Compare mean on-target ratios and success rates
 4. Review plots for qualitative differences
 
-Example comparison workflow:
+### Quick Comparison Workflow
+
+Use the Makefile targets for easy comparison:
+
+```bash
+# Step 1: Run evaluation for each controller
+make compare-controllers EPISODES=10 MOTION_TYPE=circular
+
+# Step 2: Generate comparison report
+make generate-comparison-report
+
+# Step 3: View results
+cat reports/comparison/comparison_summary.json
+```
+
+### Manual Comparison Workflow
+
+For more control over the comparison:
+
+```bash
+# Evaluate each controller with identical parameters
+python -m quadcopter_tracking.eval \
+    --controller pid \
+    --episodes 20 \
+    --seed 42 \
+    --motion-type circular \
+    --output-dir reports/comparison/pid
+
+python -m quadcopter_tracking.eval \
+    --controller lqr \
+    --episodes 20 \
+    --seed 42 \
+    --motion-type circular \
+    --output-dir reports/comparison/lqr
+
+# Deep controller (requires trained checkpoint)
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/train_xxx_best.pt \
+    --episodes 20 \
+    --seed 42 \
+    --motion-type circular \
+    --output-dir reports/comparison/deep
+```
+
+### Using Comparison Config File
 
 ```bash
 # Create comparison sweep
-cat > configs/comparison.yaml << EOF
+cat > experiments/configs/my_comparison.yaml << EOF
 configurations:
   - name: deep_v1
     controller_type: deep
@@ -265,10 +310,113 @@ configurations:
 EOF
 
 # Run comparison
-python -m quadcopter_tracking.eval --sweep configs/comparison.yaml --output-dir reports/comparison
+python -m quadcopter_tracking.eval --sweep experiments/configs/my_comparison.yaml --output-dir reports/comparison
 
 # Review results
 cat reports/comparison/sweep_results.json
+```
+
+### Comparison Report Format
+
+The comparison report (`comparison_summary.json`) contains:
+
+```json
+{
+  "rankings": [
+    {
+      "controller": "lqr",
+      "success_rate": 0.9,
+      "mean_on_target_ratio": 0.87,
+      "mean_tracking_error": 0.32
+    },
+    {
+      "controller": "pid",
+      "success_rate": 0.85,
+      "mean_on_target_ratio": 0.82,
+      "mean_tracking_error": 0.41
+    }
+  ]
+}
+```
+
+Controllers are ranked by:
+1. **Success rate** (primary) - higher is better
+2. **Mean on-target ratio** (secondary) - higher is better
+3. **Mean tracking error** (tertiary) - lower is better
+
+## Interpreting Plots
+
+### Position Tracking Plots
+
+The position tracking plot (`position_tracking_*.png`) shows the quadcopter and target trajectories over time.
+
+```
+What to Look For:
+┌─────────────────────────────────────────┐
+│ X Position vs Time                      │
+│   - Blue line: Quadcopter trajectory    │
+│   - Red dashed: Target trajectory       │
+│   - Green band: Target radius (±0.5m)   │
+│                                         │
+│ Good: Blue stays within green band      │
+│ Bad: Blue line diverges from red        │
+└─────────────────────────────────────────┘
+```
+
+**Good Performance Indicators:**
+- Blue line closely follows red dashed line
+- Minimal overshoot when target changes direction
+- Quick convergence to target after initial error
+
+**Poor Performance Indicators:**
+- Blue line consistently outside green band
+- Large oscillations around target
+- Growing divergence over time
+
+### Tracking Error Plots
+
+The tracking error plot (`tracking_error_*.png`) shows the distance to target over time.
+
+```
+What to Look For:
+┌─────────────────────────────────────────┐
+│ Tracking Error (meters) vs Time         │
+│   - Blue line: Euclidean distance       │
+│   - Red dashed: Target radius threshold │
+│   - Green dots: On-target samples       │
+│                                         │
+│ Good: Error mostly below threshold      │
+│ Bad: Error consistently above threshold │
+└─────────────────────────────────────────┘
+```
+
+**Metric Interpretation:**
+
+| Error Pattern | Interpretation | Suggested Action |
+|--------------|----------------|------------------|
+| Low, stable | Excellent tracking | None needed |
+| High initial, then low | Good convergence | Acceptable |
+| Oscillating | Underdamped response | Increase damping gains |
+| Steadily increasing | Divergence | Check controller config |
+| Periodic spikes | Motion pattern difficulty | Tune for motion type |
+
+### Comparison Chart
+
+When comparing controllers, plot metrics side-by-side:
+
+```
+Controller Comparison Example:
+
+                 PID     LQR     Deep
+Success Rate     85%     90%     70%
+On-Target        82%     87%     65%
+Mean Error      0.41m   0.32m   0.52m
+Control Effort   12.3    10.8    15.2
+
+Interpretation:
+- LQR has best overall performance
+- PID is close second, more robust
+- Deep controller needs more training
 ```
 
 ## Extending Evaluation

@@ -375,6 +375,123 @@ make clean
 4. **Analyze**: Review metrics in `reports/` and generated plots
 5. **Iterate**: Modify controllers or parameters and repeat
 
+## Reproducible Workflows (v0.2)
+
+This section describes three documented workflows for reproducible experiments.
+
+### Workflow 1: Baseline PID/LQR Evaluation
+
+Evaluate classical controllers to establish performance baselines.
+
+```bash
+# Quick baseline evaluation on stationary target
+make eval-baseline-stationary EPISODES=10
+
+# Baseline evaluation on circular motion
+make eval-baseline-circular EPISODES=10
+
+# Or run individually with custom parameters
+python -m quadcopter_tracking.eval \
+    --controller pid \
+    --motion-type circular \
+    --episodes 10 \
+    --seed 42 \
+    --output-dir reports/baseline_pid
+
+python -m quadcopter_tracking.eval \
+    --controller lqr \
+    --motion-type circular \
+    --episodes 10 \
+    --seed 42 \
+    --output-dir reports/baseline_lqr
+```
+
+**Configuration files:**
+- `experiments/configs/eval_stationary_baseline.yaml` - Stationary target baseline
+- `experiments/configs/eval_circular_baseline.yaml` - Circular motion baseline
+
+**Expected results:**
+- PID/LQR should achieve >80% on-target ratio on stationary targets
+- Circular motion is more challenging; expect 70-90% on-target ratio
+
+### Workflow 2: Deep Controller Training
+
+Train a neural network controller and compare to baselines.
+
+```bash
+# Step 1: Start with fast config for testing
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+
+# Step 2: Full training with default config
+python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+
+# Step 3: Evaluate trained model
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/train_*_best.pt \
+    --episodes 10
+
+# Or use Makefile
+make train-deep EPOCHS=100 SEED=42
+make eval-deep EPISODES=10
+```
+
+**Configuration files:**
+- `experiments/configs/training_fast.yaml` - Quick testing (20 epochs)
+- `experiments/configs/training_default.yaml` - Standard training (100 epochs)
+- `experiments/configs/training_large.yaml` - Extended training (500 epochs)
+- `experiments/configs/training_imitation.yaml` - Imitation learning from PID/LQR
+
+**Note:** The deep controller training has known regression issues (see [docs/results.md](docs/results.md#training-diagnostics-results)). PID and LQR are recommended for production use.
+
+### Workflow 3: Controller Comparison
+
+Compare multiple controllers with standardized metrics.
+
+```bash
+# Step 1: Run comparison evaluation
+make compare-controllers EPISODES=10 MOTION_TYPE=circular
+
+# Step 2: Generate comparison report
+make generate-comparison-report
+
+# Step 3: View results
+cat reports/comparison/comparison_summary.json
+```
+
+**Configuration file:**
+- `experiments/configs/comparison_default.yaml` - Side-by-side controller comparison
+
+**Output:**
+- `reports/comparison/<controller>/metrics.json` - Per-controller metrics
+- `reports/comparison/<controller>/plots/*.png` - Visualization plots
+- `reports/comparison/comparison_summary.json` - Ranked comparison
+
+### Workflow Diagram
+
+```mermaid
+flowchart TD
+    subgraph "Workflow 1: Baselines"
+        A1[Configure Baseline] --> B1[Run PID Eval]
+        B1 --> C1[Run LQR Eval]
+        C1 --> D1[Review Metrics]
+    end
+    
+    subgraph "Workflow 2: Training"
+        A2[Choose Config] --> B2[Train Deep Controller]
+        B2 --> C2[Monitor Progress]
+        C2 --> D2[Evaluate Model]
+    end
+    
+    subgraph "Workflow 3: Comparison"
+        A3[Run All Controllers] --> B3[Generate Report]
+        B3 --> C3[Analyze Rankings]
+    end
+    
+    D1 --> A2
+    D2 --> A3
+```
+
 ## System Dependencies
 
 Most dependencies are pure Python. If you encounter issues:
@@ -388,6 +505,46 @@ export MPLBACKEND=Agg
 
 ### Missing Environment Variables
 The configuration system falls back to sensible defaults. See [.env.example](.env.example) for all variables and their defaults.
+
+### Low-Resource Machines
+
+For machines without GPU or with limited RAM:
+
+```bash
+# Use fast config with reduced workload
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+
+# Or set environment variables
+export CUDA_VISIBLE_DEVICES=""  # Force CPU
+python -m quadcopter_tracking.train \
+    --epochs 20 \
+    --batch-size 8 \
+    --episodes-per-epoch 3
+```
+
+See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for detailed low-resource guidance.
+
+## v0.2 Status and Known Limitations
+
+**Implemented Features:**
+- ✅ PID and LQR classical controllers
+- ✅ Deep learning training pipeline
+- ✅ Multiple training modes (tracking, imitation, reward-weighted)
+- ✅ Evaluation and comparison workflows
+- ✅ Diagnostic tools for training analysis
+- ✅ Cross-platform support (Linux, macOS, Windows)
+
+**Known Limitations:**
+- ⚠️ Deep controller training exhibits regression (see docs/results.md)
+- ⚠️ Experiment tracking integrations (WandB, MLflow) are placeholders only
+- ⚠️ Transfer learning not supported via Trainer class
+
+**Stubs / Future Work:**
+- 🔲 Observation noise and imperfect information
+- 🔲 Hardware-in-the-loop support
+- 🔲 Distributed training
+
+See [ROADMAP.md](ROADMAP.md) for detailed future plans.
 
 ## Future Work
 

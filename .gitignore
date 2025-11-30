@@ -59,6 +59,8 @@ reports/*.txt
 reports/*.csv
 reports/plots/*.png
 reports/sweeps/
+reports/comparison/
+reports/baseline_*/
 reports/checkpoints_*/
 reports/logs_*/
 !reports/.gitkeep

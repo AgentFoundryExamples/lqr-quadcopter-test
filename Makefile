@@ -1,4 +1,4 @@
-.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr eval-deep eval-pid eval-lqr clean help
+.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr eval-deep eval-pid eval-lqr eval-baseline-stationary eval-baseline-circular compare-controllers generate-comparison-report clean help
 
 # Default Python interpreter
 PYTHON ?= python
@@ -8,6 +8,12 @@ CONFIG ?= config.yaml
 SEED ?= 42
 EPOCHS ?= 10
 EPISODES ?= 5
+
+# Default motion type for evaluation
+MOTION_TYPE ?= circular
+
+# Comparison configuration
+COMPARISON_CONFIG ?= experiments/configs/comparison_default.yaml
 
 help:
 	@echo "Quadcopter Tracking Research - Available Commands"
@@ -22,23 +28,25 @@ help:
 	@echo "  make lint         - Run linter (ruff)"
 	@echo "  make format       - Auto-format code (ruff)"
 	@echo ""
-	@echo "Training (deep controller):"
-	@echo "  make train-deep             - Train deep controller with defaults"
-	@echo "  make train-deep EPOCHS=100  - Train with custom epochs"
+	@echo "=== WORKFLOW 1: Baseline PID/LQR Evaluation ==="
+	@echo "  make eval-pid                      - Evaluate PID controller"
+	@echo "  make eval-lqr                      - Evaluate LQR controller"
+	@echo "  make eval-baseline-stationary      - Evaluate PID+LQR on stationary target"
+	@echo "  make eval-baseline-circular        - Evaluate PID+LQR on circular target"
 	@echo ""
-	@echo "Evaluation (classical controllers):"
-	@echo "  make train-pid              - Run PID controller evaluation"
-	@echo "  make train-lqr              - Run LQR controller evaluation"
+	@echo "=== WORKFLOW 2: Deep Controller Training ==="
+	@echo "  make train-deep                    - Train deep controller"
+	@echo "  make train-deep EPOCHS=100         - Train with custom epochs"
+	@echo "  make eval-deep                     - Evaluate trained deep controller"
 	@echo ""
-	@echo "Evaluation (all controllers):"
-	@echo "  make eval-deep              - Evaluate deep controller"
-	@echo "  make eval-pid               - Evaluate PID controller"
-	@echo "  make eval-lqr               - Evaluate LQR controller"
+	@echo "=== WORKFLOW 3: Controller Comparison ==="
+	@echo "  make compare-controllers           - Run comparison across controllers"
+	@echo "  make generate-comparison-report    - Generate side-by-side metrics report"
 	@echo ""
-	@echo "Experiments:"
-	@echo "  make run-experiment           - Run experiment with default config"
-	@echo "  make run-experiment CONFIG=x  - Run experiment with custom config"
-	@echo "  make run-experiment SEED=x    - Run experiment with custom seed"
+	@echo "Legacy/Other Commands:"
+	@echo "  make train-pid              - Run PID controller evaluation loop"
+	@echo "  make train-lqr              - Run LQR controller evaluation loop"
+	@echo "  make run-experiment         - Run experiment with custom config"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean        - Remove build artifacts and cache"
@@ -46,7 +54,8 @@ help:
 	@echo "Examples:"
 	@echo "  make train-deep EPOCHS=50 SEED=123"
 	@echo "  make eval-pid EPISODES=20"
-	@echo "  make run-experiment CONFIG=configs/lqr.yaml SEED=123"
+	@echo "  make compare-controllers MOTION_TYPE=stationary"
+	@echo "  make run-experiment CONFIG=experiments/configs/training_fast.yaml"
 
 install:
 	$(PYTHON) -m pip install -e .
@@ -83,6 +92,49 @@ eval-pid:
 
 eval-lqr:
 	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --episodes $(EPISODES) --seed $(SEED)
+
+# =============================================================================
+# WORKFLOW 1: Baseline PID/LQR Evaluation
+# =============================================================================
+# Evaluate classical controllers on predefined baseline configurations
+
+eval-baseline-stationary:
+	@echo "=== Evaluating PID on stationary target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --motion-type stationary --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_pid
+	@echo ""
+	@echo "=== Evaluating LQR on stationary target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type stationary --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_lqr
+	@echo ""
+	@echo "Baseline evaluation complete. Results in reports/baseline_stationary_*/"
+
+eval-baseline-circular:
+	@echo "=== Evaluating PID on circular target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --motion-type circular --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_pid
+	@echo ""
+	@echo "=== Evaluating LQR on circular target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type circular --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_lqr
+	@echo ""
+	@echo "Baseline evaluation complete. Results in reports/baseline_circular_*/"
+
+# =============================================================================
+# WORKFLOW 3: Controller Comparison
+# =============================================================================
+# Compare multiple controllers and generate side-by-side metrics
+# Note: Using - prefix to continue even if individual evaluations fail criteria
+
+compare-controllers:
+	@echo "=== Running Controller Comparison ==="
+	@echo "Evaluating PID controller..."
+	-@$(PYTHON) -m quadcopter_tracking.eval --controller pid --motion-type $(MOTION_TYPE) --episodes $(EPISODES) --seed $(SEED) --output-dir reports/comparison/pid
+	@echo ""
+	@echo "Evaluating LQR controller..."
+	-@$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type $(MOTION_TYPE) --episodes $(EPISODES) --seed $(SEED) --output-dir reports/comparison/lqr
+	@echo ""
+	@echo "Controller evaluation complete. Run 'make generate-comparison-report' to generate summary."
+
+generate-comparison-report:
+	@echo "=== Generating Comparison Report ==="
+	@$(PYTHON) scripts/generate_comparison_report.py --report-dir reports/comparison
 
 # Note: CONFIG and SEED are validated by Python code, not shell interpolation
 # to prevent command injection vulnerabilities

@@ -475,3 +475,169 @@ export MPLBACKEND=Agg
 # Install system dependencies if needed (Debian/Ubuntu)
 apt install -y libgl1-mesa-glx
 ```
+
+## Cross-Platform Compatibility
+
+The simulation environment is designed to work on Linux, macOS, and Windows.
+
+### File Path Handling
+
+- **Config files**: Use forward slashes (`/`) even on Windows - they work everywhere
+- **Output directories**: Created automatically if they don't exist
+- **Absolute paths**: Supported but reduce portability between machines
+
+```yaml
+# Good - portable paths
+checkpoint_dir: checkpoints/my_experiment
+log_dir: experiments/logs/my_run
+output_dir: reports/evaluation
+
+# Avoid - platform-specific
+checkpoint_dir: C:\Users\me\checkpoints  # Windows only
+```
+
+### Platform-Specific Setup
+
+#### Linux (Recommended)
+
+```bash
+# Install (Ubuntu/Debian)
+sudo apt update
+sudo apt install python3.10 python3.10-venv
+
+# Create virtual environment
+python3.10 -m venv venv
+source venv/bin/activate
+make dev-install
+
+# Run
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+#### macOS
+
+```bash
+# Install Python (via Homebrew)
+brew install python@3.10
+
+# Create virtual environment
+python3.10 -m venv venv
+source venv/bin/activate
+make dev-install
+
+# Run
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+#### Windows
+
+```powershell
+# Install Python from python.org (3.10+)
+# Or via winget: winget install Python.Python.3.10
+
+# Create virtual environment (PowerShell)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+
+# Run
+python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+```
+
+### Environment Variables by Platform
+
+| Variable | Linux/macOS | Windows (PowerShell) | Windows (CMD) |
+|----------|-------------|---------------------|---------------|
+| Force CPU | `export CUDA_VISIBLE_DEVICES=""` | `$env:CUDA_VISIBLE_DEVICES=""` | `set CUDA_VISIBLE_DEVICES=` |
+| Headless plots | `export MPLBACKEND=Agg` | `$env:MPLBACKEND="Agg"` | `set MPLBACKEND=Agg` |
+| Custom seed | `export QUADCOPTER_SEED=123` | `$env:QUADCOPTER_SEED=123` | `set QUADCOPTER_SEED=123` |
+
+### Common Cross-Platform Issues
+
+#### Plot Generation Fails
+
+**Symptom**: `_tkinter.TclError: couldn't connect to display`
+
+**Solution**: Set headless backend before running:
+
+```bash
+# Linux/macOS
+export MPLBACKEND=Agg
+
+# Or in Python before importing matplotlib
+import matplotlib
+matplotlib.use('Agg')
+```
+
+#### Permission Errors on Windows
+
+**Symptom**: `PermissionError: [Errno 13] Permission denied`
+
+**Solution**: Run as administrator or use a different output directory:
+
+```powershell
+python -m quadcopter_tracking.eval --controller pid --output-dir C:\Users\me\quadcopter_reports
+```
+
+#### Path Length Limits on Windows
+
+**Symptom**: `OSError: [Errno 22] Invalid argument` with long paths
+
+**Solution**: Use shorter directory names or enable long paths in Windows:
+
+```powershell
+# Enable long paths (requires admin PowerShell)
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+    -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+## Directory Structure and Output Locations
+
+The environment uses the following directory structure:
+
+```
+lqr-quadcopter-test/
+├── checkpoints/           # Model checkpoints (gitignored)
+│   ├── train_*_best.pt   # Best model during training
+│   ├── train_*_final.pt  # Final model
+│   └── train_*_epoch*.pt # Periodic checkpoints
+├── experiments/
+│   ├── configs/          # YAML configuration files
+│   └── logs/             # Training logs (gitignored)
+├── reports/              # Evaluation outputs
+│   ├── metrics.json      # Metrics summary
+│   ├── plots/            # Generated plots
+│   │   └── .gitkeep      # Keeps directory in git
+│   └── comparison/       # Controller comparison results
+└── .env                  # Local environment config (gitignored)
+```
+
+### Customizing Output Locations
+
+Override default paths via `.env` or command line:
+
+```bash
+# Via .env file
+LOG_DIR=my_logs
+RESULTS_DIR=my_reports
+CHECKPOINT_DIR=my_checkpoints
+
+# Via command line
+python -m quadcopter_tracking.train --checkpoint-dir my_checkpoints --log-dir my_logs
+python -m quadcopter_tracking.eval --output-dir my_reports
+```
+
+### Avoiding Output Overwrites
+
+To preserve existing results, use timestamped directories:
+
+```bash
+# Timestamp in output path
+python -m quadcopter_tracking.eval \
+    --controller pid \
+    --output-dir "reports/eval_$(date +%Y%m%d_%H%M%S)"
+
+# Or use unique experiment names
+python -m quadcopter_tracking.train \
+    --checkpoint-dir "checkpoints/experiment_v1"
+```

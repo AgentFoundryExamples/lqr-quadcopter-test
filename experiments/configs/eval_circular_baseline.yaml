@@ -1,0 +1,75 @@
+# Baseline evaluation configuration for circular motion tracking
+# Use this config to evaluate PID/LQR controller performance on
+# moderate-difficulty circular target motion.
+#
+# Usage:
+#   # Evaluate PID baseline on circular motion
+#   python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_circular_baseline.yaml
+#
+#   # Evaluate LQR baseline on circular motion
+#   python -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_circular_baseline.yaml
+#
+# Expected performance (classical controllers):
+#   - On-target ratio: >80% for PID/LQR
+#   - Mean tracking error: <0.5m
+#   - Success rate: >80%
+
+# =============================================================================
+# Evaluation Parameters
+# =============================================================================
+# Number of evaluation episodes
+num_episodes: 10
+
+# Base random seed for reproducibility
+seed: 42
+
+# =============================================================================
+# Environment Configuration - Circular Motion Target
+# =============================================================================
+# Target motion type: circular orbital motion in the horizontal plane
+target_motion_type: circular
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target radius threshold (meters)
+target_radius: 0.5
+
+# =============================================================================
+# Target Motion Parameters
+# =============================================================================
+# These parameters control the circular motion difficulty
+# Adjust these to create easier or harder tracking scenarios
+
+# Orbital radius (meters) - distance from center to target orbit
+# Larger radius = longer path, potentially easier to track
+target_orbit_radius: 3.0
+
+# Target speed along the circular path (m/s)
+# Higher speed = more challenging tracking
+target_speed: 1.0
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: reports/baseline_circular
+generate_plots: true
+
+# =============================================================================
+# Classical Controller Configuration
+# =============================================================================
+# Moderate gains for tracking moving targets
+
+# PID Controller - balanced gains for circular tracking
+pid:
+  kp_pos: [2.0, 2.0, 4.0]
+  ki_pos: [0.1, 0.1, 0.2]
+  kd_pos: [1.5, 1.5, 2.0]
+  integral_limit: 5.0
+
+# LQR Controller - standard weights for dynamic tracking
+lqr:
+  q_pos: [10.0, 10.0, 20.0]
+  q_vel: [5.0, 5.0, 10.0]
+  r_thrust: 0.1
+  r_rate: 1.0

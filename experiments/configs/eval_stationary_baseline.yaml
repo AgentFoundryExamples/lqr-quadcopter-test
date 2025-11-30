@@ -1,0 +1,67 @@
+# Baseline evaluation configuration for stationary target tracking
+# Use this config to establish baseline performance with PID/LQR controllers
+# on the simplest tracking scenario (hovering over a fixed target).
+#
+# Usage:
+#   # Evaluate PID baseline
+#   python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
+#
+#   # Evaluate LQR baseline
+#   python -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_stationary_baseline.yaml
+#
+# Expected performance (classical controllers):
+#   - On-target ratio: >95% for PID/LQR
+#   - Mean tracking error: <0.2m
+#   - Success rate: 100%
+
+# =============================================================================
+# Evaluation Parameters
+# =============================================================================
+# Number of evaluation episodes (more episodes = more reliable statistics)
+num_episodes: 10
+
+# Base random seed for reproducibility
+# Each episode uses seed + episode_index for variety
+seed: 42
+
+# =============================================================================
+# Environment Configuration - Stationary Target
+# =============================================================================
+# Target motion type: stationary means the target stays at a fixed position
+target_motion_type: stationary
+
+# Episode duration in seconds
+# 30 seconds is the minimum for success criteria evaluation
+episode_length: 30.0
+
+# Target radius threshold (meters)
+# The quadcopter is "on-target" when within this distance
+target_radius: 0.5
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+# Directory for evaluation reports and plots
+output_dir: reports/baseline_stationary
+
+# Generate visualization plots (position tracking, error over time)
+generate_plots: true
+
+# =============================================================================
+# Classical Controller Configuration
+# =============================================================================
+# Conservative gains optimized for stationary target tracking
+
+# PID Controller - conservative gains for hover stability
+pid:
+  kp_pos: [1.5, 1.5, 3.0]
+  ki_pos: [0.05, 0.05, 0.1]
+  kd_pos: [1.0, 1.0, 1.5]
+  integral_limit: 3.0
+
+# LQR Controller - balanced weights for smooth hover
+lqr:
+  q_pos: [8.0, 8.0, 15.0]
+  q_vel: [4.0, 4.0, 8.0]
+  r_thrust: 0.2
+  r_rate: 1.5
