@@ -167,6 +167,81 @@ reward_loss = RewardShapingLoss(
 )
 ```
 
+## Training Modes
+
+The training system supports three different learning modes, configurable via YAML or command line.
+
+### Tracking Mode (Default)
+
+Pure tracking loss minimizes position and velocity errors without explicit supervision:
+
+```yaml
+training_mode: tracking
+```
+
+This mode uses the standard loss function:
+```
+L = position_weight * L_pos + velocity_weight * L_vel + control_weight * L_ctrl
+```
+
+### Imitation Mode
+
+Imitation mode trains the policy to match actions from a classical controller (PID or LQR):
+
+```yaml
+training_mode: imitation
+supervisor_controller: pid  # or lqr
+imitation_weight: 2.0       # Weight for imitation loss
+```
+
+The combined loss becomes:
+```
+L = imitation_weight * MSE(action, supervisor_action) + tracking_weight * L_tracking
+```
+
+This mode generates supervisory signals by running the classical controller on each observation, providing clearer learning gradients than pure tracking loss.
+
+### Reward-Weighted Mode
+
+Reward-weighted mode uses supervisor actions as hints while maintaining tracking objectives:
+
+```yaml
+training_mode: reward_weighted
+supervisor_controller: lqr
+```
+
+In this mode, the control effort penalty is computed relative to supervisor actions rather than zero, guiding the policy toward good control behaviors.
+
+### Choosing a Training Mode
+
+| Mode | When to Use | Pros | Cons |
+|------|-------------|------|------|
+| `tracking` | Baseline/research | Simple, no external dependency | May lack clear gradients |
+| `imitation` | Getting started | Strong learning signal | Bounded by supervisor quality |
+| `reward_weighted` | Hybrid approach | Balance flexibility/guidance | More hyperparameters |
+
+### Configuration Example
+
+```yaml
+# experiments/configs/training_imitation.yaml
+controller: deep
+training_mode: imitation
+supervisor_controller: pid
+imitation_weight: 2.0
+tracking_weight: 0.5
+epochs: 50
+target_motion_type: stationary
+```
+
+```bash
+# Train with imitation mode via CLI
+python -m quadcopter_tracking.train \
+    --training-mode imitation \
+    --supervisor-controller pid \
+    --imitation-weight 2.0 \
+    --motion-type stationary
+```
+
 ## Training Configuration
 
 ### YAML Configuration File
@@ -196,6 +271,13 @@ position_weight: 1.0
 velocity_weight: 0.1
 control_weight: 0.01
 error_type: l2
+tracking_weight: 1.0
+reward_weight: 0.0
+
+# Training mode configuration
+training_mode: tracking  # tracking, imitation, or reward_weighted
+supervisor_controller: pid  # pid or lqr (for imitation/reward_weighted)
+imitation_weight: 1.0  # Weight for imitation loss
 
 # Environment
 env_seed: 42

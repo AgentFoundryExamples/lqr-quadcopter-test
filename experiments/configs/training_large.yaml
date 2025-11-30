@@ -29,6 +29,16 @@ error_type: huber  # More robust to outliers
 tracking_weight: 1.0
 reward_weight: 0.1  # Include some reward shaping
 
+# =============================================================================
+# Training Mode Configuration
+# =============================================================================
+# training_mode: Options: tracking, imitation, reward_weighted
+# For complex tasks, imitation mode can accelerate learning
+training_mode: tracking
+supervisor_controller: lqr
+imitation_weight: 1.0
+supervisor_blend_ratio: 0.0
+
 # Environment parameters
 env_seed: 42
 target_motion_type: figure8  # Complex motion pattern

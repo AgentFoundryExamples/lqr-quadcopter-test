@@ -1,0 +1,89 @@
+# Imitation learning configuration for quadcopter controller
+# This configuration trains the deep policy to mimic PID/LQR supervisor actions.
+
+# Controller selection
+controller: deep
+
+# Training parameters
+epochs: 50
+episodes_per_epoch: 10
+max_steps_per_episode: 1500
+batch_size: 32
+
+# Optimizer parameters - lower learning rate for stable imitation
+learning_rate: 0.0005
+optimizer: adam
+weight_decay: 0.0
+grad_clip: 1.0
+
+# Network architecture
+hidden_sizes: [64, 64]
+activation: relu
+
+# Loss function weights
+# In imitation mode, control_weight affects deviation from supervisor
+position_weight: 1.0
+velocity_weight: 0.1
+control_weight: 0.1  # Weight for matching supervisor actions
+error_type: l2
+tracking_weight: 0.5  # Lower tracking weight since we prioritize imitation
+reward_weight: 0.0
+
+# =============================================================================
+# Training Mode Configuration - IMITATION LEARNING
+# =============================================================================
+# training_mode: 'imitation' makes the policy learn from supervisor actions
+training_mode: imitation
+
+# supervisor_controller: Classical controller providing target actions
+# Options: pid, lqr
+# - pid: Good for smooth, damped tracking
+# - lqr: Good for optimal state-feedback control
+supervisor_controller: pid
+
+# imitation_weight: How strongly to match supervisor actions
+# Higher values = closer matching to supervisor
+# Lower values = more flexibility to deviate from supervisor
+imitation_weight: 2.0
+
+# supervisor_blend_ratio: Reserved for future use
+supervisor_blend_ratio: 0.0
+
+# Environment parameters - start with easier tasks
+env_seed: 42
+target_motion_type: stationary  # Start with stationary for basic imitation
+episode_length: 15.0  # Shorter episodes for more gradient updates
+target_radius: 0.5
+
+# Checkpointing
+checkpoint_dir: checkpoints/imitation
+checkpoint_interval: 10
+save_best: true
+
+# Logging
+log_dir: experiments/logs/imitation
+log_interval: 1
+
+# No curriculum for imitation (supervisor provides the signal)
+use_curriculum: false
+
+# Recovery settings
+nan_recovery_attempts: 3
+lr_reduction_factor: 0.5
+
+# =============================================================================
+# Classical Controller Configuration (used as supervisor)
+# =============================================================================
+# PID gains tuned for generating good imitation trajectories
+pid:
+  kp_pos: [2.0, 2.0, 4.0]
+  ki_pos: [0.1, 0.1, 0.2]
+  kd_pos: [1.5, 1.5, 2.0]
+  integral_limit: 5.0
+
+# LQR weights for supervisor (if supervisor_controller: lqr)
+lqr:
+  q_pos: [10.0, 10.0, 20.0]
+  q_vel: [5.0, 5.0, 10.0]
+  r_thrust: 0.1
+  r_rate: 1.0

@@ -514,6 +514,146 @@ class TestTrainer:
             assert trainer.optimizer is not None
 
 
+class TestTrainingModes:
+    """Tests for configurable training modes."""
+
+    @pytest.fixture
+    def mode_config(self, tmp_path):
+        """Create config for training mode tests."""
+        return {
+            "epochs": 2,
+            "episodes_per_epoch": 2,
+            "max_steps_per_episode": 50,
+            "batch_size": 8,
+            "hidden_sizes": [16, 16],
+            "checkpoint_dir": str(tmp_path / "checkpoints"),
+            "log_dir": str(tmp_path / "logs"),
+            "device": "cpu",
+        }
+
+    def test_tracking_mode_default(self, mode_config, tmp_path):
+        """Test that tracking mode is the default."""
+        config = TrainingConfig.from_dict(mode_config)
+        assert config.training_mode == "tracking"
+
+    def test_imitation_mode_config(self, mode_config, tmp_path):
+        """Test imitation mode configuration."""
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+        mode_config["imitation_weight"] = 2.0
+
+        config = TrainingConfig.from_dict(mode_config)
+        assert config.training_mode == "imitation"
+        assert config.supervisor_controller == "pid"
+        assert config.imitation_weight == 2.0
+
+    def test_reward_weighted_mode_config(self, mode_config, tmp_path):
+        """Test reward-weighted mode configuration."""
+        mode_config["training_mode"] = "reward_weighted"
+        mode_config["supervisor_controller"] = "lqr"
+
+        config = TrainingConfig.from_dict(mode_config)
+        assert config.training_mode == "reward_weighted"
+        assert config.supervisor_controller == "lqr"
+
+    def test_invalid_training_mode(self, mode_config):
+        """Test error on invalid training mode."""
+        mode_config["training_mode"] = "invalid_mode"
+        with pytest.raises(ValueError, match="Invalid training_mode"):
+            TrainingConfig.from_dict(mode_config)
+
+    def test_invalid_supervisor_controller(self, mode_config):
+        """Test error on invalid supervisor controller."""
+        mode_config["supervisor_controller"] = "invalid_supervisor"
+        with pytest.raises(ValueError, match="Invalid supervisor_controller"):
+            TrainingConfig.from_dict(mode_config)
+
+    def test_trainer_creates_supervisor_for_imitation(self, mode_config, tmp_path):
+        """Test that trainer creates supervisor controller in imitation mode."""
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+
+        assert trainer.supervisor is not None
+        assert trainer.supervisor.name == "pid"
+
+    def test_trainer_creates_supervisor_for_reward_weighted(
+        self, mode_config, tmp_path
+    ):
+        """Test that trainer creates supervisor in reward_weighted mode."""
+        mode_config["training_mode"] = "reward_weighted"
+        mode_config["supervisor_controller"] = "lqr"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+
+        assert trainer.supervisor is not None
+        assert trainer.supervisor.name == "lqr"
+
+    def test_trainer_no_supervisor_for_tracking(self, mode_config, tmp_path):
+        """Test that no supervisor is created in default tracking mode."""
+        mode_config["training_mode"] = "tracking"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+
+        assert trainer.supervisor is None
+
+    def test_imitation_mode_training(self, mode_config, tmp_path):
+        """Test that imitation mode training runs without error."""
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+        mode_config["target_motion_type"] = "stationary"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+        summary = trainer.train()
+
+        assert summary["epochs_completed"] == 2
+        assert "best_loss" in summary
+
+    def test_reward_weighted_mode_training(self, mode_config, tmp_path):
+        """Test that reward-weighted mode training runs without error."""
+        mode_config["training_mode"] = "reward_weighted"
+        mode_config["supervisor_controller"] = "lqr"
+        mode_config["target_motion_type"] = "stationary"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+        summary = trainer.train()
+
+        assert summary["epochs_completed"] == 2
+        assert "best_loss" in summary
+
+    def test_imitation_mode_logs_imitation_loss(self, mode_config, tmp_path):
+        """Test that imitation mode logs imitation loss component."""
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+        mode_config["target_motion_type"] = "stationary"
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+        trainer.train()
+
+        # Check that experiment log contains metrics
+        assert len(trainer.experiment_log) > 0
+
+    def test_config_to_dict_includes_training_mode(self, mode_config, tmp_path):
+        """Test that to_dict includes training mode parameters."""
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+        mode_config["imitation_weight"] = 1.5
+
+        config = TrainingConfig.from_dict(mode_config)
+        config_dict = config.to_dict()
+
+        assert config_dict["training_mode"] == "imitation"
+        assert config_dict["supervisor_controller"] == "pid"
+        assert config_dict["imitation_weight"] == 1.5
+
+
 class TestControllerSelection:
     """Tests for controller selection in training."""
 
