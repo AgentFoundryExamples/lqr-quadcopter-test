@@ -497,19 +497,30 @@ For controllers that must handle partial observability:
 3. **Uncertainty-aware policies**: Output distributions over actions
 
 ```python
+# Pseudocode - components to implement
 class PartialObservabilityController(BaseController):
+    """Example structure for handling partial observability."""
     def __init__(self, config=None):
         super().__init__(name="partial_obs", config=config)
-        self.state_estimator = KalmanFilter(...)
-        self.policy = RecurrentPolicy(...)
+        # Implement your own state estimator (e.g., Kalman filter)
+        self.state_estimator = None  # KalmanFilter(...)
+        # Implement a recurrent policy network
+        self.policy = None  # RecurrentPolicy(...)
     
     def compute_action(self, observation):
         # Add simulated noise for training
-        noisy_obs = self.add_observation_noise(observation)
-        # Estimate true state
+        noisy_obs = self._add_observation_noise(observation)
+        # Estimate true state using your filter
         estimated_state = self.state_estimator.update(noisy_obs)
         # Compute action from estimated state
         return self.policy(estimated_state)
+    
+    def _add_observation_noise(self, observation):
+        # Add Gaussian noise to simulate sensor imperfections
+        import numpy as np
+        noisy = observation.copy()
+        noisy["target"]["position"] += np.random.normal(0, 0.1, 3)
+        return noisy
 ```
 
 ### Transfer Learning
@@ -521,18 +532,29 @@ To adapt trained controllers to new scenarios:
 3. Fine-tune on new target motion patterns
 
 ```python
-# Load pretrained model
-controller = DeepTrackingPolicy(config={
-    "checkpoint_path": "checkpoints/pretrained.pt"
-})
+from quadcopter_tracking.controllers import DeepTrackingPolicy
+from quadcopter_tracking.train import TrainingConfig, Trainer
 
-# Fine-tune on figure-8 motion
+# Create controller and load pretrained weights
+controller = DeepTrackingPolicy()
+controller.load_checkpoint("checkpoints/pretrained.pt")
+
+# For fine-tuning, create a new trainer with the model's state dict
+# Note: Current Trainer creates its own controller, so for transfer learning
+# you would need to save the weights after loading and configure the trainer
+# to initialize with similar architecture
+
 config = TrainingConfig()
 config.target_motion_type = "figure8"
 config.learning_rate = 0.0001  # Lower LR for fine-tuning
 config.epochs = 50
+# Use same hidden_sizes as pretrained model
+config.hidden_sizes = [64, 64]
 
+# Train new controller (weights start random, not pretrained)
 trainer = Trainer(config)
-trainer.controller = controller  # Use pretrained weights
 trainer.train()
+
+# For true transfer learning, modify Trainer to accept initial weights
+# or implement weight copying after trainer initialization
 ```

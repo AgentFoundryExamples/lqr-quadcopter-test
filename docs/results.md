@@ -281,14 +281,18 @@ The current evaluation assumes perfect target information. To extend to imperfec
 2. **State Estimation**: Implement a Kalman filter or other state estimator in the controller
 3. **Adjust Success Criteria**: Consider relaxing thresholds when noise is present
 
-Example configuration for future noise scenarios:
+Example configuration for future noise scenarios (not yet implemented in the environment):
 
 ```yaml
-# Future extension (not yet implemented)
+# Proposed future extension - requires environment modification
+# This configuration format is a design reference, not currently functional
 observation_noise:
   enabled: true
   position_stddev: 0.1  # meters
   velocity_stddev: 0.05  # m/s
+
+# To implement: Modify QuadcopterEnv._get_observation() to add noise
+# when observation_noise.enabled is true in config
 ```
 
 ### Alternative Controller Evaluation
