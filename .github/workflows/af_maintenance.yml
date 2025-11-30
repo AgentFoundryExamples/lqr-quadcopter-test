@@ -29,9 +29,6 @@ jobs:
         run: |
           pip install "git+https://github.com/AgentFoundryExamples/repo-summarizer-v1.git@main"
 
-      - name: Install license header CLI from GitHub
-        run: |
-          pip install "git+https://github.com/AgentFoundryExamples/license-header.git@main"
 
       - name: Write repo-analyzer config
         run: |
@@ -75,59 +72,6 @@ jobs:
           }
           EOF
 
-      - name: Write license header template
-        run: |
-          mkdir -p .github/af-config
-          cat << 'EOF' > .github/af-config/LICENSE_HEADER
-          # ============================================================
-          # SPDX-License-Identifier: GPL-3.0-or-later
-          # This program was generated as part of the AgentFoundry project.
-          # Copyright (C) 2025  John Brosnihan
-          #
-          # This program is free software: you can redistribute it and/or modify
-          # it under the terms of the GNU General Public License as published by
-          # the Free Software Foundation, either version 3 of the License, or
-          # (at your option) any later version.
-          #
-          # This program is distributed in the hope that it will be useful,
-          # but WITHOUT ANY WARRANTY; without even the implied warranty of
-          # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-          # GNU General Public License for more details.
-          #
-          # You should have received a copy of the GNU General Public License
-          # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-          # ============================================================
-          EOF
-
-      - name: Write license-header config
-        run: |
-          mkdir -p .github/af-config
-          cat << 'EOF' > .github/af-config/license-header.config.json
-          {
-            "header_file": ".github/af-config/LICENSE_HEADER",
-            "include_extensions": [
-              ".py"
-            ],
-            "exclude_paths": [
-              ".git",
-              "__pycache__",
-              "node_modules",
-              "venv",
-              ".venv",
-              "env",
-              "dist",
-              "build",
-              "repo-analysis-output",
-              ".github/af-config"
-            ],
-            "output_dir": null
-          }
-          EOF
-
-      - name: Apply license headers
-        run: |
-          license-header apply \
-            --config .github/af-config/license-header.config.json
 
       - name: Run repo analyzer
         run: |
