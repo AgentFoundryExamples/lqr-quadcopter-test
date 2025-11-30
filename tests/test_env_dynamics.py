@@ -649,20 +649,25 @@ class TestPIDController:
         assert np.all(np.abs(pid.integral_error) <= 2.0)
 
     def test_pid_reset_clears_integral(self):
-        """Test PID reset clears integral error state."""
+        """Test PID reset clears integral error and time state."""
         from quadcopter_tracking.controllers import PIDController
 
         pid = PIDController()
         env = QuadcopterEnv()
         obs = env.reset(seed=42)
 
-        # Build up integral error
+        # Build up integral error and time state
         for _ in range(50):
             pid.compute_action(obs)
+            obs, _, _, _ = env.step(env.hover_action())
+
+        # Verify state was accumulated
+        assert pid._last_time is not None
 
         # Reset and check
         pid.reset()
         assert np.allclose(pid.integral_error, [0.0, 0.0, 0.0])
+        assert pid._last_time is None
 
     def test_pid_responds_to_position_error(self):
         """Test PID controller responds correctly to position error."""

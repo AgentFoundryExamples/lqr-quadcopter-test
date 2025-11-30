@@ -137,6 +137,7 @@ class PIDController(BaseController):
 
         # State variables
         self.integral_error = np.zeros(3)
+        self._last_time: float | None = None
 
     def compute_action(self, observation: dict) -> dict:
         """
@@ -166,12 +167,17 @@ class PIDController(BaseController):
         target_vel = np.array(target["velocity"])
         vel_error = target_vel - quad_vel
 
-        # Update integral error with windup clamping
-        self.integral_error += pos_error
-        # Clamp each component independently
-        self.integral_error = np.clip(
-            self.integral_error, -self.integral_limit, self.integral_limit
-        )
+        # Update integral error with windup clamping (scaled by dt)
+        current_time = observation.get("time", 0.0)
+        dt = (current_time - self._last_time) if self._last_time is not None else 0.0
+        self._last_time = current_time
+
+        if dt > 0:
+            self.integral_error += pos_error * dt
+            # Clamp each component independently
+            self.integral_error = np.clip(
+                self.integral_error, -self.integral_limit, self.integral_limit
+            )
 
         # Compute PID terms
         p_term = self.kp_pos * pos_error
@@ -207,8 +213,9 @@ class PIDController(BaseController):
         }
 
     def reset(self) -> None:
-        """Reset integral error state."""
+        """Reset integral error and time state."""
         self.integral_error = np.zeros(3)
+        self._last_time = None
 
 
 class LQRController(BaseController):
@@ -311,7 +318,7 @@ class LQRController(BaseController):
         #   x'' = u (position, velocity, input)
         # The LQR optimal gains for a 1D double integrator are:
         #   K_pos = sqrt(q_pos / r)
-        #   K_vel = sqrt(2*sqrt(q_pos*r) + q_vel/r)
+        #   K_vel = sqrt(2*sqrt(q_pos/r) + q_vel/r)
         # We apply this formula per-axis to build the 4x6 gain matrix.
 
         # Initialize gain matrix: K maps [pos_err, vel_err] to [thrust, rates]
@@ -321,15 +328,15 @@ class LQRController(BaseController):
         # Position error gain
         K[0, 2] = np.sqrt(q_pos[2] / r_thrust)
         # Velocity error gain
-        K[0, 5] = np.sqrt(2 * np.sqrt(q_pos[2] * r_thrust) + q_vel[2] / r_thrust)
+        K[0, 5] = np.sqrt(2 * np.sqrt(q_pos[2] / r_thrust) + q_vel[2] / r_thrust)
 
         # Y-axis -> roll rate (row 1)
         K[1, 1] = np.sqrt(q_pos[1] / r_rate)
-        K[1, 4] = np.sqrt(2 * np.sqrt(q_pos[1] * r_rate) + q_vel[1] / r_rate)
+        K[1, 4] = np.sqrt(2 * np.sqrt(q_pos[1] / r_rate) + q_vel[1] / r_rate)
 
         # X-axis -> pitch rate (row 2, note sign flip)
         K[2, 0] = -np.sqrt(q_pos[0] / r_rate)
-        K[2, 3] = -np.sqrt(2 * np.sqrt(q_pos[0] * r_rate) + q_vel[0] / r_rate)
+        K[2, 3] = -np.sqrt(2 * np.sqrt(q_pos[0] / r_rate) + q_vel[0] / r_rate)
 
         # Yaw rate (row 3) - no yaw tracking
         # K[3, :] = 0 (already initialized to zeros)
