@@ -732,6 +732,124 @@ class TestPIDController:
         with pytest.raises(KeyError, match="target"):
             pid.compute_action({"quadcopter": {}})
 
+    def test_pid_hover_thrust_at_zero_error(self):
+        """Test PID returns hover thrust (~9.81N) when at target with zero velocity.
+
+        This validates that PID includes hover feedforward (hover_thrust =
+        mass * gravity) and produces the correct baseline thrust when there
+        is no tracking error.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        # Create observation with zero position and velocity error (at hover)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),  # Same as quadcopter
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = pid.compute_action(obs)
+
+        # With default mass=1.0 and gravity=9.81, hover_thrust should be 9.81N
+        assert abs(action["thrust"] - 9.81) < 0.01, (
+            f"PID thrust at zero error should be ~9.81N, got {action['thrust']}"
+        )
+        # All rates should be zero with no error
+        assert abs(action["roll_rate"]) < 0.01
+        assert abs(action["pitch_rate"]) < 0.01
+        assert abs(action["yaw_rate"]) < 0.01
+
+    def test_pid_hover_thrust_custom_mass_gravity(self):
+        """Test PID hover thrust adjusts with custom mass/gravity configuration.
+
+        Verifies that hover_thrust = mass * gravity scales correctly for
+        non-default physics parameters.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        # Custom mass and gravity
+        config = {"mass": 1.5, "gravity": 10.0}
+        pid = PIDController(config=config)
+
+        # Expected hover thrust: 1.5 kg * 10.0 m/s² = 15.0 N
+        expected_hover_thrust = 15.0
+
+        # Verify hover_thrust attribute
+        assert abs(pid.hover_thrust - expected_hover_thrust) < 0.01
+
+        # Create zero-error observation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = pid.compute_action(obs)
+
+        # Thrust should equal custom hover_thrust at zero error
+        assert abs(action["thrust"] - expected_hover_thrust) < 0.01, (
+            f"PID thrust should be {expected_hover_thrust}N, got {action['thrust']}"
+        )
+
+    def test_pid_integral_does_not_perturb_hover_baseline(self):
+        """Test integral term doesn't perturb hover thrust at sustained zero error.
+
+        Ensures integral windup does not accumulate when error is already zero,
+        preserving the baseline hover thrust.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        # Create zero-error observation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        # First call establishes baseline
+        pid.compute_action(obs)
+
+        # Simulate many timesteps at zero error
+        for i in range(100):
+            obs["time"] = (i + 1) * 0.01  # Advance time
+            action = pid.compute_action(obs)
+
+        # Thrust should remain at hover baseline (integral of zero error = 0)
+        assert abs(action["thrust"] - 9.81) < 0.01, (
+            f"PID thrust should stay at ~9.81N after sustained zero error, "
+            f"got {action['thrust']}"
+        )
+        # Integral error should be zero
+        assert np.allclose(pid.integral_error, [0.0, 0.0, 0.0], atol=0.01)
+
 
 class TestLQRController:
     """Tests for LQR controller implementation."""
@@ -888,6 +1006,81 @@ class TestLQRController:
         # Missing target key
         with pytest.raises(KeyError, match="target"):
             lqr.compute_action({"quadcopter": {}})
+
+    def test_lqr_hover_thrust_at_zero_error(self):
+        """Test LQR returns hover thrust (~9.81N) when at target with zero velocity.
+
+        This validates that LQR includes hover feedforward (hover_thrust =
+        mass * gravity) and produces the correct baseline thrust when there
+        is no tracking error.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+
+        # Create observation with zero position and velocity error (at hover)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),  # Same as quadcopter
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = lqr.compute_action(obs)
+
+        # With default mass=1.0 and gravity=9.81, hover_thrust should be 9.81N
+        assert abs(action["thrust"] - 9.81) < 0.01, (
+            f"LQR thrust at zero error should be ~9.81N, got {action['thrust']}"
+        )
+        # All rates should be zero with no error
+        assert abs(action["roll_rate"]) < 0.01
+        assert abs(action["pitch_rate"]) < 0.01
+        assert abs(action["yaw_rate"]) < 0.01
+
+    def test_lqr_hover_thrust_custom_mass_gravity(self):
+        """Test LQR hover thrust adjusts with custom mass/gravity configuration.
+
+        Verifies that hover_thrust = mass * gravity scales correctly for
+        non-default physics parameters.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        # Custom mass and gravity
+        config = {"mass": 2.0, "gravity": 9.81}
+        lqr = LQRController(config=config)
+
+        # Expected hover thrust: 2.0 kg * 9.81 m/s² = 19.62 N
+        expected_hover_thrust = 19.62
+
+        # Verify hover_thrust attribute
+        assert abs(lqr.hover_thrust - expected_hover_thrust) < 0.01
+
+        # Create zero-error observation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = lqr.compute_action(obs)
+
+        # Thrust should equal custom hover_thrust at zero error
+        assert abs(action["thrust"] - expected_hover_thrust) < 0.01, (
+            f"LQR thrust should be {expected_hover_thrust}N, got {action['thrust']}"
+        )
 
 
 class TestClassicalControllerIntegration:

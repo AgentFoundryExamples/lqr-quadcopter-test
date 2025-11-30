@@ -186,6 +186,8 @@ Controllers (PID/LQR) receive quadcopter physics parameters for computing hover 
 
 These values are surfaced from the environment configuration to controller constructors, enabling proper hover thrust calculation (`hover_thrust = mass × gravity`).
 
+**Hover Thrust Baseline:** Both PID and LQR controllers output absolute thrust values that include the hover feedforward term. At zero tracking error (quadcopter at target position with matching velocity), controllers output `hover_thrust` (~9.81 N with default mass/gravity). This ensures training data contains meaningful thrust values suitable for learning gravity compensation.
+
 ### Configuration
 
 ```python
