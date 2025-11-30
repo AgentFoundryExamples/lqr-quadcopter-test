@@ -1,5 +1,9 @@
 # Quadcopter Target Tracking Research
 
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A Python-based research repository for quadcopter target-tracking studies with LQR and ML-based controllers.
 
 ## Project Goals
@@ -526,6 +530,15 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 
 ## v0.2 Status and Known Limitations
 
+**Release Date:** November 30, 2025
+
+**New in v0.2:**
+- ✅ Training diagnostics system with step/epoch logging
+- ✅ Imitation learning mode from classical controllers
+- ✅ Three documented reproducible workflows
+- ✅ Controller comparison framework with automated reports
+- ✅ Extended configuration presets
+
 **Implemented Features:**
 - ✅ PID and LQR classical controllers
 - ✅ Deep learning training pipeline
@@ -539,12 +552,20 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 - ⚠️ Experiment tracking integrations (WandB, MLflow) are placeholders only
 - ⚠️ Transfer learning not supported via Trainer class
 
-**Stubs / Future Work:**
+**Stubs / Future Work (v0.3+):**
 - 🔲 Observation noise and imperfect information
+- 🔲 State estimation (Kalman filter)
+- 🔲 Reinforcement learning (PPO/SAC)
+- 🔲 True LQR with linearization
 - 🔲 Hardware-in-the-loop support
 - 🔲 Distributed training
 
-See [ROADMAP.md](ROADMAP.md) for detailed future plans.
+**Upgrading from v0.1:**
+- No breaking changes; all v0.1 configurations and checkpoints remain compatible
+- Review the new [Reproducible Workflows](#reproducible-workflows-v02) section for best practices
+- Consider using diagnostic configurations for troubleshooting training issues
+
+See [ROADMAP.md](ROADMAP.md) for detailed future plans and [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 
 ## Future Work
 

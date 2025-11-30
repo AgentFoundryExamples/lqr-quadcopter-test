@@ -1,6 +1,8 @@
-# Evaluation Results Documentation
+# Evaluation Results Documentation (v0.2)
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
+
+> **v0.2 Update:** This version includes training diagnostics results, imitation learning mode findings, and updated comparison workflows. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
 
 ## Overview
 
@@ -658,5 +660,37 @@ The following preset configurations are available:
 | `training_fast.yaml` | tracking | Quick testing |
 | `training_large.yaml` | tracking | Complex tasks |
 | `training_imitation.yaml` | imitation | Supervised learning |
+| `diagnostics_stationary.yaml` | tracking | Diagnostic with stationary target |
+| `diagnostics_linear.yaml` | tracking | Diagnostic with linear target |
 
 See [docs/training.md](training.md) for detailed configuration options.
+
+## v0.2 Migration Notes
+
+### Upgrading from v0.1
+
+If you are upgrading from v0.1, note the following:
+
+1. **Checkpoint Compatibility**: All v0.1 checkpoints remain compatible with v0.2. No migration required.
+
+2. **New Workflows**: v0.2 introduces three documented reproducible workflows. Review the [README.md](../README.md#reproducible-workflows-v02) section for best practices.
+
+3. **Diagnostic Configurations**: New diagnostic configuration files are available in `experiments/configs/`. Consider using these when troubleshooting training issues.
+
+4. **Comparison Framework**: The new controller comparison framework generates standardized reports. Use `make compare-controllers` and `make generate-comparison-report` for systematic comparisons.
+
+5. **Configuration Files**: New YAML configurations added:
+   - `diagnostics_stationary.yaml` - For training diagnostics on stationary targets
+   - `diagnostics_linear.yaml` - For training diagnostics on linear targets
+   - `training_imitation.yaml` - For imitation learning from classical controllers
+   - `comparison_default.yaml` - For controller comparison workflows
+
+### Breaking Changes
+
+None. v0.2 maintains full backward compatibility with v0.1.
+
+### Recommended Actions
+
+- Review training diagnostics results if experiencing training regression
+- Consider using imitation learning mode for more stable early training
+- Use the new comparison framework for systematic controller evaluation
