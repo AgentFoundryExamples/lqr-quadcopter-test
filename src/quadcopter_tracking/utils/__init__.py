@@ -31,6 +31,18 @@ from .losses import (
     TrackingLoss,
     create_loss_from_config,
 )
+from .metrics import (
+    EpisodeMetrics,
+    EvaluationSummary,
+    SuccessCriteria,
+    compute_control_effort,
+    compute_episode_metrics,
+    compute_evaluation_summary,
+    compute_on_target_ratio,
+    compute_tracking_error,
+    detect_overshoots,
+    format_metrics_report,
+)
 
 __all__ = [
     "load_config",
@@ -42,6 +54,17 @@ __all__ = [
     "CombinedLoss",
     "LossLogger",
     "create_loss_from_config",
+    # Metrics
+    "EpisodeMetrics",
+    "EvaluationSummary",
+    "SuccessCriteria",
+    "compute_tracking_error",
+    "compute_on_target_ratio",
+    "compute_control_effort",
+    "detect_overshoots",
+    "compute_episode_metrics",
+    "compute_evaluation_summary",
+    "format_metrics_report",
 ]
 
 logger = logging.getLogger(__name__)

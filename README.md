@@ -246,6 +246,44 @@ print(f"On-target ratio: {info['on_target_ratio']:.1%}")
 
 See [docs/training.md](docs/training.md) for complete training documentation.
 
+## Evaluating Controllers
+
+The evaluation pipeline assesses controller performance against success criteria.
+
+### Quick Start Evaluation
+
+```bash
+# Evaluate a trained deep learning controller
+python -m quadcopter_tracking.eval --checkpoint checkpoints/best.pt --episodes 10
+
+# Evaluate with specific motion type
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/model.pt \
+    --motion-type circular \
+    --episodes 20
+
+# Evaluate classical controllers
+python -m quadcopter_tracking.eval --controller lqr --episodes 10
+```
+
+### Success Criteria
+
+| Metric | Threshold |
+|--------|-----------|
+| Episode Duration | ≥ 30 seconds |
+| On-Target Ratio | ≥ 80% |
+| Target Radius | ≤ 0.5 meters |
+
+### Output
+
+Evaluation generates:
+- `reports/metrics.json` - Detailed metrics
+- `reports/plots/position_tracking.png` - Trajectory visualization
+- `reports/plots/tracking_error.png` - Error analysis
+
+See [docs/results.md](docs/results.md) for complete evaluation documentation.
+
 ## Development
 
 ```bash
@@ -265,9 +303,10 @@ make clean
 ## Workflow Overview
 
 1. **Configure**: Set experiment parameters via `.env` or config file
-2. **Run**: Execute experiments with `make run-experiment`
-3. **Analyze**: Review logged data and generated plots
-4. **Iterate**: Modify controllers or parameters and repeat
+2. **Train**: Train controllers with `python -m quadcopter_tracking.train`
+3. **Evaluate**: Assess performance with `python -m quadcopter_tracking.eval`
+4. **Analyze**: Review metrics in `reports/` and generated plots
+5. **Iterate**: Modify controllers or parameters and repeat
 
 ## System Dependencies
 
