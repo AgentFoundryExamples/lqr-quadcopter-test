@@ -31,6 +31,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 import yaml
 
@@ -373,14 +374,18 @@ class Trainer:
 
         # Create supervisor controller for imitation mode
         self.supervisor = None
-        uses_supervisor = config.training_mode in ("imitation", "reward_weighted")
-        if self.is_deep_controller and uses_supervisor:
+        if self.is_deep_controller and self._uses_supervisor_mode:
             self.supervisor = self._create_supervisor()
             logger.info(
                 "Supervisor controller (%s) created for %s mode",
                 config.supervisor_controller,
                 config.training_mode,
             )
+
+    @property
+    def _uses_supervisor_mode(self) -> bool:
+        """Check if training mode requires a supervisor controller."""
+        return self.config.training_mode in ("imitation", "reward_weighted")
 
     def _create_controller(self) -> BaseController:
         """Create controller based on config type."""
@@ -769,9 +774,7 @@ class Trainer:
         # Compute loss based on training mode
         if self.config.training_mode == "imitation" and action_target is not None:
             # Pure imitation loss: match supervisor actions
-            imitation_loss = torch.mean(
-                torch.sum((actions_batch - action_target) ** 2, dim=1)
-            )
+            imitation_loss = F.mse_loss(actions_batch, action_target)
             # Compute standard loss for logging
             tracking_losses = self.loss_fn(
                 pos_error, vel_error, actions_batch, tracking_error
