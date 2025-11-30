@@ -488,3 +488,113 @@ class TestIntegration:
 
             summary = evaluator.evaluate(num_episodes=1, verbose=False)
             assert summary.total_episodes == 1
+
+
+class TestControllerSelectionEval:
+    """Tests for controller selection in evaluation pipeline."""
+
+    def test_eval_with_pid_controller(self, tmp_path):
+        """Test evaluation with PID controller via load_controller."""
+        from quadcopter_tracking.controllers import PIDController
+
+        controller = load_controller("pid")
+
+        assert isinstance(controller, PIDController)
+        assert controller.name == "pid"
+
+        # Run short evaluation
+        env_config = EnvConfig()
+        env_config.simulation.max_episode_time = 1.0
+
+        evaluator = Evaluator(
+            controller=controller,
+            env_config=env_config,
+            output_dir=tmp_path / "reports_pid",
+        )
+
+        summary = evaluator.evaluate(num_episodes=2, verbose=False)
+        assert summary.total_episodes == 2
+
+    def test_eval_with_lqr_controller(self, tmp_path):
+        """Test evaluation with LQR controller via load_controller."""
+        from quadcopter_tracking.controllers import LQRController
+
+        controller = load_controller("lqr")
+
+        assert isinstance(controller, LQRController)
+        assert controller.name == "lqr"
+
+        # Run short evaluation
+        env_config = EnvConfig()
+        env_config.simulation.max_episode_time = 1.0
+
+        evaluator = Evaluator(
+            controller=controller,
+            env_config=env_config,
+            output_dir=tmp_path / "reports_lqr",
+        )
+
+        summary = evaluator.evaluate(num_episodes=2, verbose=False)
+        assert summary.total_episodes == 2
+
+    def test_eval_with_deep_controller(self, tmp_path):
+        """Test evaluation with deep controller via load_controller."""
+        controller = load_controller("deep")
+
+        assert isinstance(controller, DeepTrackingPolicy)
+        assert controller.name == "deep_tracking"
+
+        # Run short evaluation
+        env_config = EnvConfig()
+        env_config.simulation.max_episode_time = 1.0
+
+        evaluator = Evaluator(
+            controller=controller,
+            env_config=env_config,
+            output_dir=tmp_path / "reports_deep",
+        )
+
+        summary = evaluator.evaluate(num_episodes=2, verbose=False)
+        assert summary.total_episodes == 2
+
+    def test_evaluator_labels_controller_type(self, tmp_path):
+        """Test that evaluator correctly identifies controller type."""
+        for controller_type, expected_name in [
+            ("pid", "pid"),
+            ("lqr", "lqr"),
+            ("deep", "deep_tracking"),
+        ]:
+            controller = load_controller(controller_type)
+            env_config = EnvConfig()
+            env_config.simulation.max_episode_time = 1.0
+
+            evaluator = Evaluator(
+                controller=controller,
+                env_config=env_config,
+                output_dir=tmp_path / f"reports_{controller_type}",
+            )
+
+            assert evaluator.controller.name == expected_name
+
+    def test_all_controllers_generate_comparable_metrics(self, tmp_path):
+        """Test that all controllers generate consistent metric formats."""
+        for controller_type in ["pid", "lqr", "deep"]:
+            controller = load_controller(controller_type)
+            env_config = EnvConfig()
+            env_config.simulation.max_episode_time = 1.0
+
+            evaluator = Evaluator(
+                controller=controller,
+                env_config=env_config,
+                output_dir=tmp_path / f"reports_{controller_type}",
+            )
+
+            summary = evaluator.evaluate(num_episodes=1, verbose=False)
+
+            # All controllers should produce comparable metrics
+            assert hasattr(summary, "total_episodes")
+            assert hasattr(summary, "mean_on_target_ratio")
+            assert hasattr(summary, "mean_tracking_error")
+            assert hasattr(summary, "success_rate")
+            assert 0 <= summary.mean_on_target_ratio <= 1
+            assert summary.mean_tracking_error >= 0
