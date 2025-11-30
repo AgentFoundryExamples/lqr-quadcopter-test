@@ -135,6 +135,37 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+def _json_serializer(obj):
+    """
+    Custom JSON serializer for objects not serializable by default json.dump.
+
+    Handles common types found in experiment logging:
+    - numpy arrays -> lists
+    - datetime objects -> ISO format strings
+    - Path objects -> strings
+
+    Args:
+        obj: Object to serialize.
+
+    Returns:
+        JSON-serializable representation.
+
+    Raises:
+        TypeError: If object type is not supported.
+    """
+    # Handle numpy arrays
+    if hasattr(obj, "tolist"):
+        return obj.tolist()
+    # Handle datetime objects
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    # Handle Path objects
+    if isinstance(obj, Path):
+        return str(obj)
+    # Raise for unsupported types to catch serialization issues
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
 def _apply_env_overrides(config: dict) -> dict:
     """
     Apply environment variable overrides to configuration.
@@ -239,7 +270,7 @@ class DataLogger:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         log_path = self.output_dir / f"{self.experiment_name}.json"
         with open(log_path, "w") as f:
-            json.dump(self.data, f, indent=2, default=str)
+            json.dump(self.data, f, indent=2, default=_json_serializer)
         return log_path
 
     def reset(self) -> None:
