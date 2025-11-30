@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 18,
+  "total_files": 19,
   "files": [
     {
       "schema_version": "2.0",
@@ -291,8 +291,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 26164,
-        "loc": 562,
+        "size_bytes": 31349,
+        "loc": 661,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -335,8 +335,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 12667,
-        "loc": 344,
+        "size_bytes": 13104,
+        "loc": 362,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -367,6 +367,55 @@
             "matplotlib.pyplot",
             "numpy",
             "yaml"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/utils/diagnostics.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 28640,
+        "loc": 692,
+        "todo_count": 0,
+        "declaration_count": 9
+      },
+      "structure": {
+        "declarations": [
+          "class DiagnosticsConfig",
+          "class GradientStats",
+          "class StepDiagnostics",
+          "class EpochDiagnostics",
+          "function _safe_float",
+          "function compute_gradient_stats",
+          "function compute_observation_stats",
+          "function compute_action_stats",
+          "class Diagnostics"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "csv",
+            "dataclasses.dataclass",
+            "dataclasses.field",
+            "json",
+            "logging",
+            "math",
+            "os",
+            "pathlib.Path",
+            "typing.Any"
+          ],
+          "third-party": [
+            "matplotlib",
+            "matplotlib.pyplot",
+            "numpy",
+            "torch"
           ]
         }
       }
@@ -580,10 +629,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 18301,
-        "loc": 417,
+        "size_bytes": 27558,
+        "loc": 623,
         "todo_count": 0,
-        "declaration_count": 8
+        "declaration_count": 9
       },
       "structure": {
         "declarations": [
@@ -594,7 +643,8 @@
           "class TestLossLogger",
           "class TestTrainingConfig",
           "class TestTrainer",
-          "class TestIntegration"
+          "class TestIntegration",
+          "class TestDiagnostics"
         ]
       },
       "dependencies": {

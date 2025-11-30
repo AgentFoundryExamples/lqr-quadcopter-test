@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 18
+Total files: 19
 
 ## src/quadcopter_tracking/__init__.py
 **Language:** Python  
@@ -136,8 +136,8 @@ Total files: 18
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 25.55 KB  
-**LOC:** 562  
+**Size:** 30.61 KB  
+**LOC:** 661  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -155,8 +155,8 @@ Total files: 18
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 12.37 KB  
-**LOC:** 344  
+**Size:** 12.80 KB  
+**LOC:** 362  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -170,6 +170,29 @@ Total files: 18
 **External Dependencies:**
   - **Stdlib:** `datetime`, `json`, `logging`, `os`, `pathlib.Path`
   - **Third-party:** `dotenv.load_dotenv`, `matplotlib.pyplot`, `numpy`, `yaml`
+
+## src/quadcopter_tracking/utils/diagnostics.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 27.97 KB  
+**LOC:** 692  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 9  
+**Top-level declarations:**
+  - class DiagnosticsConfig
+  - class GradientStats
+  - class StepDiagnostics
+  - class EpochDiagnostics
+  - function _safe_float
+  - function compute_gradient_stats
+  - function compute_observation_stats
+  - function compute_action_stats
+  - class Diagnostics
+**External Dependencies:**
+  - **Stdlib:** `csv`, `dataclasses.dataclass`, `dataclasses.field`, `json`, `logging`
+    _(and 4 more)_
+  - **Third-party:** `matplotlib`, `matplotlib.pyplot`, `numpy`, `torch`
 
 ## src/quadcopter_tracking/utils/losses.py
 **Language:** Python  
@@ -276,10 +299,10 @@ Total files: 18
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 17.87 KB  
-**LOC:** 417  
+**Size:** 26.91 KB  
+**LOC:** 623  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 8  
+**Declarations:** 9  
 **Top-level declarations:**
   - class TestPolicyNetwork
   - class TestDeepTrackingPolicy
@@ -289,6 +312,7 @@ Total files: 18
   - class TestTrainingConfig
   - class TestTrainer
   - class TestIntegration
+  - class TestDiagnostics
 **External Dependencies:**
   - **Stdlib:** `pathlib.Path`, `tempfile`
   - **Third-party:** `numpy`, `pytest`, `torch`

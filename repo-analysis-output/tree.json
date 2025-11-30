@@ -68,6 +68,14 @@
           "children": [
             {
               "type": "file",
+              "name": "diagnostics_linear.yaml"
+            },
+            {
+              "type": "file",
+              "name": "diagnostics_stationary.yaml"
+            },
+            {
+              "type": "file",
               "name": "training_default.yaml"
             },
             {
@@ -191,6 +199,10 @@
                 {
                   "type": "file",
                   "name": "__init__.py"
+                },
+                {
+                  "type": "file",
+                  "name": "diagnostics.py"
                 },
                 {
                   "type": "file",

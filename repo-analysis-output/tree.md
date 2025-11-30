@@ -14,6 +14,8 @@
   └── training.md
 ├── experiments
   └── configs
+    ├── diagnostics_linear.yaml
+    ├── diagnostics_stationary.yaml
     ├── training_default.yaml
     ├── training_fast.yaml
     └── training_large.yaml
@@ -42,6 +44,7 @@
       └── target_motion.py
     ├── utils
       ├── __init__.py
+      ├── diagnostics.py
       ├── losses.py
       └── metrics.py
     ├── __init__.py

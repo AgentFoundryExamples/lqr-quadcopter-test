@@ -161,6 +161,30 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/utils/diagnostics.py",
+      "path": "src/quadcopter_tracking/utils/diagnostics.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "csv",
+          "dataclasses.dataclass",
+          "dataclasses.field",
+          "json",
+          "logging",
+          "math",
+          "os",
+          "pathlib.Path",
+          "typing.Any"
+        ],
+        "third-party": [
+          "matplotlib",
+          "matplotlib.pyplot",
+          "numpy",
+          "torch"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/utils/losses.py",
       "path": "src/quadcopter_tracking/utils/losses.py",
       "type": "file",
@@ -297,7 +321,15 @@
     },
     {
       "source": "src/quadcopter_tracking/train.py",
+      "target": "src/quadcopter_tracking/utils/diagnostics.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/train.py",
       "target": "src/quadcopter_tracking/utils/losses.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/utils/__init__.py",
+      "target": "src/quadcopter_tracking/utils/diagnostics.py"
     },
     {
       "source": "src/quadcopter_tracking/utils/__init__.py",
@@ -346,6 +378,10 @@
     {
       "source": "tests/test_training_loop.py",
       "target": "src/quadcopter_tracking/utils/losses.py"
+    },
+    {
+      "source": "tests/test_training_loop.py",
+      "target": "src/quadcopter_tracking/utils/diagnostics.py"
     }
   ],
   "external_dependencies_summary": {
@@ -365,6 +401,7 @@
       "pathlib.Path",
       "sys",
       "tempfile",
+      "typing.Any",
       "typing.Literal",
       "typing.Protocol",
       "unittest.mock"
@@ -380,7 +417,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 18,
+    "stdlib_count": 19,
     "third-party_count": 9
   }
 }
