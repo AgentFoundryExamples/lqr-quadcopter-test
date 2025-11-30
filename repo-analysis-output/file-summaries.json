@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 10,
+  "total_files": 15,
   "files": [
     {
       "schema_version": "2.0",
@@ -32,14 +32,13 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 4571,
-        "loc": 113,
+        "size_bytes": 3512,
+        "loc": 89,
         "todo_count": 0,
-        "declaration_count": 3
+        "declaration_count": 2
       },
       "structure": {
         "declarations": [
-          "class BaseController",
           "class LQRController",
           "class PIDController"
         ]
@@ -50,6 +49,69 @@
         "external": {
           "stdlib": [],
           "third-party": []
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/controllers/base.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 1325,
+        "loc": 36,
+        "todo_count": 0,
+        "declaration_count": 1
+      },
+      "structure": {
+        "declarations": [
+          "class BaseController"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [],
+          "third-party": []
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/controllers/deep_tracking_policy.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 13240,
+        "loc": 310,
+        "todo_count": 0,
+        "declaration_count": 3
+      },
+      "structure": {
+        "declarations": [
+          "class PolicyNetwork",
+          "class DeepTrackingPolicy",
+          "function create_controller_from_config"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "json",
+            "logging",
+            "pathlib.Path",
+            "typing.Literal"
+          ],
+          "third-party": [
+            "numpy",
+            "torch",
+            "torch.nn"
+          ]
         }
       }
     },
@@ -83,8 +145,8 @@
       "role": "configuration",
       "role_justification": "configuration file name 'config'",
       "metrics": {
-        "size_bytes": 9137,
-        "loc": 179,
+        "size_bytes": 9107,
+        "loc": 177,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -117,8 +179,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 21317,
-        "loc": 470,
+        "size_bytes": 21735,
+        "loc": 481,
         "todo_count": 0,
         "declaration_count": 1
       },
@@ -148,8 +210,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 12475,
-        "loc": 335,
+        "size_bytes": 12673,
+        "loc": 336,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -180,13 +242,57 @@
     },
     {
       "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/train.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 26164,
+        "loc": 562,
+        "todo_count": 0,
+        "declaration_count": 5
+      },
+      "structure": {
+        "declarations": [
+          "class TrainingConfig",
+          "class Trainer",
+          "function load_checkpoint_and_resume",
+          "function parse_args",
+          "function main"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "argparse",
+            "csv",
+            "datetime",
+            "json",
+            "logging",
+            "math",
+            "pathlib.Path",
+            "sys"
+          ],
+          "third-party": [
+            "numpy",
+            "torch",
+            "torch.optim",
+            "yaml"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
       "path": "src/quadcopter_tracking/utils/__init__.py",
       "language": "Python",
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 11842,
-        "loc": 306,
+        "size_bytes": 12088,
+        "loc": 322,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -217,6 +323,43 @@
             "matplotlib.pyplot",
             "numpy",
             "yaml"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/utils/losses.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 16552,
+        "loc": 395,
+        "todo_count": 0,
+        "declaration_count": 5
+      },
+      "structure": {
+        "declarations": [
+          "class TrackingLoss",
+          "class RewardShapingLoss",
+          "class CombinedLoss",
+          "function create_loss_from_config",
+          "class LossLogger"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "logging",
+            "typing.Literal"
+          ],
+          "third-party": [
+            "numpy",
+            "torch",
+            "torch.nn"
           ]
         }
       }
@@ -305,6 +448,46 @@
           "third-party": [
             "numpy",
             "pytest"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_training_loop.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "metrics": {
+        "size_bytes": 18301,
+        "loc": 417,
+        "todo_count": 0,
+        "declaration_count": 8
+      },
+      "structure": {
+        "declarations": [
+          "class TestPolicyNetwork",
+          "class TestDeepTrackingPolicy",
+          "class TestTrackingLoss",
+          "class TestCombinedLoss",
+          "class TestLossLogger",
+          "class TestTrainingConfig",
+          "class TestTrainer",
+          "class TestIntegration"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "pathlib.Path",
+            "tempfile"
+          ],
+          "third-party": [
+            "numpy",
+            "pytest",
+            "torch"
           ]
         }
       }

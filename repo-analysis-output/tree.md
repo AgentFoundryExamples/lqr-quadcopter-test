@@ -9,7 +9,13 @@
     └── af_maintenance.yml
 ├── docs
   ├── architecture.md
-  └── environment.md
+  ├── environment.md
+  └── training.md
+├── experiments
+  └── configs
+    ├── training_default.yaml
+    ├── training_fast.yaml
+    └── training_large.yaml
 ├── repo-analysis-output
   ├── dependencies.json
   ├── dependencies.md
@@ -21,19 +27,24 @@
 ├── src
   └── quadcopter_tracking
     ├── controllers
-      └── __init__.py
+      ├── __init__.py
+      ├── base.py
+      └── deep_tracking_policy.py
     ├── env
       ├── __init__.py
       ├── config.py
       ├── quadcopter_env.py
       └── target_motion.py
     ├── utils
-      └── __init__.py
-    └── __init__.py
+      ├── __init__.py
+      └── losses.py
+    ├── __init__.py
+    └── train.py
 ├── tests
   ├── __init__.py
   ├── test_config.py
-  └── test_env_dynamics.py
+  ├── test_env_dynamics.py
+  └── test_training_loop.py
 ├── .env.example
 ├── .gitignore
 ├── LICENSE

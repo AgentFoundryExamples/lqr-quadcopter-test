@@ -19,6 +19,33 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/controllers/base.py",
+      "path": "src/quadcopter_tracking/controllers/base.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/controllers/deep_tracking_policy.py",
+      "path": "src/quadcopter_tracking/controllers/deep_tracking_policy.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "logging",
+          "pathlib.Path",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "numpy",
+          "torch",
+          "torch.nn"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/env/__init__.py",
       "path": "src/quadcopter_tracking/env/__init__.py",
       "type": "file",
@@ -68,6 +95,29 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/train.py",
+      "path": "src/quadcopter_tracking/train.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "argparse",
+          "csv",
+          "datetime",
+          "json",
+          "logging",
+          "math",
+          "pathlib.Path",
+          "sys"
+        ],
+        "third-party": [
+          "numpy",
+          "torch",
+          "torch.optim",
+          "yaml"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/utils/__init__.py",
       "path": "src/quadcopter_tracking/utils/__init__.py",
       "type": "file",
@@ -84,6 +134,22 @@
           "matplotlib.pyplot",
           "numpy",
           "yaml"
+        ]
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/utils/losses.py",
+      "path": "src/quadcopter_tracking/utils/losses.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "numpy",
+          "torch",
+          "torch.nn"
         ]
       }
     },
@@ -119,6 +185,22 @@
           "pytest"
         ]
       }
+    },
+    {
+      "id": "tests/test_training_loop.py",
+      "path": "tests/test_training_loop.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "pathlib.Path",
+          "tempfile"
+        ],
+        "third-party": [
+          "numpy",
+          "pytest",
+          "torch"
+        ]
+      }
     }
   ],
   "edges": [
@@ -143,16 +225,50 @@
       "target": "src/quadcopter_tracking/env/target_motion.py"
     },
     {
+      "source": "src/quadcopter_tracking/train.py",
+      "target": "src/quadcopter_tracking/controllers/deep_tracking_policy.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/train.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/train.py",
+      "target": "src/quadcopter_tracking/utils/losses.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/utils/__init__.py",
+      "target": "src/quadcopter_tracking/utils/losses.py"
+    },
+    {
       "source": "tests/test_config.py",
       "target": "src/quadcopter_tracking/utils/__init__.py"
     },
     {
       "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "tests/test_training_loop.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
+    },
+    {
+      "source": "tests/test_training_loop.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "tests/test_training_loop.py",
+      "target": "src/quadcopter_tracking/train.py"
+    },
+    {
+      "source": "tests/test_training_loop.py",
+      "target": "src/quadcopter_tracking/utils/losses.py"
     }
   ],
   "external_dependencies_summary": {
     "stdlib": [
+      "argparse",
+      "csv",
       "dataclasses.dataclass",
       "dataclasses.field",
       "datetime",
@@ -161,6 +277,9 @@
       "math",
       "os",
       "pathlib.Path",
+      "sys",
+      "tempfile",
+      "typing.Literal",
       "typing.Protocol",
       "unittest.mock"
     ],
@@ -169,9 +288,12 @@
       "matplotlib.pyplot",
       "numpy",
       "pytest",
+      "torch",
+      "torch.nn",
+      "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 10,
-    "third-party_count": 5
+    "stdlib_count": 15,
+    "third-party_count": 8
   }
 }

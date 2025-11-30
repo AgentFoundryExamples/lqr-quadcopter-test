@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 10
+Total files: 15
 
 ## src/quadcopter_tracking/__init__.py
 **Language:** Python  
@@ -18,14 +18,40 @@ Total files: 10
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 4.46 KB  
-**LOC:** 113  
+**Size:** 3.43 KB  
+**LOC:** 89  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 2  
+**Top-level declarations:**
+  - class LQRController
+  - class PIDController
+
+## src/quadcopter_tracking/controllers/base.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 1.29 KB  
+**LOC:** 36  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 1  
+**Top-level declarations:**
+  - class BaseController
+
+## src/quadcopter_tracking/controllers/deep_tracking_policy.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 12.93 KB  
+**LOC:** 310  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 3  
 **Top-level declarations:**
-  - class BaseController
-  - class LQRController
-  - class PIDController
+  - class PolicyNetwork
+  - class DeepTrackingPolicy
+  - function create_controller_from_config
+**External Dependencies:**
+  - **Stdlib:** `json`, `logging`, `pathlib.Path`, `typing.Literal`
+  - **Third-party:** `numpy`, `torch`, `torch.nn`
 
 ## src/quadcopter_tracking/env/__init__.py
 **Language:** Python  
@@ -39,8 +65,8 @@ Total files: 10
 **Language:** Python  
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
-**Size:** 8.92 KB  
-**LOC:** 179  
+**Size:** 8.89 KB  
+**LOC:** 177  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -57,8 +83,8 @@ Total files: 10
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 20.82 KB  
-**LOC:** 470  
+**Size:** 21.23 KB  
+**LOC:** 481  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 1  
 **Top-level declarations:**
@@ -71,8 +97,8 @@ Total files: 10
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 12.18 KB  
-**LOC:** 335  
+**Size:** 12.38 KB  
+**LOC:** 336  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -87,12 +113,31 @@ Total files: 10
   - **Stdlib:** `math`, `typing.Protocol`
   - **Third-party:** `numpy`
 
+## src/quadcopter_tracking/train.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 25.55 KB  
+**LOC:** 562  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 5  
+**Top-level declarations:**
+  - class TrainingConfig
+  - class Trainer
+  - function load_checkpoint_and_resume
+  - function parse_args
+  - function main
+**External Dependencies:**
+  - **Stdlib:** `argparse`, `csv`, `datetime`, `json`, `logging`
+    _(and 3 more)_
+  - **Third-party:** `numpy`, `torch`, `torch.optim`, `yaml`
+
 ## src/quadcopter_tracking/utils/__init__.py
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 11.56 KB  
-**LOC:** 306  
+**Size:** 11.80 KB  
+**LOC:** 322  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -106,6 +151,24 @@ Total files: 10
 **External Dependencies:**
   - **Stdlib:** `datetime`, `json`, `logging`, `os`, `pathlib.Path`
   - **Third-party:** `dotenv.load_dotenv`, `matplotlib.pyplot`, `numpy`, `yaml`
+
+## src/quadcopter_tracking/utils/losses.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 16.16 KB  
+**LOC:** 395  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 5  
+**Top-level declarations:**
+  - class TrackingLoss
+  - class RewardShapingLoss
+  - class CombinedLoss
+  - function create_loss_from_config
+  - class LossLogger
+**External Dependencies:**
+  - **Stdlib:** `logging`, `typing.Literal`
+  - **Third-party:** `numpy`, `torch`, `torch.nn`
 
 ## tests/__init__.py
 **Language:** Python  
@@ -147,3 +210,24 @@ Total files: 10
   - class TestIntegration
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
+
+## tests/test_training_loop.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Size:** 17.87 KB  
+**LOC:** 417  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 8  
+**Top-level declarations:**
+  - class TestPolicyNetwork
+  - class TestDeepTrackingPolicy
+  - class TestTrackingLoss
+  - class TestCombinedLoss
+  - class TestLossLogger
+  - class TestTrainingConfig
+  - class TestTrainer
+  - class TestIntegration
+**External Dependencies:**
+  - **Stdlib:** `pathlib.Path`, `tempfile`
+  - **Third-party:** `numpy`, `pytest`, `torch`
