@@ -2,6 +2,31 @@
 
 This document contains detailed design proposals and pseudocode for planned future features. These are **not yet implemented** in the codebase.
 
+## Completed in v0.2
+
+The following features from the original roadmap have been implemented:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| PID/LQR Classical Controllers | ✅ Complete | Full evaluation support |
+| Training Diagnostics | ✅ Complete | Step/epoch logging, gradient tracking |
+| Imitation Learning Mode | ✅ Complete | Supervisor-based training |
+| Reproducible Workflows | ✅ Complete | Three documented workflows |
+| Controller Comparison | ✅ Complete | Automated comparison reports |
+
+## Deferred to Future Releases
+
+The following features are designed but not yet implemented:
+
+| Feature | Target | Reason for Deferral |
+|---------|--------|---------------------|
+| Observation Noise | v0.3+ | Requires environment modification |
+| State Estimation (Kalman) | v0.3+ | Depends on observation noise |
+| Recurrent Policies (LSTM/GRU) | v0.3+ | Research complexity |
+| Transfer Learning | v0.3+ | Trainer modification needed |
+| Reinforcement Learning (PPO/SAC) | v0.4+ | Significant implementation effort |
+| True LQR Optimization | v0.4+ | Requires linearization infrastructure |
+
 ## Imperfect Information Controllers
 
 *Design proposal for handling partial observability.*
@@ -88,12 +113,14 @@ trainer = Trainer(config)
 trainer.train()
 ```
 
-## Implementation Priority
+## Implementation Priority (v0.3+)
 
 | Feature | Priority | Complexity | Dependencies |
 |---------|----------|------------|--------------|
 | Observation Noise | High | Low | Environment modification |
-| State Estimation (Kalman) | High | Medium | numpy/scipy |
+| State Estimation (Kalman) | High | Medium | numpy/scipy, observation noise |
 | Recurrent Policies (LSTM/GRU) | Medium | Medium | PyTorch |
 | Transfer Learning | Medium | Low | Trainer modification |
 | Uncertainty-aware Policies | Low | High | Research |
+| Reinforcement Learning (PPO/SAC) | Medium | High | Stable training pipeline |
+| True LQR with Linearization | Medium | Medium | System identification |
