@@ -7,7 +7,8 @@ with LQR and ML-based controllers.
 Subpackages:
 - env: Simulation environment for quadcopter dynamics
 - controllers: Control algorithm implementations (LQR, PID, neural)
-- utils: Configuration, logging, and plotting utilities
+- utils: Configuration, logging, plotting, and metrics utilities
+- eval: Controller evaluation pipeline
 """
 
 __version__ = "0.1.0"
@@ -20,7 +21,12 @@ from quadcopter_tracking.controllers import (
 from quadcopter_tracking.env import QuadcopterEnv, TargetMotion
 from quadcopter_tracking.utils import (
     DataLogger,
+    EpisodeMetrics,
+    EvaluationSummary,
     Plotter,
+    SuccessCriteria,
+    compute_episode_metrics,
+    compute_evaluation_summary,
     get_default_config,
     load_config,
 )
@@ -35,4 +41,10 @@ __all__ = [
     "get_default_config",
     "DataLogger",
     "Plotter",
+    # Metrics
+    "EpisodeMetrics",
+    "EvaluationSummary",
+    "SuccessCriteria",
+    "compute_episode_metrics",
+    "compute_evaluation_summary",
 ]

@@ -53,6 +53,14 @@ experiments/checkpoints/
 checkpoints/
 *.log
 
+# Reports output (but keep directory structure)
+reports/*.json
+reports/*.txt
+reports/plots/*.png
+reports/sweeps/
+!reports/.gitkeep
+!reports/plots/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
