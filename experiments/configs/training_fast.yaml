@@ -1,0 +1,48 @@
+# Fast training configuration for testing and debugging
+# Uses smaller network and fewer episodes for quick iteration.
+
+# Training parameters (reduced for fast testing)
+epochs: 20
+episodes_per_epoch: 5
+max_steps_per_episode: 1000
+batch_size: 16
+
+# Optimizer parameters
+learning_rate: 0.001
+optimizer: adam
+weight_decay: 0.0
+grad_clip: 1.0
+
+# Smaller network for faster training
+hidden_sizes: [32, 32]
+activation: relu
+
+# Loss function weights
+position_weight: 1.0
+velocity_weight: 0.1
+control_weight: 0.01
+error_type: l2
+tracking_weight: 1.0
+reward_weight: 0.0
+
+# Environment parameters
+env_seed: 42
+target_motion_type: stationary  # Easier task for testing
+episode_length: 5.0  # Short episodes
+target_radius: 0.5
+
+# Checkpointing (less frequent for fast runs)
+checkpoint_dir: checkpoints/fast
+checkpoint_interval: 5
+save_best: true
+
+# Logging
+log_dir: experiments/logs/fast
+log_interval: 1
+
+# No curriculum for fast testing
+use_curriculum: false
+
+# Recovery settings
+nan_recovery_attempts: 2
+lr_reduction_factor: 0.5

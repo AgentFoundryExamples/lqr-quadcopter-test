@@ -123,9 +123,7 @@ class EnvConfig:
         # while success_criteria.target_radius is used for episode evaluation.
         # Default both from the same source for consistency.
         if "radius_requirement" in target_dict:
-            success_dict.setdefault(
-                "target_radius", target_dict["radius_requirement"]
-            )
+            success_dict.setdefault("target_radius", target_dict["radius_requirement"])
 
         return cls(
             seed=config_dict.get("seed", 42),

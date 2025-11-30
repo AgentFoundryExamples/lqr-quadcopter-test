@@ -126,7 +126,7 @@ class QuadcopterEnv:
         # Small random offset from target
         offset = self._rng.uniform(-0.5, 0.5, 3)
         self._state_vector = np.zeros(self.STATE_DIM)
-        self._state_vector[self.POS_X:self.POS_Z + 1] = initial_pos + offset
+        self._state_vector[self.POS_X : self.POS_Z + 1] = initial_pos + offset
 
         # Reset time and counters
         self._time = 0.0
@@ -162,11 +162,13 @@ class QuadcopterEnv:
         action_vec, violations = self._parse_and_validate_action(action)
 
         if violations:
-            self._action_violations.append({
-                "step": self._step_count,
-                "time": self._time,
-                "violations": violations,
-            })
+            self._action_violations.append(
+                {
+                    "step": self._step_count,
+                    "time": self._time,
+                    "violations": violations,
+                }
+            )
 
         # Integrate dynamics
         dt = self.config.simulation.dt
@@ -202,7 +204,8 @@ class QuadcopterEnv:
             "on_target": tracking_error <= self.config.success_criteria.target_radius,
             "on_target_ratio": (
                 self._on_target_count / self._total_steps
-                if self._total_steps > 0 else 0.0
+                if self._total_steps > 0
+                else 0.0
             ),
             "action_violations": len(self._action_violations),
         }
@@ -234,12 +237,14 @@ class QuadcopterEnv:
 
         # Parse action format
         if isinstance(action, dict):
-            action_vec = np.array([
-                action.get("thrust", 0.0),
-                action.get("roll_rate", 0.0),
-                action.get("pitch_rate", 0.0),
-                action.get("yaw_rate", 0.0),
-            ])
+            action_vec = np.array(
+                [
+                    action.get("thrust", 0.0),
+                    action.get("roll_rate", 0.0),
+                    action.get("pitch_rate", 0.0),
+                    action.get("yaw_rate", 0.0),
+                ]
+            )
         else:
             action_vec = np.asarray(action, dtype=np.float64)
             if action_vec.shape != (4,):
@@ -272,9 +277,7 @@ class QuadcopterEnv:
         for i, name in enumerate(rate_names, start=1):
             rate = action_vec[i]
             if abs(rate) > max_rate:
-                violations.append(
-                    f"{name} {rate:.2f} exceeds limit {max_rate:.2f}"
-                )
+                violations.append(f"{name} {rate:.2f} exceeds limit {max_rate:.2f}")
                 action_vec[i] = np.clip(rate, -max_rate, max_rate)
 
         return action_vec, violations
@@ -305,9 +308,7 @@ class QuadcopterEnv:
         deriv = self._compute_derivatives(state, action)
         return state + deriv * dt
 
-    def _rk4_step(
-        self, state: np.ndarray, action: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def _rk4_step(self, state: np.ndarray, action: np.ndarray, dt: float) -> np.ndarray:
         """4th-order Runge-Kutta integration step."""
         k1 = self._compute_derivatives(state, action)
         k2 = self._compute_derivatives(state + 0.5 * dt * k1, action)
@@ -315,9 +316,7 @@ class QuadcopterEnv:
         k4 = self._compute_derivatives(state + dt * k3, action)
         return state + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
 
-    def _compute_derivatives(
-        self, state: np.ndarray, action: np.ndarray
-    ) -> np.ndarray:
+    def _compute_derivatives(self, state: np.ndarray, action: np.ndarray) -> np.ndarray:
         """
         Compute state derivatives based on quadcopter dynamics.
 
@@ -335,9 +334,9 @@ class QuadcopterEnv:
             State derivative vector.
         """
         # Unpack state
-        vel = state[self.VEL_X:self.VEL_Z + 1]
-        attitude = state[self.ROLL:self.YAW + 1]
-        ang_vel = state[self.ROLL_RATE:self.YAW_RATE + 1]
+        vel = state[self.VEL_X : self.VEL_Z + 1]
+        attitude = state[self.ROLL : self.YAW + 1]
+        ang_vel = state[self.ROLL_RATE : self.YAW_RATE + 1]
 
         phi, theta, psi = attitude  # roll, pitch, yaw
         thrust = action[0]
@@ -353,7 +352,7 @@ class QuadcopterEnv:
         deriv = np.zeros(self.STATE_DIM)
 
         # Position derivative = velocity
-        deriv[self.POS_X:self.POS_Z + 1] = vel
+        deriv[self.POS_X : self.POS_Z + 1] = vel
 
         # Compute rotation matrix from body to world frame
         c_phi, s_phi = np.cos(phi), np.sin(phi)
@@ -365,17 +364,21 @@ class QuadcopterEnv:
         thrust_body = np.array([0, 0, thrust])
 
         # Rotation matrix (ZYX Euler angles)
-        R = np.array([
-            [c_psi * c_theta,
-             c_psi * s_theta * s_phi - s_psi * c_phi,
-             c_psi * s_theta * c_phi + s_psi * s_phi],
-            [s_psi * c_theta,
-             s_psi * s_theta * s_phi + c_psi * c_phi,
-             s_psi * s_theta * c_phi - c_psi * s_phi],
-            [-s_theta,
-             c_theta * s_phi,
-             c_theta * c_phi],
-        ])
+        R = np.array(
+            [
+                [
+                    c_psi * c_theta,
+                    c_psi * s_theta * s_phi - s_psi * c_phi,
+                    c_psi * s_theta * c_phi + s_psi * s_phi,
+                ],
+                [
+                    s_psi * c_theta,
+                    s_psi * s_theta * s_phi + c_psi * c_phi,
+                    s_psi * s_theta * c_phi - c_psi * s_phi,
+                ],
+                [-s_theta, c_theta * s_phi, c_theta * c_phi],
+            ]
+        )
 
         thrust_world = R @ thrust_body
 
@@ -389,7 +392,7 @@ class QuadcopterEnv:
         total_force = thrust_world + gravity_force + drag_force
         accel = total_force / mass
 
-        deriv[self.VEL_X:self.VEL_Z + 1] = accel
+        deriv[self.VEL_X : self.VEL_Z + 1] = accel
 
         # Attitude derivative (using body rates)
         # Simplification: Direct assignment of angular velocity to Euler rate.
@@ -397,7 +400,7 @@ class QuadcopterEnv:
         # kinematic transformation (involving sin/cos of angles) would be needed.
         # The attitude clipping in _apply_state_constraints() helps keep angles
         # within a range where this approximation remains reasonable.
-        deriv[self.ROLL:self.YAW + 1] = ang_vel
+        deriv[self.ROLL : self.YAW + 1] = ang_vel
 
         # Angular rate derivative (simple rate control model)
         # Model angular acceleration as proportional to rate error
@@ -408,7 +411,7 @@ class QuadcopterEnv:
         # Add angular drag
         ang_accel -= drag_angular * ang_vel
 
-        deriv[self.ROLL_RATE:self.YAW_RATE + 1] = ang_accel
+        deriv[self.ROLL_RATE : self.YAW_RATE + 1] = ang_accel
 
         return deriv
 
@@ -426,23 +429,23 @@ class QuadcopterEnv:
 
         # Clip velocities
         max_vel = self.config.simulation.max_velocity
-        vel = result[self.VEL_X:self.VEL_Z + 1]
+        vel = result[self.VEL_X : self.VEL_Z + 1]
         vel_mag = np.linalg.norm(vel)
         if vel_mag > max_vel:
-            result[self.VEL_X:self.VEL_Z + 1] = vel / vel_mag * max_vel
+            result[self.VEL_X : self.VEL_Z + 1] = vel / vel_mag * max_vel
 
         # Clip angular velocities
         max_ang_vel = self.config.simulation.max_angular_velocity
-        result[self.ROLL_RATE:self.YAW_RATE + 1] = np.clip(
-            result[self.ROLL_RATE:self.YAW_RATE + 1],
+        result[self.ROLL_RATE : self.YAW_RATE + 1] = np.clip(
+            result[self.ROLL_RATE : self.YAW_RATE + 1],
             -max_ang_vel,
             max_ang_vel,
         )
 
         # Normalize all attitude angles to [-pi, pi]
-        attitude = result[self.ROLL:self.YAW + 1]
+        attitude = result[self.ROLL : self.YAW + 1]
         attitude = (attitude + np.pi) % (2 * np.pi) - np.pi
-        result[self.ROLL:self.YAW + 1] = attitude
+        result[self.ROLL : self.YAW + 1] = attitude
 
         # Clip roll and pitch to prevent extreme orientations
         max_tilt = math.pi / 3  # 60 degrees
@@ -465,11 +468,11 @@ class QuadcopterEnv:
         """
         # Quadcopter state
         quad_state = {
-            "position": self._state_vector[self.POS_X:self.POS_Z + 1].copy(),
-            "velocity": self._state_vector[self.VEL_X:self.VEL_Z + 1].copy(),
-            "attitude": self._state_vector[self.ROLL:self.YAW + 1].copy(),
+            "position": self._state_vector[self.POS_X : self.POS_Z + 1].copy(),
+            "velocity": self._state_vector[self.VEL_X : self.VEL_Z + 1].copy(),
+            "attitude": self._state_vector[self.ROLL : self.YAW + 1].copy(),
             "angular_velocity": self._state_vector[
-                self.ROLL_RATE:self.YAW_RATE + 1
+                self.ROLL_RATE : self.YAW_RATE + 1
             ].copy(),
         }
 
@@ -509,7 +512,7 @@ class QuadcopterEnv:
             return True, "time_limit"
 
         # Position bounds
-        pos = self._state_vector[self.POS_X:self.POS_Z + 1]
+        pos = self._state_vector[self.POS_X : self.POS_Z + 1]
         max_pos = self.config.simulation.max_position
         if np.any(np.abs(pos) > max_pos):
             return True, "position_bounds"
@@ -548,19 +551,27 @@ class QuadcopterEnv:
     ) -> None:
         """Record step data for time series."""
         if self._step_count % self.config.logging.log_interval == 0:
-            self._history.append({
-                "time": self._time,
-                "step": self._step_count,
-                "quadcopter_position": observation["quadcopter"]["position"].tolist(),
-                "quadcopter_velocity": observation["quadcopter"]["velocity"].tolist(),
-                "quadcopter_attitude": observation["quadcopter"]["attitude"].tolist(),
-                "target_position": observation["target"]["position"].tolist(),
-                "target_velocity": observation["target"]["velocity"].tolist(),
-                "action": action.tolist(),
-                "reward": reward,
-                "tracking_error": info["tracking_error"],
-                "on_target": info["on_target"],
-            })
+            self._history.append(
+                {
+                    "time": self._time,
+                    "step": self._step_count,
+                    "quadcopter_position": observation["quadcopter"][
+                        "position"
+                    ].tolist(),
+                    "quadcopter_velocity": observation["quadcopter"][
+                        "velocity"
+                    ].tolist(),
+                    "quadcopter_attitude": observation["quadcopter"][
+                        "attitude"
+                    ].tolist(),
+                    "target_position": observation["target"]["position"].tolist(),
+                    "target_velocity": observation["target"]["velocity"].tolist(),
+                    "action": action.tolist(),
+                    "reward": reward,
+                    "tracking_error": info["tracking_error"],
+                    "on_target": info["on_target"],
+                }
+            )
 
     def get_history(self) -> list[dict]:
         """

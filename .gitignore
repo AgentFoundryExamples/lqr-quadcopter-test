@@ -47,8 +47,10 @@ htmlcov/
 .ruff_cache/
 .mypy_cache/
 
-# Experiments output
-experiments/
+# Experiments output (but keep config files)
+experiments/logs/
+experiments/checkpoints/
+checkpoints/
 *.log
 
 # OS

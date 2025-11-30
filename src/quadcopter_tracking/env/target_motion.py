@@ -16,9 +16,7 @@ from .config import TargetParams
 class MotionPattern(Protocol):
     """Protocol for motion pattern implementations."""
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Get target state at time t.
 
@@ -50,9 +48,7 @@ class LinearMotion:
         self.speed = speed
         self.velocity = self.direction * self.speed
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get position, velocity, and acceleration at time t."""
         position = self.start + self.velocity * t
         velocity = self.velocity.copy()
@@ -85,32 +81,36 @@ class CircularMotion:
         self.omega = speed / radius  # angular velocity
         self.initial_angle = initial_angle
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get position, velocity, and acceleration at time t."""
         angle = self.initial_angle + self.omega * t
 
         # Position
-        position = np.array([
-            self.center[0] + self.radius * np.cos(angle),
-            self.center[1] + self.radius * np.sin(angle),
-            self.center[2],
-        ])
+        position = np.array(
+            [
+                self.center[0] + self.radius * np.cos(angle),
+                self.center[1] + self.radius * np.sin(angle),
+                self.center[2],
+            ]
+        )
 
         # Velocity (tangential)
-        velocity = np.array([
-            -self.radius * self.omega * np.sin(angle),
-            self.radius * self.omega * np.cos(angle),
-            0.0,
-        ])
+        velocity = np.array(
+            [
+                -self.radius * self.omega * np.sin(angle),
+                self.radius * self.omega * np.cos(angle),
+                0.0,
+            ]
+        )
 
         # Acceleration (centripetal)
-        acceleration = np.array([
-            -self.radius * self.omega**2 * np.cos(angle),
-            -self.radius * self.omega**2 * np.sin(angle),
-            0.0,
-        ])
+        acceleration = np.array(
+            [
+                -self.radius * self.omega**2 * np.cos(angle),
+                -self.radius * self.omega**2 * np.sin(angle),
+                0.0,
+            ]
+        )
 
         return position, velocity, acceleration
 
@@ -139,9 +139,7 @@ class SinusoidalMotion:
         self.omega = 2 * np.pi * frequency  # angular frequency
         self.phase = phase if phase is not None else np.zeros(3)
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get position, velocity, and acceleration at time t."""
         theta = self.omega * t + self.phase
 
@@ -173,9 +171,7 @@ class Figure8Motion:
         self.scale = scale
         self.omega = speed / scale  # angular parameter rate
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get position, velocity, and acceleration at time t."""
         theta = self.omega * t
 
@@ -184,11 +180,13 @@ class Figure8Motion:
         sin_t = np.sin(theta)
         denom = 1 + sin_t**2
 
-        position = np.array([
-            self.center[0] + self.scale * cos_t / denom,
-            self.center[1] + self.scale * sin_t * cos_t / denom,
-            self.center[2],
-        ])
+        position = np.array(
+            [
+                self.center[0] + self.scale * cos_t / denom,
+                self.center[1] + self.scale * sin_t * cos_t / denom,
+                self.center[2],
+            ]
+        )
 
         # Compute velocity analytically
         d_cos = -sin_t * self.omega
@@ -196,14 +194,17 @@ class Figure8Motion:
         d_denom = 2 * sin_t * d_sin
 
         dx = (d_cos * denom - cos_t * d_denom) / denom**2
-        dy = ((d_sin * cos_t + sin_t * d_cos) * denom
-              - sin_t * cos_t * d_denom) / denom**2
+        dy = (
+            (d_sin * cos_t + sin_t * d_cos) * denom - sin_t * cos_t * d_denom
+        ) / denom**2
 
-        velocity = np.array([
-            self.scale * dx,
-            self.scale * dy,
-            0.0,
-        ])
+        velocity = np.array(
+            [
+                self.scale * dx,
+                self.scale * dy,
+                0.0,
+            ]
+        )
 
         # Numerical approximation for acceleration
         # The analytic second derivative of the lemniscate is complex.
@@ -217,11 +218,13 @@ class Figure8Motion:
         sin_tp = np.sin(theta_plus)
         denom_p = 1 + sin_tp**2
 
-        pos_plus = np.array([
-            self.center[0] + self.scale * cos_tp / denom_p,
-            self.center[1] + self.scale * sin_tp * cos_tp / denom_p,
-            self.center[2],
-        ])
+        pos_plus = np.array(
+            [
+                self.center[0] + self.scale * cos_tp / denom_p,
+                self.center[1] + self.scale * sin_tp * cos_tp / denom_p,
+                self.center[2],
+            ]
+        )
         vel_plus = (pos_plus - position) / dt
         acceleration = (vel_plus - velocity) / dt
 
@@ -240,9 +243,7 @@ class StationaryMotion:
         """
         self.position = position.copy()
 
-    def get_state(
-        self, t: float
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_state(self, t: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get position, velocity, and acceleration at time t."""
         return self.position.copy(), np.zeros(3), np.zeros(3)
 
@@ -335,16 +336,20 @@ class TargetMotion:
 
         elif motion_type == "sinusoidal":
             # Use amplitude for all axes, with different frequencies
-            amplitude = np.array([
-                self.params.amplitude,
-                self.params.amplitude * 0.5,
-                self.params.amplitude * 0.25,
-            ])
-            frequency = np.array([
-                self.params.frequency,
-                self.params.frequency * 1.3,
-                self.params.frequency * 0.7,
-            ])
+            amplitude = np.array(
+                [
+                    self.params.amplitude,
+                    self.params.amplitude * 0.5,
+                    self.params.amplitude * 0.25,
+                ]
+            )
+            frequency = np.array(
+                [
+                    self.params.frequency,
+                    self.params.frequency * 1.3,
+                    self.params.frequency * 0.7,
+                ]
+            )
             phase = self.rng.uniform(0, 2 * math.pi, 3)
             return SinusoidalMotion(
                 center=center,
@@ -379,9 +384,7 @@ class TargetMotion:
         position, _, _ = self._pattern.get_state(time)
         return tuple(position)
 
-    def get_state(
-        self, time: float
-    ) -> dict:
+    def get_state(self, time: float) -> dict:
         """
         Get complete target state at specified time.
 
@@ -399,9 +402,7 @@ class TargetMotion:
         # Enforce maximum acceleration for smoothness
         accel_mag = np.linalg.norm(acceleration)
         if accel_mag > self.params.max_acceleration:
-            acceleration = (
-                acceleration / accel_mag * self.params.max_acceleration
-            )
+            acceleration = acceleration / accel_mag * self.params.max_acceleration
 
         return {
             "position": position.copy(),

@@ -7,7 +7,7 @@ A Python-based research repository for quadcopter target-tracking studies with L
 This project provides a simulation environment and controller implementations for studying quadcopter target-tracking problems. The primary objectives are:
 
 1. **Evaluate classical control methods** (LQR, PID) for target tracking
-2. **Compare against learning-based approaches** (future work)
+2. **Train and compare learning-based approaches** using deep reinforcement learning
 3. **Establish reproducible benchmarks** for tracking performance
 4. **Document research findings** systematically
 
@@ -101,10 +101,16 @@ See [.env.example](.env.example) for all available options.
 ```
 ├── src/
 │   ├── env/           # Environment simulation
-│   ├── controllers/   # Controller implementations
-│   └── utils/         # Shared utilities
+│   ├── controllers/   # Controller implementations (LQR, PID, Neural)
+│   ├── utils/         # Shared utilities and loss functions
+│   └── train.py       # Deep learning training script
+├── experiments/
+│   └── configs/       # Training configuration files
 ├── docs/              # Documentation
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── environment.md
+│   └── training.md
+├── tests/             # Test suite
 ├── pyproject.toml     # Python package configuration
 ├── Makefile           # CLI commands
 ├── .env.example       # Environment variable template
@@ -179,6 +185,66 @@ env = QuadcopterEnv(config=config)
 ```
 
 See [docs/environment.md](docs/environment.md) for complete documentation.
+
+## Training Deep Learning Controllers
+
+The project includes a complete training pipeline for neural network controllers.
+
+### Quick Start Training
+
+```bash
+# Train with default configuration
+python -m quadcopter_tracking.train --epochs 100 --seed 42
+
+# Train with config file
+python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+
+# Resume training from checkpoint
+python -m quadcopter_tracking.train --resume checkpoints/train_xxx_epoch0050.pt
+```
+
+### Training Configuration
+
+Configure training via YAML files or command line:
+
+```bash
+python -m quadcopter_tracking.train \
+    --epochs 200 \
+    --lr 0.001 \
+    --hidden-sizes 128 128 \
+    --motion-type circular \
+    --checkpoint-dir checkpoints/my_experiment
+```
+
+See example configurations in `experiments/configs/`:
+- `training_default.yaml`: Standard training setup
+- `training_fast.yaml`: Quick testing configuration
+- `training_large.yaml`: Extended training with larger network
+
+### Using Trained Controllers
+
+```python
+from quadcopter_tracking.controllers import DeepTrackingPolicy
+from quadcopter_tracking.env import QuadcopterEnv
+
+# Load trained controller
+controller = DeepTrackingPolicy(config={
+    "checkpoint_path": "checkpoints/best_model.pt"
+})
+
+# Run in environment
+env = QuadcopterEnv()
+obs = env.reset(seed=42)
+
+done = False
+while not done:
+    action = controller.compute_action(obs)
+    obs, reward, done, info = env.step(action)
+
+print(f"On-target ratio: {info['on_target_ratio']:.1%}")
+```
+
+See [docs/training.md](docs/training.md) for complete training documentation.
 
 ## Development
 

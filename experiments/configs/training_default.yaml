@@ -1,0 +1,53 @@
+# Default training configuration for deep learning quadcopter controller
+# This configuration provides sensible defaults for getting started with training.
+
+# Training parameters
+epochs: 100
+episodes_per_epoch: 10
+max_steps_per_episode: 3000
+batch_size: 32
+
+# Optimizer parameters
+learning_rate: 0.001
+optimizer: adam  # Options: adam, sgd, adamw
+weight_decay: 0.0
+grad_clip: 1.0
+
+# Network architecture
+hidden_sizes: [64, 64]
+activation: relu  # Options: relu, tanh, elu, leaky_relu
+
+# Loss function weights
+position_weight: 1.0
+velocity_weight: 0.1
+control_weight: 0.01
+error_type: l2  # Options: l2, l1, huber
+tracking_weight: 1.0
+reward_weight: 0.0  # Set > 0 to include reward shaping
+
+# Environment parameters
+env_seed: 42
+target_motion_type: circular  # Options: linear, circular, sinusoidal, figure8, stationary
+episode_length: 30.0  # seconds
+target_radius: 0.5  # meters
+
+# Checkpointing
+checkpoint_dir: checkpoints
+checkpoint_interval: 10
+save_best: true
+
+# Logging
+log_dir: experiments/logs
+log_interval: 1
+
+# Curriculum learning (optional)
+use_curriculum: false
+curriculum_start_difficulty: 0.5
+curriculum_end_difficulty: 1.0
+
+# Recovery settings for training stability
+nan_recovery_attempts: 3
+lr_reduction_factor: 0.5
+
+# Device (auto-detected if not specified)
+# device: cpu
