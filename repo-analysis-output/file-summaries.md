@@ -139,8 +139,8 @@ Total files: 19
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 30.61 KB  
-**LOC:** 661  
+**Size:** 38.32 KB  
+**LOC:** 816  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -286,10 +286,10 @@ Total files: 19
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 15.75 KB  
-**LOC:** 357  
+**Size:** 19.61 KB  
+**LOC:** 437  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 7  
+**Declarations:** 8  
 **Top-level declarations:**
   - class TestMetrics
   - class TestEpisodeMetrics
@@ -298,6 +298,7 @@ Total files: 19
   - class TestEvaluator
   - class TestLoadController
   - class TestIntegration
+  - class TestControllerSelectionEval
 **External Dependencies:**
   - **Third-party:** `matplotlib.pyplot`, `numpy`, `pytest`
 
@@ -305,10 +306,10 @@ Total files: 19
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 26.91 KB  
-**LOC:** 623  
+**Size:** 31.94 KB  
+**LOC:** 723  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 9  
+**Declarations:** 10  
 **Top-level declarations:**
   - class TestPolicyNetwork
   - class TestDeepTrackingPolicy
@@ -317,6 +318,7 @@ Total files: 19
   - class TestLossLogger
   - class TestTrainingConfig
   - class TestTrainer
+  - class TestControllerSelection
   - class TestIntegration
   - class TestDiagnostics
 **External Dependencies:**

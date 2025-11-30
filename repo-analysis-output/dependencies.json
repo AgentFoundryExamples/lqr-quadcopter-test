@@ -315,7 +315,7 @@
     },
     {
       "source": "src/quadcopter_tracking/train.py",
-      "target": "src/quadcopter_tracking/controllers/deep_tracking_policy.py"
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
     },
     {
       "source": "src/quadcopter_tracking/train.py",

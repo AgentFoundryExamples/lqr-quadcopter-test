@@ -294,8 +294,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 31349,
-        "loc": 661,
+        "size_bytes": 39239,
+        "loc": 816,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -599,10 +599,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 16127,
-        "loc": 357,
+        "size_bytes": 20078,
+        "loc": 437,
         "todo_count": 0,
-        "declaration_count": 7
+        "declaration_count": 8
       },
       "structure": {
         "declarations": [
@@ -612,7 +612,8 @@
           "class TestSuccessCriteria",
           "class TestEvaluator",
           "class TestLoadController",
-          "class TestIntegration"
+          "class TestIntegration",
+          "class TestControllerSelectionEval"
         ]
       },
       "dependencies": {
@@ -635,10 +636,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 27558,
-        "loc": 623,
+        "size_bytes": 32709,
+        "loc": 723,
         "todo_count": 0,
-        "declaration_count": 9
+        "declaration_count": 10
       },
       "structure": {
         "declarations": [
@@ -649,6 +650,7 @@
           "class TestLossLogger",
           "class TestTrainingConfig",
           "class TestTrainer",
+          "class TestControllerSelection",
           "class TestIntegration",
           "class TestDiagnostics"
         ]
