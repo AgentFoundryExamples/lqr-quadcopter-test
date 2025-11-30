@@ -38,6 +38,16 @@
     },
     {
       "type": "directory",
+      "name": "docs",
+      "children": [
+        {
+          "type": "file",
+          "name": "architecture.md"
+        }
+      ]
+    },
+    {
+      "type": "directory",
       "name": "repo-analysis-output",
       "children": [
         {
@@ -63,12 +73,92 @@
       ]
     },
     {
+      "type": "directory",
+      "name": "src",
+      "children": [
+        {
+          "type": "directory",
+          "name": "quadcopter_tracking",
+          "children": [
+            {
+              "type": "directory",
+              "name": "controllers",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "__init__.py"
+                }
+              ]
+            },
+            {
+              "type": "directory",
+              "name": "env",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "__init__.py"
+                }
+              ]
+            },
+            {
+              "type": "directory",
+              "name": "utils",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "__init__.py"
+                }
+              ]
+            },
+            {
+              "type": "file",
+              "name": "__init__.py"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "tests",
+      "children": [
+        {
+          "type": "file",
+          "name": "__init__.py"
+        },
+        {
+          "type": "file",
+          "name": "test_config.py"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".env.example"
+    },
+    {
+      "type": "file",
+      "name": ".gitignore"
+    },
+    {
       "type": "file",
       "name": "LICENSE"
     },
     {
       "type": "file",
+      "name": "Makefile"
+    },
+    {
+      "type": "file",
+      "name": "pyproject.toml"
+    },
+    {
+      "type": "file",
       "name": "README.md"
+    },
+    {
+      "type": "file",
+      "name": "requirements-lock.txt"
     }
   ]
 }

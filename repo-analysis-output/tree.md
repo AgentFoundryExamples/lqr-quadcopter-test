@@ -7,11 +7,30 @@
     └── repo-analyzer.config.json
   └── workflows
     └── af_maintenance.yml
+├── docs
+  └── architecture.md
 ├── repo-analysis-output
   ├── dependencies.json
   ├── dependencies.md
   ├── SUMMARY.md
   ├── tree.json
   └── tree.md
+├── src
+  └── quadcopter_tracking
+    ├── controllers
+      └── __init__.py
+    ├── env
+      └── __init__.py
+    ├── utils
+      └── __init__.py
+    └── __init__.py
+├── tests
+  ├── __init__.py
+  └── test_config.py
+├── .env.example
+├── .gitignore
 ├── LICENSE
-└── README.md
+├── Makefile
+├── pyproject.toml
+├── README.md
+└── requirements-lock.txt

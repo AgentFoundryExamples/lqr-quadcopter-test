@@ -1,10 +1,108 @@
 {
-  "nodes": [],
-  "edges": [],
+  "nodes": [
+    {
+      "id": "src/quadcopter_tracking/__init__.py",
+      "path": "src/quadcopter_tracking/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/controllers/__init__.py",
+      "path": "src/quadcopter_tracking/controllers/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/env/__init__.py",
+      "path": "src/quadcopter_tracking/env/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/utils/__init__.py",
+      "path": "src/quadcopter_tracking/utils/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "datetime",
+          "json",
+          "logging",
+          "os",
+          "pathlib.Path"
+        ],
+        "third-party": [
+          "dotenv.load_dotenv",
+          "matplotlib.pyplot",
+          "numpy",
+          "yaml"
+        ]
+      }
+    },
+    {
+      "id": "tests/__init__.py",
+      "path": "tests/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "tests/test_config.py",
+      "path": "tests/test_config.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "os",
+          "unittest.mock"
+        ],
+        "third-party": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/quadcopter_tracking/__init__.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/__init__.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/__init__.py",
+      "target": "src/quadcopter_tracking/utils/__init__.py"
+    },
+    {
+      "source": "tests/test_config.py",
+      "target": "src/quadcopter_tracking/utils/__init__.py"
+    }
+  ],
   "external_dependencies_summary": {
-    "stdlib": [],
-    "third-party": [],
-    "stdlib_count": 0,
-    "third-party_count": 0
+    "stdlib": [
+      "datetime",
+      "json",
+      "logging",
+      "os",
+      "pathlib.Path",
+      "unittest.mock"
+    ],
+    "third-party": [
+      "dotenv.load_dotenv",
+      "matplotlib.pyplot",
+      "numpy",
+      "yaml"
+    ],
+    "stdlib_count": 6,
+    "third-party_count": 4
   }
 }
