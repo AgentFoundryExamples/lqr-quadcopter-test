@@ -323,6 +323,40 @@ export MPLBACKEND=Agg
 ### Missing Environment Variables
 The configuration system falls back to sensible defaults. See [.env.example](.env.example) for all variables and their defaults.
 
+## Future Work
+
+The following enhancements are planned for future iterations:
+
+### Near-term Improvements
+
+- **Observation Noise**: Add configurable sensor noise to target position/velocity observations for more realistic scenarios
+- **Disturbance Modeling**: Implement wind and turbulence effects on quadcopter dynamics
+- **Additional Motion Patterns**: Add random walk, evasive, and multi-waypoint target trajectories
+
+### Controller Enhancements
+
+- **Model Predictive Control (MPC)**: Implement receding horizon controller for improved constraint handling
+- **Reinforcement Learning**: Add PPO/SAC implementations for comparison with supervised learning
+- **Adaptive Control**: Self-tuning controllers that adjust gains based on performance
+
+### Imperfect Information
+
+- **State Estimation**: Integrate Kalman filtering for noisy observations
+- **Recurrent Networks**: LSTM/GRU-based policies for partial observability
+- **Uncertainty Quantification**: Bayesian neural networks for uncertainty-aware control
+
+### Multi-Target Scenarios
+
+- **Target Prioritization**: Multiple targets with priority-based tracking
+- **Handoff Logic**: Smooth transitions between tracking targets
+- **Collision Avoidance**: Inter-quadcopter and obstacle avoidance
+
+### Deployment Considerations
+
+- **Real-time Execution**: Profile and optimize for embedded systems
+- **Hardware-in-the-Loop**: Interface with physical quadcopter platforms
+- **ROS Integration**: Publish/subscribe interfaces for robotics middleware
+
 
 
 # Permanents (License, Contributing, Author)

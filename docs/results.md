@@ -270,3 +270,64 @@ python -m quadcopter_tracking.eval --sweep configs/comparison.yaml --output-dir 
 # Review results
 cat reports/comparison/sweep_results.json
 ```
+
+## Extending Evaluation
+
+### Imperfect Information Scenarios
+
+The current evaluation assumes perfect target information. Future releases will add support for imperfect information scenarios including observation noise and state estimation.
+
+See [ROADMAP.md](../ROADMAP.md) for detailed design proposals on:
+- Observation noise configuration
+- State estimation (Kalman filter) integration
+- Adjusted success criteria for noisy environments
+
+### Alternative Controller Evaluation
+
+To evaluate custom controllers:
+
+1. Create a controller class inheriting from `BaseController`
+2. Implement `compute_action(observation) -> action`
+3. Register with `load_controller()` or pass directly to `Evaluator`
+
+```python
+from quadcopter_tracking.controllers import BaseController
+from quadcopter_tracking.eval import Evaluator
+
+class MyController(BaseController):
+    def compute_action(self, observation):
+        # Custom control logic
+        return {"thrust": 10.0, "roll_rate": 0.0, ...}
+
+evaluator = Evaluator(controller=MyController())
+summary = evaluator.evaluate(num_episodes=10)
+```
+
+### Validating Generated Plots
+
+Ensure plot assets are generated correctly:
+
+1. Check `reports/plots/` directory after evaluation
+2. Verify PNG files exist: `position_tracking_*.png`, `tracking_error_*.png`
+3. For headless systems, ensure `MPLBACKEND=Agg` is set
+
+```bash
+# Validate plot generation
+ls -la reports/plots/*.png
+```
+
+## Release Validation
+
+When preparing a release, run full evaluation to document achieved metrics:
+
+```bash
+# Run comprehensive evaluation
+python -m quadcopter_tracking.eval \
+    --controller lqr \
+    --episodes 50 \
+    --seed 42 \
+    --output-dir reports/release_validation
+
+# Document metrics for release notes
+cat reports/release_validation/metrics.json | python -m json.tool
+```

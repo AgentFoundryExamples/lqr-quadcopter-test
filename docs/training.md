@@ -459,3 +459,60 @@ class Trainer:
     def _train_epoch() -> dict
     def _save_checkpoint(epoch, metrics, is_best=False)
 ```
+
+## Extending to Alternative Controllers
+
+### Implementing Custom Learning Algorithms
+
+To implement alternative learning approaches (e.g., PPO, SAC, model-based RL):
+
+1. **Create a new controller class** inheriting from `BaseController`
+2. **Implement the training loop** with your algorithm
+3. **Use the existing loss functions** or define custom ones
+
+```python
+from quadcopter_tracking.controllers import BaseController
+from quadcopter_tracking.env import QuadcopterEnv
+
+class CustomRLController(BaseController):
+    def __init__(self, config=None):
+        super().__init__(name="custom_rl", config=config)
+        # Initialize your policy, value networks, etc.
+    
+    def compute_action(self, observation):
+        # Your policy inference
+        pass
+    
+    def train_step(self, batch):
+        # Your training update
+        pass
+```
+
+### Imperfect Information Controllers
+
+Handling partial observability (e.g., with noisy sensor data) is a planned future enhancement. This will likely involve state estimation techniques like Kalman filters and recurrent neural network architectures.
+
+See [ROADMAP.md](../ROADMAP.md) for detailed design proposals and pseudocode.
+
+### Transfer Learning
+
+**Current Limitation**: The Trainer class creates its own controller internally, which does not directly support transfer learning from pretrained weights.
+
+#### Current Workaround
+
+For inference with pretrained weights, use `DeepTrackingPolicy.load_checkpoint()`:
+
+```python
+from quadcopter_tracking.controllers import DeepTrackingPolicy
+
+# Load pretrained weights for inference/evaluation
+controller = DeepTrackingPolicy()
+controller.load_checkpoint("checkpoints/pretrained.pt")
+
+# Use controller for evaluation
+from quadcopter_tracking.eval import Evaluator
+evaluator = Evaluator(controller=controller)
+summary = evaluator.evaluate(num_episodes=10)
+```
+
+True transfer learning support (loading pretrained weights for fine-tuning) is planned for a future release. See [ROADMAP.md](../ROADMAP.md) for the proposed API design.

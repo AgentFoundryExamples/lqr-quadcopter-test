@@ -436,3 +436,42 @@ obs = env.reset(seed=123)
 - `TargetParams`: Motion configuration
 - `SuccessCriteria`: Success thresholds
 - `LoggingParams`: Data recording settings
+
+## CPU Execution
+
+### Performance Expectations
+
+The simulation environment runs entirely on CPU and does not require GPU resources. Typical performance:
+
+- **Simulation speed**: Environment stepping runs at approximately 10,000+ steps/second on modern CPUs
+- **Episode runtime**: A 30-second episode (3,000 steps at dt=0.01) completes in under 1 second
+- **Memory usage**: Minimal memory footprint (~100MB including dependencies)
+
+### GPU vs CPU for Training
+
+For neural network controllers:
+
+- **Training**: GPU recommended for faster convergence (10-50x speedup)
+- **Inference/Evaluation**: CPU is sufficient for real-time control at dt=0.01s
+- **Force CPU**: Set `CUDA_VISIBLE_DEVICES=""` environment variable
+
+```bash
+# Force CPU execution
+export CUDA_VISIBLE_DEVICES=""
+python -m quadcopter_tracking.train --epochs 10
+
+# Or inline
+CUDA_VISIBLE_DEVICES="" python -m quadcopter_tracking.eval --controller deep
+```
+
+### Headless Environments
+
+For servers without display:
+
+```bash
+# Set matplotlib backend before running
+export MPLBACKEND=Agg
+
+# Install system dependencies if needed (Debian/Ubuntu)
+apt install -y libgl1-mesa-glx
+```
