@@ -334,6 +334,59 @@ This criteria ensures:
 - **PID**: Performance degrades for fast-moving targets; integral windup during large transients
 - **LQR**: Linearization breaks down for large attitude angles (> 30°) or high velocities
 
+## Unified Controller Interface
+
+Both `train.py` and `eval.py` support the `--controller` flag to select between controller types:
+
+```bash
+# Training/evaluation with different controllers
+python -m quadcopter_tracking.train --controller deep --epochs 100
+python -m quadcopter_tracking.train --controller pid --epochs 10
+python -m quadcopter_tracking.train --controller lqr --epochs 10
+
+python -m quadcopter_tracking.eval --controller deep --checkpoint checkpoints/model.pt
+python -m quadcopter_tracking.eval --controller pid --episodes 10
+python -m quadcopter_tracking.eval --controller lqr --episodes 10
+```
+
+### Controller Types
+
+| Controller | Training | Checkpoints | Use Case |
+|------------|----------|-------------|----------|
+| `deep` | Yes (gradient descent) | Saved/loaded | Complex scenarios, learned behavior |
+| `pid` | No (evaluation only) | None | Stationary/slow targets, tunable gains |
+| `lqr` | No (evaluation only) | None | Optimal linear control, known dynamics |
+
+### Configuration via YAML
+
+```yaml
+# experiments/configs/my_config.yaml
+controller: pid  # Options: deep, lqr, pid
+epochs: 10
+episodes_per_epoch: 5
+# ... other settings
+```
+
+### Behavior Differences
+
+For **deep** controller:
+- Runs full training loop with gradient updates
+- Saves checkpoints at configured intervals
+- Supports checkpoint resumption via `--resume`
+- Records training losses and metrics
+
+For **classical** controllers (pid, lqr):
+- Runs evaluation episodes without training
+- No checkpoints saved (no trainable parameters)
+- Ignores training-specific options (learning rate, optimizer, etc.)
+- Records performance metrics for comparison
+
+### Edge Cases
+
+- **Invalid controller name**: CLI rejects with helpful error listing valid choices
+- **Checkpoint with classical controller**: Warning logged, checkpoint ignored
+- **Training-specific options with classical controllers**: Warning logged, options ignored
+
 ## Development Guidelines
 
 ### Adding a New Controller
@@ -341,6 +394,7 @@ This criteria ensures:
 2. Implement `compute_action()` method
 3. Add to `__all__` in controllers package
 4. Create experiment config for new controller
+5. Register controller type in `train.py` and `eval.py` if trainable
 
 ### Adding Target Motion Pattern
 1. Add motion type to `TargetMotion` class
@@ -358,6 +412,12 @@ make run-experiment CONFIG=configs/circular.yaml SEED=123
 
 # With environment overrides
 QUADCOPTER_SEED=456 make run-experiment
+
+# Train/evaluate different controllers
+make train-deep EPOCHS=100
+make train-pid EPOCHS=10
+make train-lqr EPOCHS=10
+make eval-pid EPISODES=20
 ```
 
 ### Evaluating Classical Controllers
@@ -385,3 +445,28 @@ For GPU-less machines:
 ### Common Setup Issues
 - Missing `libgl1-mesa-glx` on headless Linux: `apt install libgl1-mesa-glx`
 - Matplotlib display issues: Set `MPLBACKEND=Agg` for headless rendering
+
+## Troubleshooting
+
+### Controller Selection Issues
+
+**Problem**: `Invalid controller type` error
+
+**Solution**: Ensure controller name is one of: `deep`, `lqr`, `pid`. Check spelling and case.
+
+```bash
+# Correct
+python -m quadcopter_tracking.train --controller pid
+
+# Incorrect
+python -m quadcopter_tracking.train --controller PID  # Wrong case
+python -m quadcopter_tracking.train --controller neural  # Invalid name
+```
+
+**Problem**: Classical controller not training
+
+**Solution**: This is expected behavior. PID and LQR controllers are classical controllers that don't require training. Use `eval.py` for evaluation or `train.py` with `--controller deep` for training.
+
+**Problem**: Checkpoint options ignored for classical controllers
+
+**Solution**: This is expected. Classical controllers have no trainable parameters and don't support checkpointing. Use deep controller for checkpoint functionality.

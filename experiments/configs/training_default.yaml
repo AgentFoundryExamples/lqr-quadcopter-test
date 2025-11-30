@@ -1,5 +1,12 @@
-# Default training configuration for deep learning quadcopter controller
+# Default training configuration for quadcopter controller
 # This configuration provides sensible defaults for getting started with training.
+
+# Controller selection
+# Options: deep, lqr, pid
+# - deep: Neural network controller (requires training)
+# - lqr: Linear Quadratic Regulator (no training, evaluation only)
+# - pid: PID controller (no training, evaluation only)
+controller: deep
 
 # Training parameters
 epochs: 100

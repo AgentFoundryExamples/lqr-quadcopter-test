@@ -188,19 +188,46 @@ See [docs/environment.md](docs/environment.md) for complete documentation.
 
 ## Training Deep Learning Controllers
 
-The project includes a complete training pipeline for neural network controllers.
+The project includes a complete training pipeline for neural network controllers
+and evaluation pipelines for all controller types (deep, PID, LQR).
+
+### Controller Selection
+
+The `--controller` flag lets you choose between different controller types:
+- `deep`: Neural network controller (requires training)
+- `pid`: PID controller (classical, no training required)
+- `lqr`: LQR controller (classical, no training required)
 
 ### Quick Start Training
 
 ```bash
-# Train with default configuration
-python -m quadcopter_tracking.train --epochs 100 --seed 42
+# Train deep controller with default configuration
+python -m quadcopter_tracking.train --controller deep --epochs 100 --seed 42
+
+# Run PID controller evaluation (no training)
+python -m quadcopter_tracking.train --controller pid --epochs 10
+
+# Run LQR controller evaluation (no training)
+python -m quadcopter_tracking.train --controller lqr --epochs 10
 
 # Train with config file
 python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
 
-# Resume training from checkpoint
-python -m quadcopter_tracking.train --resume checkpoints/train_xxx_epoch0050.pt
+# Resume deep training from checkpoint
+python -m quadcopter_tracking.train --controller deep --resume checkpoints/train_xxx_epoch0050.pt
+```
+
+### Using Makefile Commands
+
+```bash
+# Train deep controller
+make train-deep EPOCHS=100 SEED=42
+
+# Run PID evaluation
+make train-pid EPOCHS=10
+
+# Run LQR evaluation
+make train-lqr EPOCHS=10
 ```
 
 ### Training Configuration
@@ -209,6 +236,7 @@ Configure training via YAML files or command line:
 
 ```bash
 python -m quadcopter_tracking.train \
+    --controller deep \
     --epochs 200 \
     --lr 0.001 \
     --hidden-sizes 128 128 \
@@ -230,6 +258,7 @@ Enable training diagnostics to analyze behavior and troubleshoot issues:
 ```bash
 # Enable diagnostics via command line
 python -m quadcopter_tracking.train \
+    --controller deep \
     --epochs 50 \
     --diagnostics \
     --diagnostics-log-interval 1
@@ -279,7 +308,13 @@ The evaluation pipeline assesses controller performance against success criteria
 
 ```bash
 # Evaluate a trained deep learning controller
-python -m quadcopter_tracking.eval --checkpoint checkpoints/best.pt --episodes 10
+python -m quadcopter_tracking.eval --controller deep --checkpoint checkpoints/best.pt --episodes 10
+
+# Evaluate PID controller
+python -m quadcopter_tracking.eval --controller pid --episodes 10
+
+# Evaluate LQR controller
+python -m quadcopter_tracking.eval --controller lqr --episodes 10
 
 # Evaluate with specific motion type
 python -m quadcopter_tracking.eval \
@@ -287,9 +322,15 @@ python -m quadcopter_tracking.eval \
     --checkpoint checkpoints/model.pt \
     --motion-type circular \
     --episodes 20
+```
 
-# Evaluate classical controllers
-python -m quadcopter_tracking.eval --controller lqr --episodes 10
+### Using Makefile Commands
+
+```bash
+# Evaluate different controllers
+make eval-deep EPISODES=10
+make eval-pid EPISODES=10
+make eval-lqr EPISODES=10
 ```
 
 ### Success Criteria

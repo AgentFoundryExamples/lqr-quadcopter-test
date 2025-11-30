@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Training Script for Deep Learning Quadcopter Controllers
+Training Script for Quadcopter Controllers
 
-This script provides a complete training pipeline for neural network controllers:
+This script provides a complete training pipeline for controllers:
+- Supports deep learning, PID, and LQR controllers via --controller flag
 - Configurable via YAML/JSON files or CLI arguments
-- Episode-based gradient descent with multiple optimization strategies
+- Episode-based gradient descent for deep controllers
+- Evaluation-only mode for classical controllers (PID, LQR)
 - Experiment tracking with CSV/JSON logs and checkpointing
 - NaN detection and optimizer recovery
 - Support for curriculum learning and adaptive weighting
@@ -13,6 +15,8 @@ This script provides a complete training pipeline for neural network controllers
 Usage:
     python -m quadcopter_tracking.train --config configs/training.yaml
     python -m quadcopter_tracking.train --epochs 100 --lr 0.001 --seed 42
+    python -m quadcopter_tracking.train --controller pid --episodes-per-epoch 5
+    python -m quadcopter_tracking.train --controller lqr --motion-type stationary
     python -m quadcopter_tracking.train --epochs 50 --diagnostics  # Enable diagnostics
 """
 
@@ -30,7 +34,12 @@ import torch
 import torch.optim as optim
 import yaml
 
-from quadcopter_tracking.controllers.deep_tracking_policy import DeepTrackingPolicy
+from quadcopter_tracking.controllers import (
+    BaseController,
+    DeepTrackingPolicy,
+    LQRController,
+    PIDController,
+)
 from quadcopter_tracking.env import EnvConfig, QuadcopterEnv
 from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
 from quadcopter_tracking.utils.losses import (
@@ -50,6 +59,8 @@ class TrainingConfig:
 
     def __init__(
         self,
+        # Controller type
+        controller: str = "deep",
         # Training parameters
         epochs: int = 100,
         episodes_per_epoch: int = 10,
@@ -100,6 +111,15 @@ class TrainingConfig:
         diagnostics_output_dir: str | None = None,
         diagnostics_generate_plots: bool = True,
     ):
+        # Validate and set controller type
+        valid_controllers = ("deep", "lqr", "pid")
+        if controller not in valid_controllers:
+            raise ValueError(
+                f"Invalid controller type: '{controller}'. "
+                f"Valid choices are: {', '.join(valid_controllers)}"
+            )
+        self.controller = controller
+
         self.epochs = epochs
         self.episodes_per_epoch = episodes_per_epoch
         self.max_steps_per_episode = max_steps_per_episode
@@ -175,6 +195,7 @@ class TrainingConfig:
     def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return {
+            "controller": self.controller,
             "epochs": self.epochs,
             "episodes_per_epoch": self.episodes_per_epoch,
             "max_steps_per_episode": self.max_steps_per_episode,
@@ -218,10 +239,14 @@ class TrainingConfig:
 
 class Trainer:
     """
-    Training loop for deep learning controllers.
+    Training loop for quadcopter controllers.
 
-    Handles episode collection, gradient computation, optimization,
-    checkpointing, logging, and optional diagnostics.
+    For deep learning controllers: handles episode collection, gradient computation,
+    optimization, checkpointing, logging, and optional diagnostics.
+
+    For classical controllers (PID, LQR): runs evaluation episodes to generate
+    metrics and logs, but skips training-specific steps like gradient updates
+    and checkpointing.
     """
 
     def __init__(self, config: TrainingConfig):
@@ -233,21 +258,14 @@ class Trainer:
         """
         self.config = config
         self.device = torch.device(config.device)
+        self.is_deep_controller = config.controller == "deep"
 
-        # Create controller
-        controller_config = {
-            "hidden_sizes": config.hidden_sizes,
-            "activation": config.activation,
-            "output_bounds": {
-                "thrust": (0.0, 20.0),
-                "roll_rate": (-3.0, 3.0),
-                "pitch_rate": (-3.0, 3.0),
-                "yaw_rate": (-3.0, 3.0),
-            },
-        }
-        self.controller = DeepTrackingPolicy(
-            config=controller_config, device=config.device
-        )
+        # Create controller based on type
+        self.controller = self._create_controller()
+
+        # Warn about incompatible config options for classical controllers
+        if not self.is_deep_controller:
+            self._warn_incompatible_options()
 
         # Create environment
         env_config = EnvConfig()
@@ -257,7 +275,7 @@ class Trainer:
         env_config.success_criteria.target_radius = config.target_radius
         self.env = QuadcopterEnv(config=env_config)
 
-        # Create loss function
+        # Create loss function (used for deep training and metrics logging)
         loss_config = {
             "position_weight": config.position_weight,
             "velocity_weight": config.velocity_weight,
@@ -270,8 +288,11 @@ class Trainer:
         }
         self.loss_fn = create_loss_from_config(loss_config)
 
-        # Create optimizer
-        self.optimizer = self._create_optimizer()
+        # Create optimizer (only for deep controllers)
+        if self.is_deep_controller:
+            self.optimizer = self._create_optimizer()
+        else:
+            self.optimizer = None
 
         # Setup logging
         self.loss_logger = LossLogger()
@@ -279,7 +300,8 @@ class Trainer:
 
         # Setup directories
         self.checkpoint_dir = Path(config.checkpoint_dir)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        if self.is_deep_controller:
+            self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir = Path(config.log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -292,7 +314,7 @@ class Trainer:
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d_%H%M%S_%f"
         )
-        self.experiment_id = f"train_{timestamp}_{config.env_seed}"
+        self.experiment_id = f"train_{config.controller}_{timestamp}_{config.env_seed}"
 
         # Step counter for diagnostics
         self._step_counter = 0
@@ -306,7 +328,8 @@ class Trainer:
                 enabled=config.diagnostics_enabled,
                 log_observations=config.diagnostics_log_observations,
                 log_actions=config.diagnostics_log_actions,
-                log_gradients=config.diagnostics_log_gradients,
+                log_gradients=config.diagnostics_log_gradients
+                and self.is_deep_controller,
                 log_interval=config.diagnostics_log_interval,
                 output_dir=diag_output_dir,
                 generate_plots=config.diagnostics_generate_plots,
@@ -315,6 +338,57 @@ class Trainer:
         )
         if config.diagnostics_enabled:
             logger.info("Diagnostics enabled, output: %s", diag_output_dir)
+
+    def _create_controller(self) -> BaseController:
+        """Create controller based on config type."""
+        config = self.config
+
+        if config.controller == "deep":
+            controller_config = {
+                "hidden_sizes": config.hidden_sizes,
+                "activation": config.activation,
+                "output_bounds": {
+                    "thrust": (0.0, 20.0),
+                    "roll_rate": (-3.0, 3.0),
+                    "pitch_rate": (-3.0, 3.0),
+                    "yaw_rate": (-3.0, 3.0),
+                },
+            }
+            return DeepTrackingPolicy(config=controller_config, device=config.device)
+        elif config.controller == "pid":
+            return PIDController(config={})
+        elif config.controller == "lqr":
+            return LQRController(config={})
+        else:
+            raise ValueError(f"Unknown controller type: {config.controller}")
+
+    def _warn_incompatible_options(self) -> None:
+        """Warn about options that don't apply to classical controllers."""
+        config = self.config
+        warnings = []
+
+        # Deep-specific options that are ignored for classical controllers
+        if config.learning_rate != 0.001:
+            warnings.append("learning_rate (classical controllers don't train)")
+        if config.optimizer != "adam":
+            warnings.append("optimizer (classical controllers don't train)")
+        if config.hidden_sizes != [64, 64]:
+            warnings.append("hidden_sizes (classical controllers have no network)")
+        if config.grad_clip != 1.0:
+            warnings.append("grad_clip (classical controllers don't use gradients)")
+        if config.use_curriculum:
+            warnings.append("use_curriculum (classical controllers don't train)")
+        if config.checkpoint_interval != 10:
+            warnings.append(
+                "checkpoint_interval (classical controllers don't save checkpoints)"
+            )
+
+        if warnings:
+            logger.warning(
+                "The following config options are ignored for %s controller: %s",
+                config.controller,
+                ", ".join(warnings),
+            )
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create optimizer based on config."""
@@ -346,26 +420,39 @@ class Trainer:
         """
         Run the training loop.
 
+        For deep controllers: runs full gradient-based training.
+        For classical controllers: runs evaluation episodes without training.
+
         Returns:
             Dictionary with training results and final metrics.
         """
-        logger.info("Starting training with config: %s", self.experiment_id)
+        logger.info(
+            "Starting %s with config: %s",
+            "training" if self.is_deep_controller else "evaluation",
+            self.experiment_id,
+        )
+        logger.info("Controller: %s", self.config.controller)
         logger.info("Device: %s", self.device)
         logger.info("Epochs: %d", self.config.epochs)
 
         # Save initial config
         self._save_config()
 
-        self.controller.train_mode()
+        # Set controller mode (only deep controllers have train_mode)
+        if self.is_deep_controller:
+            self.controller.train_mode()
 
         for epoch in range(self.config.epochs):
             self.current_epoch = epoch
 
-            # Get curriculum difficulty if enabled
+            # Get curriculum difficulty if enabled (deep only)
             difficulty = self._get_curriculum_difficulty(epoch)
 
-            # Run training epoch
-            epoch_metrics = self._train_epoch(difficulty)
+            # Run training/evaluation epoch
+            if self.is_deep_controller:
+                epoch_metrics = self._train_epoch(difficulty)
+            else:
+                epoch_metrics = self._evaluate_epoch()
 
             # End epoch logging
             epoch_losses = self.loss_logger.end_epoch()
@@ -378,30 +465,108 @@ class Trainer:
             if epoch % self.config.log_interval == 0:
                 self._log_epoch(epoch, epoch_metrics)
 
-            # Save checkpoint
-            if (epoch + 1) % self.config.checkpoint_interval == 0:
-                self._save_checkpoint(epoch, epoch_metrics)
+            # Save checkpoint (deep controllers only)
+            if self.is_deep_controller:
+                if (epoch + 1) % self.config.checkpoint_interval == 0:
+                    self._save_checkpoint(epoch, epoch_metrics)
 
-            # Save best model
-            current_loss = epoch_metrics.get("total", float("inf"))
-            if self.config.save_best and current_loss < self.best_loss:
-                self.best_loss = epoch_metrics["total"]
-                self._save_checkpoint(epoch, epoch_metrics, is_best=True)
+                # Save best model
+                current_loss = epoch_metrics.get("total", float("inf"))
+                if self.config.save_best and current_loss < self.best_loss:
+                    self.best_loss = epoch_metrics["total"]
+                    self._save_checkpoint(epoch, epoch_metrics, is_best=True)
 
-            # Check for training failure
-            if self._check_training_failure(epoch_metrics):
-                if not self._recover_from_nan():
-                    logger.error("Training failed, could not recover")
-                    break
+                # Check for training failure
+                if self._check_training_failure(epoch_metrics):
+                    if not self._recover_from_nan():
+                        logger.error("Training failed, could not recover")
+                        break
 
-        # Save final model and logs
-        self._save_checkpoint(self.current_epoch, {}, is_final=True)
+        # Save final model and logs (deep controllers only save checkpoints)
+        if self.is_deep_controller:
+            self._save_checkpoint(self.current_epoch, {}, is_final=True)
         self._save_experiment_log()
 
         # Save diagnostics if enabled
         self._save_diagnostics()
 
         return self._get_training_summary()
+
+    def _evaluate_epoch(self) -> dict:
+        """
+        Run evaluation-only epoch for classical controllers.
+
+        Collects metrics without performing any training updates.
+        """
+        epoch_rewards = []
+        epoch_on_target_ratios = []
+        epoch_tracking_errors = []
+
+        for episode in range(self.config.episodes_per_epoch):
+            # Reset environment with episode-specific seed
+            episode_seed = self.config.env_seed + self.current_epoch * 1000 + episode
+            obs = self.env.reset(seed=episode_seed)
+
+            # Reset controller state (important for PID integral error)
+            self.controller.reset()
+
+            episode_data = []
+            done = False
+            step = 0
+
+            while not done and step < self.config.max_steps_per_episode:
+                # Compute action using classical controller
+                action = self.controller.compute_action(obs)
+
+                # Step environment
+                next_obs, reward, done, info = self.env.step(action)
+
+                # Store step data for metrics computation
+                episode_data.append(
+                    {
+                        "obs": obs,
+                        "next_obs": next_obs,
+                        "action": action,
+                        "reward": reward,
+                        "info": info,
+                    }
+                )
+
+                obs = next_obs
+                step += 1
+
+            # Compute episode metrics
+            if info:
+                epoch_rewards.append(sum(d["reward"] for d in episode_data))
+                epoch_on_target_ratios.append(info.get("on_target_ratio", 0.0))
+                epoch_tracking_errors.append(info.get("tracking_error", 0.0))
+
+            # Log placeholder loss values for consistency
+            last_error = (
+                epoch_tracking_errors[-1] if epoch_tracking_errors else 0.0
+            )
+            self.loss_logger.log(
+                {
+                    "total": last_error,
+                    "position": last_error,
+                    "velocity": 0.0,
+                    "control": 0.0,
+                }
+            )
+
+        # Compute metrics
+        mean_reward = np.mean(epoch_rewards) if epoch_rewards else 0.0
+        mean_on_target = (
+            np.mean(epoch_on_target_ratios) if epoch_on_target_ratios else 0.0
+        )
+        mean_error = np.mean(epoch_tracking_errors) if epoch_tracking_errors else 0.0
+
+        return {
+            "mean_reward": mean_reward,
+            "mean_on_target_ratio": mean_on_target,
+            "mean_tracking_error": mean_error,
+            "difficulty": 1.0,
+        }
 
     def _train_epoch(self, difficulty: float = 1.0) -> dict:
         """Run a single training epoch."""
@@ -613,8 +778,9 @@ class Trainer:
 
     def _log_epoch(self, epoch: int, metrics: dict) -> None:
         """Log epoch metrics."""
+        controller_label = self.config.controller.upper()
         log_msg = (
-            f"Epoch {epoch:4d} | "
+            f"[{controller_label}] Epoch {epoch:4d} | "
             f"Loss: {metrics.get('total', 0.0):.4f} | "
             f"Reward: {metrics.get('mean_reward', 0.0):.2f} | "
             f"On-target: {metrics.get('mean_on_target_ratio', 0.0):.1%} | "
@@ -622,10 +788,11 @@ class Trainer:
         )
         logger.info(log_msg)
 
-        # Store for experiment log
+        # Store for experiment log (include controller type for comparison)
         self.experiment_log.append(
             {
                 "epoch": epoch,
+                "controller": self.config.controller,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 **metrics,
             }
@@ -698,11 +865,12 @@ class Trainer:
         logger.info("Saved diagnostics to %s", self.diagnostics.output_dir)
 
     def _get_training_summary(self) -> dict:
-        """Get summary of training results."""
+        """Get summary of training/evaluation results."""
         best_epoch, best_loss = self.loss_logger.get_best_epoch("total")
 
-        return {
+        summary = {
             "experiment_id": self.experiment_id,
+            "controller": self.config.controller,
             "epochs_completed": self.current_epoch + 1,
             "best_epoch": best_epoch,
             "best_loss": best_loss,
@@ -711,10 +879,15 @@ class Trainer:
                 if self.experiment_log
                 else float("inf")
             ),
-            "nan_recoveries": self.nan_recovery_count,
-            "checkpoint_dir": str(self.checkpoint_dir),
             "log_dir": str(self.log_dir),
         }
+
+        # Add deep-specific fields only for deep controllers
+        if self.is_deep_controller:
+            summary["nan_recoveries"] = self.nan_recovery_count
+            summary["checkpoint_dir"] = str(self.checkpoint_dir)
+
+        return summary
 
 
 def load_checkpoint_and_resume(trainer: Trainer, checkpoint_path: str | Path) -> int:
@@ -738,7 +911,7 @@ def load_checkpoint_and_resume(trainer: Trainer, checkpoint_path: str | Path) ->
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Train deep learning controller for quadcopter tracking"
+        description="Train or evaluate quadcopter tracking controllers"
     )
 
     # Config file
@@ -746,6 +919,15 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=str,
         help="Path to YAML/JSON configuration file",
+    )
+
+    # Controller selection
+    parser.add_argument(
+        "--controller",
+        type=str,
+        choices=["deep", "lqr", "pid"],
+        default=None,
+        help="Controller type to train/evaluate (default: deep)",
     )
 
     # Training parameters
@@ -844,21 +1026,34 @@ def main() -> int:
             setattr(config, key, value)
 
     # Create trainer
-    trainer = Trainer(config)
+    try:
+        trainer = Trainer(config)
+    except ValueError as e:
+        logger.error("Configuration error: %s", e)
+        return 1
 
-    # Resume from checkpoint if specified
+    # Resume from checkpoint if specified (deep controllers only)
     if args.resume:
-        load_checkpoint_and_resume(trainer, args.resume)
+        if config.controller != "deep":
+            logger.warning(
+                "Ignoring --resume flag for %s controller (classical controllers "
+                "don't support checkpoint resumption)",
+                config.controller,
+            )
+        else:
+            load_checkpoint_and_resume(trainer, args.resume)
 
-    # Run training
+    # Run training/evaluation
     try:
         summary = trainer.train()
-        logger.info("Training complete!")
+        mode = "Training" if trainer.is_deep_controller else "Evaluation"
+        logger.info("%s complete!", mode)
         logger.info("Summary: %s", json.dumps(summary, indent=2))
         return 0
     except KeyboardInterrupt:
-        logger.info("Training interrupted by user")
-        trainer._save_checkpoint(trainer.current_epoch, {}, is_final=True)
+        logger.info("Interrupted by user")
+        if trainer.is_deep_controller:
+            trainer._save_checkpoint(trainer.current_epoch, {}, is_final=True)
         return 1
 
 
