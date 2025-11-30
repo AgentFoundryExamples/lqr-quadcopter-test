@@ -5,6 +5,7 @@ This package provides shared utilities for the quadcopter tracking project:
 - Configuration loading (YAML/JSON with environment variable overrides)
 - Data logging for experiment tracking
 - Plotting utilities for visualization
+- Loss functions for training
 - Common math/helper functions
 
 Design Philosophy:
@@ -23,7 +24,25 @@ import numpy as np
 import yaml
 from dotenv import load_dotenv
 
-__all__ = ["load_config", "DataLogger", "Plotter", "get_default_config"]
+from .losses import (
+    CombinedLoss,
+    LossLogger,
+    RewardShapingLoss,
+    TrackingLoss,
+    create_loss_from_config,
+)
+
+__all__ = [
+    "load_config",
+    "DataLogger",
+    "Plotter",
+    "get_default_config",
+    "TrackingLoss",
+    "RewardShapingLoss",
+    "CombinedLoss",
+    "LossLogger",
+    "create_loss_from_config",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +139,7 @@ def load_config(
                 elif config_path.suffix == ".json":
                     file_config = json.load(f)
                 else:
-                    raise ValueError(
-                        f"Unsupported config format: {config_path.suffix}"
-                    )
+                    raise ValueError(f"Unsupported config format: {config_path.suffix}")
         except PermissionError as e:
             raise PermissionError(
                 f"Cannot read configuration file: {config_path}"

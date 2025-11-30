@@ -1,0 +1,50 @@
+# Large network configuration for complex tracking tasks
+# Uses deeper network and more extensive training for challenging scenarios.
+
+# Extended training
+epochs: 500
+episodes_per_epoch: 20
+max_steps_per_episode: 3000
+batch_size: 64
+
+# Optimizer parameters
+learning_rate: 0.0005  # Lower LR for larger network
+optimizer: adamw  # AdamW for better regularization
+weight_decay: 0.01
+grad_clip: 1.0
+
+# Larger network architecture
+hidden_sizes: [128, 128, 64]
+activation: leaky_relu
+
+# Loss function weights (emphasize position tracking)
+position_weight: 2.0
+velocity_weight: 0.5
+control_weight: 0.001  # Less penalty on control
+error_type: huber  # More robust to outliers
+tracking_weight: 1.0
+reward_weight: 0.1  # Include some reward shaping
+
+# Environment parameters
+env_seed: 42
+target_motion_type: figure8  # Complex motion pattern
+episode_length: 60.0  # Longer episodes
+target_radius: 0.5
+
+# Checkpointing
+checkpoint_dir: checkpoints/large
+checkpoint_interval: 25
+save_best: true
+
+# Logging
+log_dir: experiments/logs/large
+log_interval: 5
+
+# Curriculum learning enabled
+use_curriculum: true
+curriculum_start_difficulty: 0.3
+curriculum_end_difficulty: 1.0
+
+# Recovery settings
+nan_recovery_attempts: 5
+lr_reduction_factor: 0.3
