@@ -323,13 +323,14 @@ class Trainer:
         diag_output_dir = config.diagnostics_output_dir or str(
             self.log_dir / "diagnostics"
         )
+        # Only log gradients for deep controllers (classical controllers don't train)
+        log_gradients = config.diagnostics_log_gradients and self.is_deep_controller
         self.diagnostics = Diagnostics(
             config=DiagnosticsConfig(
                 enabled=config.diagnostics_enabled,
                 log_observations=config.diagnostics_log_observations,
                 log_actions=config.diagnostics_log_actions,
-                log_gradients=config.diagnostics_log_gradients
-                and self.is_deep_controller,
+                log_gradients=log_gradients,
                 log_interval=config.diagnostics_log_interval,
                 output_dir=diag_output_dir,
                 generate_plots=config.diagnostics_generate_plots,
