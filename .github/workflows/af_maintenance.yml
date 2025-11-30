@@ -1,0 +1,147 @@
+name: Agent Foundry Maintenance
+
+on:
+  push:
+    branches:
+      - main  # runs when PRs are merged into main (and any direct pushes)
+
+permissions:
+  contents: write
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    # Optional: avoid re-running on the bot's own maintenance commit
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # 3.11+ is required; 3.12 is fine
+
+      - name: Install repository analyzer from GitHub
+        run: |
+          pip install "git+https://github.com/AgentFoundryExamples/repo-summarizer-v1.git@main"
+
+      - name: Install license header CLI from GitHub
+        run: |
+          pip install "git+https://github.com/AgentFoundryExamples/license-header.git@main"
+
+      - name: Write repo-analyzer config
+        run: |
+          mkdir -p .github/af-config
+          cat << 'EOF' > .github/af-config/repo-analyzer.config.json
+          {
+            "output_dir": "repo-analysis-output",
+            "dry_run": false,
+            "tree_config": {
+              "max_depth": null,
+              "exclude_patterns": [
+                ".git",
+                "__pycache__",
+                "*.pyc",
+                "node_modules",
+                ".venv",
+                "venv"
+              ]
+            },
+            "file_summary_config": {
+              "max_file_size_kb": 1024,
+              "include_patterns": [
+                "*.py"
+              ],
+              "detail_level": "detailed",
+              "include_legacy_summary": false
+            },
+            "dependency_config": {
+              "scan_package_files": true,
+              "package_files": [
+                "requirements.txt",
+                "Pipfile",
+                "pyproject.toml",
+                "setup.cfg",
+                "setup.py",
+                "package.json",
+                "go.mod",
+                "Cargo.toml"
+              ]
+            }
+          }
+          EOF
+
+      - name: Write license header template
+        run: |
+          mkdir -p .github/af-config
+          cat << 'EOF' > .github/af-config/LICENSE_HEADER
+          # ============================================================
+          # SPDX-License-Identifier: GPL-3.0-or-later
+          # This program was generated as part of the AgentFoundry project.
+          # Copyright (C) 2025  John Brosnihan
+          #
+          # This program is free software: you can redistribute it and/or modify
+          # it under the terms of the GNU General Public License as published by
+          # the Free Software Foundation, either version 3 of the License, or
+          # (at your option) any later version.
+          #
+          # This program is distributed in the hope that it will be useful,
+          # but WITHOUT ANY WARRANTY; without even the implied warranty of
+          # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+          # GNU General Public License for more details.
+          #
+          # You should have received a copy of the GNU General Public License
+          # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+          # ============================================================
+          EOF
+
+      - name: Write license-header config
+        run: |
+          mkdir -p .github/af-config
+          cat << 'EOF' > .github/af-config/license-header.config.json
+          {
+            "header_file": ".github/af-config/LICENSE_HEADER",
+            "include_extensions": [
+              ".py"
+            ],
+            "exclude_paths": [
+              ".git",
+              "__pycache__",
+              "node_modules",
+              "venv",
+              ".venv",
+              "env",
+              "dist",
+              "build",
+              "repo-analysis-output",
+              ".github/af-config"
+            ],
+            "output_dir": null
+          }
+          EOF
+
+      - name: Apply license headers
+        run: |
+          license-header apply \
+            --config .github/af-config/license-header.config.json
+
+      - name: Run repo analyzer
+        run: |
+          repo-analyzer scan \
+            --config .github/af-config/repo-analyzer.config.json
+
+      - name: Commit changes (if any)
+        run: |
+          if git status --porcelain | grep .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "chore: apply Agent Foundry maintenance"
+            git push
+          else
+            echo "No changes to commit."
+          fi

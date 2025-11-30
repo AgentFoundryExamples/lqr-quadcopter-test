@@ -1,0 +1,19 @@
+{
+  "header_file": ".github/af-config/LICENSE_HEADER",
+  "include_extensions": [
+    ".py"
+  ],
+  "exclude_paths": [
+    ".git",
+    "__pycache__",
+    "node_modules",
+    "venv",
+    ".venv",
+    "env",
+    "dist",
+    "build",
+    "repo-analysis-output",
+    ".github/af-config"
+  ],
+  "output_dir": null
+}

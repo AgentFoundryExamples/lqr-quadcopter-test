@@ -1,0 +1,36 @@
+{
+  "output_dir": "repo-analysis-output",
+  "dry_run": false,
+  "tree_config": {
+    "max_depth": null,
+    "exclude_patterns": [
+      ".git",
+      "__pycache__",
+      "*.pyc",
+      "node_modules",
+      ".venv",
+      "venv"
+    ]
+  },
+  "file_summary_config": {
+    "max_file_size_kb": 1024,
+    "include_patterns": [
+      "*.py"
+    ],
+    "detail_level": "detailed",
+    "include_legacy_summary": false
+  },
+  "dependency_config": {
+    "scan_package_files": true,
+    "package_files": [
+      "requirements.txt",
+      "Pipfile",
+      "pyproject.toml",
+      "setup.cfg",
+      "setup.py",
+      "package.json",
+      "go.mod",
+      "Cargo.toml"
+    ]
+  }
+}
