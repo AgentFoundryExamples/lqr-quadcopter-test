@@ -4,14 +4,14 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 15
+Total files: 18
 
 ## src/quadcopter_tracking/__init__.py
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 0.83 KB  
-**LOC:** 33  
+**Size:** 1.15 KB  
+**LOC:** 44  
 **TODOs/FIXMEs:** 0  
 
 ## src/quadcopter_tracking/controllers/__init__.py
@@ -113,6 +113,25 @@ Total files: 15
   - **Stdlib:** `math`, `typing.Protocol`
   - **Third-party:** `numpy`
 
+## src/quadcopter_tracking/eval.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 22.97 KB  
+**LOC:** 600  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 5  
+**Top-level declarations:**
+  - class Evaluator
+  - function load_controller
+  - function run_hyperparameter_sweep
+  - function parse_args
+  - function main
+**External Dependencies:**
+  - **Stdlib:** `argparse`, `collections.abc.Callable`, `datetime.datetime`, `datetime.timezone`, `json`
+    _(and 3 more)_
+  - **Third-party:** `matplotlib`, `matplotlib.pyplot`, `numpy`, `yaml`
+
 ## src/quadcopter_tracking/train.py
 **Language:** Python  
 **Role:** implementation  
@@ -136,8 +155,8 @@ Total files: 15
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 11.80 KB  
-**LOC:** 322  
+**Size:** 12.37 KB  
+**LOC:** 344  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -169,6 +188,29 @@ Total files: 15
 **External Dependencies:**
   - **Stdlib:** `logging`, `typing.Literal`
   - **Third-party:** `numpy`, `torch`, `torch.nn`
+
+## src/quadcopter_tracking/utils/metrics.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 14.77 KB  
+**LOC:** 354  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 10  
+**Top-level declarations:**
+  - class SuccessCriteria
+  - class EpisodeMetrics
+  - class EvaluationSummary
+  - function compute_tracking_error
+  - function compute_on_target_ratio
+  - function compute_control_effort
+  - function detect_overshoots
+  - function compute_episode_metrics
+  - function compute_evaluation_summary
+  - function format_metrics_report
+**External Dependencies:**
+  - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `logging`
+  - **Third-party:** `numpy`
 
 ## tests/__init__.py
 **Language:** Python  
@@ -210,6 +252,25 @@ Total files: 15
   - class TestIntegration
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
+
+## tests/test_eval.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Size:** 15.75 KB  
+**LOC:** 357  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 7  
+**Top-level declarations:**
+  - class TestMetrics
+  - class TestEpisodeMetrics
+  - class TestEvaluationSummary
+  - class TestSuccessCriteria
+  - class TestEvaluator
+  - class TestLoadController
+  - class TestIntegration
+**External Dependencies:**
+  - **Third-party:** `matplotlib.pyplot`, `numpy`, `pytest`
 
 ## tests/test_training_loop.py
 **Language:** Python  

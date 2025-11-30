@@ -10,6 +10,7 @@
 ├── docs
   ├── architecture.md
   ├── environment.md
+  ├── results.md
   └── training.md
 ├── experiments
   └── configs
@@ -24,6 +25,10 @@
   ├── SUMMARY.md
   ├── tree.json
   └── tree.md
+├── reports
+  ├── plots
+    └── .gitkeep
+  └── .gitkeep
 ├── src
   └── quadcopter_tracking
     ├── controllers
@@ -37,13 +42,16 @@
       └── target_motion.py
     ├── utils
       ├── __init__.py
-      └── losses.py
+      ├── losses.py
+      └── metrics.py
     ├── __init__.py
+    ├── eval.py
     └── train.py
 ├── tests
   ├── __init__.py
   ├── test_config.py
   ├── test_env_dynamics.py
+  ├── test_eval.py
   └── test_training_loop.py
 ├── .env.example
 ├── .gitignore

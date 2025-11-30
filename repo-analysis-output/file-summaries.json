@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 15,
+  "total_files": 18,
   "files": [
     {
       "schema_version": "2.0",
@@ -9,8 +9,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 851,
-        "loc": 33,
+        "size_bytes": 1173,
+        "loc": 44,
         "todo_count": 0
       },
       "structure": {
@@ -242,6 +242,50 @@
     },
     {
       "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/eval.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 23523,
+        "loc": 600,
+        "todo_count": 0,
+        "declaration_count": 5
+      },
+      "structure": {
+        "declarations": [
+          "class Evaluator",
+          "function load_controller",
+          "function run_hyperparameter_sweep",
+          "function parse_args",
+          "function main"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "argparse",
+            "collections.abc.Callable",
+            "datetime.datetime",
+            "datetime.timezone",
+            "json",
+            "logging",
+            "pathlib.Path",
+            "sys"
+          ],
+          "third-party": [
+            "matplotlib",
+            "matplotlib.pyplot",
+            "numpy",
+            "yaml"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
       "path": "src/quadcopter_tracking/train.py",
       "language": "Python",
       "role": "implementation",
@@ -291,8 +335,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 12088,
-        "loc": 322,
+        "size_bytes": 12667,
+        "loc": 344,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -360,6 +404,47 @@
             "numpy",
             "torch",
             "torch.nn"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/utils/metrics.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 15127,
+        "loc": 354,
+        "todo_count": 0,
+        "declaration_count": 10
+      },
+      "structure": {
+        "declarations": [
+          "class SuccessCriteria",
+          "class EpisodeMetrics",
+          "class EvaluationSummary",
+          "function compute_tracking_error",
+          "function compute_on_target_ratio",
+          "function compute_control_effort",
+          "function detect_overshoots",
+          "function compute_episode_metrics",
+          "function compute_evaluation_summary",
+          "function format_metrics_report"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "dataclasses.dataclass",
+            "dataclasses.field",
+            "logging"
+          ],
+          "third-party": [
+            "numpy"
           ]
         }
       }
@@ -446,6 +531,42 @@
         "external": {
           "stdlib": [],
           "third-party": [
+            "numpy",
+            "pytest"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_eval.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "metrics": {
+        "size_bytes": 16127,
+        "loc": 357,
+        "todo_count": 0,
+        "declaration_count": 7
+      },
+      "structure": {
+        "declarations": [
+          "class TestMetrics",
+          "class TestEpisodeMetrics",
+          "class TestEvaluationSummary",
+          "class TestSuccessCriteria",
+          "class TestEvaluator",
+          "class TestLoadController",
+          "class TestIntegration"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [],
+          "third-party": [
+            "matplotlib.pyplot",
             "numpy",
             "pytest"
           ]

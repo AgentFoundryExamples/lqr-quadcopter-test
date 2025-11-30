@@ -95,6 +95,29 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/eval.py",
+      "path": "src/quadcopter_tracking/eval.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "argparse",
+          "collections.abc.Callable",
+          "datetime.datetime",
+          "datetime.timezone",
+          "json",
+          "logging",
+          "pathlib.Path",
+          "sys"
+        ],
+        "third-party": [
+          "matplotlib",
+          "matplotlib.pyplot",
+          "numpy",
+          "yaml"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/train.py",
       "path": "src/quadcopter_tracking/train.py",
       "type": "file",
@@ -154,6 +177,21 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/utils/metrics.py",
+      "path": "src/quadcopter_tracking/utils/metrics.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "dataclasses.dataclass",
+          "dataclasses.field",
+          "logging"
+        ],
+        "third-party": [
+          "numpy"
+        ]
+      }
+    },
+    {
       "id": "tests/__init__.py",
       "path": "tests/__init__.py",
       "type": "file",
@@ -181,6 +219,19 @@
       "external_dependencies": {
         "stdlib": [],
         "third-party": [
+          "numpy",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_eval.py",
+      "path": "tests/test_eval.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "matplotlib.pyplot",
           "numpy",
           "pytest"
         ]
@@ -225,6 +276,18 @@
       "target": "src/quadcopter_tracking/env/target_motion.py"
     },
     {
+      "source": "src/quadcopter_tracking/eval.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/eval.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/eval.py",
+      "target": "src/quadcopter_tracking/utils/metrics.py"
+    },
+    {
       "source": "src/quadcopter_tracking/train.py",
       "target": "src/quadcopter_tracking/controllers/deep_tracking_policy.py"
     },
@@ -241,12 +304,32 @@
       "target": "src/quadcopter_tracking/utils/losses.py"
     },
     {
+      "source": "src/quadcopter_tracking/utils/__init__.py",
+      "target": "src/quadcopter_tracking/utils/metrics.py"
+    },
+    {
       "source": "tests/test_config.py",
       "target": "src/quadcopter_tracking/utils/__init__.py"
     },
     {
       "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "tests/test_eval.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
+    },
+    {
+      "source": "tests/test_eval.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "tests/test_eval.py",
+      "target": "src/quadcopter_tracking/eval.py"
+    },
+    {
+      "source": "tests/test_eval.py",
+      "target": "src/quadcopter_tracking/utils/metrics.py"
     },
     {
       "source": "tests/test_training_loop.py",
@@ -268,10 +351,13 @@
   "external_dependencies_summary": {
     "stdlib": [
       "argparse",
+      "collections.abc.Callable",
       "csv",
       "dataclasses.dataclass",
       "dataclasses.field",
       "datetime",
+      "datetime.datetime",
+      "datetime.timezone",
       "json",
       "logging",
       "math",
@@ -285,6 +371,7 @@
     ],
     "third-party": [
       "dotenv.load_dotenv",
+      "matplotlib",
       "matplotlib.pyplot",
       "numpy",
       "pytest",
@@ -293,7 +380,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 15,
-    "third-party_count": 8
+    "stdlib_count": 18,
+    "third-party_count": 9
   }
 }

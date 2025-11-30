@@ -50,6 +50,10 @@
         },
         {
           "type": "file",
+          "name": "results.md"
+        },
+        {
+          "type": "file",
           "name": "training.md"
         }
       ]
@@ -114,6 +118,26 @@
     },
     {
       "type": "directory",
+      "name": "reports",
+      "children": [
+        {
+          "type": "directory",
+          "name": "plots",
+          "children": [
+            {
+              "type": "file",
+              "name": ".gitkeep"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "name": ".gitkeep"
+        }
+      ]
+    },
+    {
+      "type": "directory",
       "name": "src",
       "children": [
         {
@@ -171,12 +195,20 @@
                 {
                   "type": "file",
                   "name": "losses.py"
+                },
+                {
+                  "type": "file",
+                  "name": "metrics.py"
                 }
               ]
             },
             {
               "type": "file",
               "name": "__init__.py"
+            },
+            {
+              "type": "file",
+              "name": "eval.py"
             },
             {
               "type": "file",
@@ -201,6 +233,10 @@
         {
           "type": "file",
           "name": "test_env_dynamics.py"
+        },
+        {
+          "type": "file",
+          "name": "test_eval.py"
         },
         {
           "type": "file",
