@@ -50,9 +50,11 @@ configurations:
 
   # Deep Controller - Neural network policy (requires trained checkpoint)
   # Uncomment and update checkpoint_path after training a model
+  # The checkpoint filename is generated during training - check checkpoints/
+  # for the actual filename (e.g., train_20240115_143022_42_best.pt)
   # - name: deep_trained
   #   controller_type: deep
-  #   checkpoint_path: checkpoints/train_YYYYMMDD_HHMMSS_42_best.pt
+  #   checkpoint_path: checkpoints/train_*_best.pt  # Update with actual filename
   #   num_episodes: 10
   #   seed: 42
   #   motion_type: circular

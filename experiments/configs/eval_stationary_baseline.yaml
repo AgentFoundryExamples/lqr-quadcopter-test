@@ -31,7 +31,7 @@ seed: 42
 target_motion_type: stationary
 
 # Episode duration in seconds
-# 30 seconds is the minimum for success criteria evaluation
+# Minimum 30 seconds recommended for reliable success criteria evaluation
 episode_length: 30.0
 
 # Target radius threshold (meters)
