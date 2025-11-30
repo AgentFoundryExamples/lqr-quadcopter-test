@@ -112,10 +112,15 @@ class PIDController(BaseController):
         ki = config.get("ki_pos", config.get("ki", [0.1, 0.1, 0.2]))
         kd = config.get("kd_pos", config.get("kd", [1.5, 1.5, 2.0]))
 
-        # Convert scalars to arrays
-        self.kp_pos = np.array(kp) if hasattr(kp, "__len__") else np.array([kp] * 3)
-        self.ki_pos = np.array(ki) if hasattr(ki, "__len__") else np.array([ki] * 3)
-        self.kd_pos = np.array(kd) if hasattr(kd, "__len__") else np.array([kd] * 3)
+        # Convert scalars to arrays using helper
+        def _ensure_array(value, size=3):
+            if hasattr(value, "__len__"):
+                return np.array(value)
+            return np.array([value] * size)
+
+        self.kp_pos = _ensure_array(kp)
+        self.ki_pos = _ensure_array(ki)
+        self.kd_pos = _ensure_array(kd)
 
         # Integral windup prevention
         self.integral_limit = config.get("integral_limit", 5.0)
@@ -173,23 +178,22 @@ class PIDController(BaseController):
         i_term = self.ki_pos * self.integral_error
         d_term = self.kd_pos * vel_error
 
-        # Total desired acceleration in world frame
-        desired_accel = p_term + i_term + d_term
+        # Total desired correction (scaled by gains, not true acceleration)
+        desired_correction = p_term + i_term + d_term
 
         # Map to control outputs:
-        # Z-axis: thrust = hover_thrust + z_accel * mass (simplified)
-        # We treat desired_accel[2] as thrust adjustment above hover
-        thrust = self.hover_thrust + desired_accel[2]
+        # Z-axis: thrust = hover_thrust + z_correction (direct addition in Newtons)
+        thrust = self.hover_thrust + desired_correction[2]
         thrust = float(np.clip(thrust, self.min_thrust, self.max_thrust))
 
         # X-axis: positive position error -> pitch forward (negative pitch rate)
         # Pitching nose down (negative pitch) accelerates forward (+X)
-        pitch_rate = -desired_accel[0]
+        pitch_rate = -desired_correction[0]
         pitch_rate = float(np.clip(pitch_rate, -self.max_rate, self.max_rate))
 
         # Y-axis: positive position error -> roll right (positive roll rate)
         # Rolling right (positive roll) accelerates right (+Y)
-        roll_rate = desired_accel[1]
+        roll_rate = desired_correction[1]
         roll_rate = float(np.clip(roll_rate, -self.max_rate, self.max_rate))
 
         # No yaw tracking in this basic implementation
@@ -303,9 +307,12 @@ class LQRController(BaseController):
         r_thrust = config.get("r_thrust", 0.1)
         r_rate = config.get("r_rate", 1.0)
 
-        # For a double integrator (position/velocity), the LQR gain is:
-        # K = [sqrt(q/r), sqrt(2*sqrt(q*r) + q/r)]
-        # This is an approximation for the full nonlinear quadcopter dynamics.
+        # For each axis, we treat the dynamics as a double integrator:
+        #   x'' = u (position, velocity, input)
+        # The LQR optimal gains for a 1D double integrator are:
+        #   K_pos = sqrt(q_pos / r)
+        #   K_vel = sqrt(2*sqrt(q_pos*r) + q_vel/r)
+        # We apply this formula per-axis to build the 4x6 gain matrix.
 
         # Initialize gain matrix: K maps [pos_err, vel_err] to [thrust, rates]
         K = np.zeros((4, 6))

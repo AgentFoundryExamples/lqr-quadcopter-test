@@ -988,6 +988,9 @@ class TestClassicalControllerIntegration:
         """Test controllers handle saturation gracefully."""
         from quadcopter_tracking.controllers import LQRController, PIDController
 
+        # Large position offset to test saturation (5m in each axis)
+        large_position_offset = [5.0, 5.0, 5.0]
+
         # Create a scenario with large initial error
         config = EnvConfig()
         config.simulation = SimulationParams(dt=0.01, max_episode_time=2.0)
@@ -999,7 +1002,7 @@ class TestClassicalControllerIntegration:
 
             # Manually set large position offset
             state = env.get_state_vector()
-            state[0:3] = [5.0, 5.0, 5.0]  # Far from target
+            state[0:3] = large_position_offset
             env.set_state_vector(state)
             obs = env.render()
 
