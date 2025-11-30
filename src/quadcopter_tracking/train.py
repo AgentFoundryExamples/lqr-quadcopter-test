@@ -205,7 +205,9 @@ class TrainingConfig:
         """Create config from dictionary."""
         valid_keys = cls.__init__.__code__.co_varnames
         filtered = {k: v for k, v in config_dict.items() if k in valid_keys}
-        return cls(**filtered)
+        instance = cls(**filtered)
+        instance.full_config = config_dict  # Store the original config
+        return instance
 
     @classmethod
     def from_file(cls, path: str | Path) -> "TrainingConfig":
@@ -289,6 +291,7 @@ class Trainer:
             config: Training configuration.
         """
         self.config = config
+        self.full_config = getattr(config, "full_config", {})
         self.device = torch.device(config.device)
         self.is_deep_controller = config.controller == "deep"
 
@@ -413,14 +416,18 @@ class Trainer:
     def _create_supervisor(self) -> BaseController:
         """Create supervisor controller for imitation/reward-weighted modes."""
         config = self.config
+        supervisor_type = config.supervisor_controller
 
-        if config.supervisor_controller == "pid":
-            return PIDController(config={})
-        elif config.supervisor_controller == "lqr":
-            return LQRController(config={})
+        # Get the supervisor-specific config from the full config dictionary
+        supervisor_config = self.full_config.get(supervisor_type, {})
+
+        if supervisor_type == "pid":
+            return PIDController(config=supervisor_config)
+        elif supervisor_type == "lqr":
+            return LQRController(config=supervisor_config)
         else:
             raise ValueError(
-                f"Unknown supervisor controller type: {config.supervisor_controller}"
+                f"Unknown supervisor controller type: {supervisor_type}"
             )
 
     def _warn_incompatible_options(self) -> None:
@@ -634,10 +641,6 @@ class Trainer:
         epoch_rewards = []
         epoch_on_target_ratios = []
         epoch_tracking_errors = []
-
-        # Reset supervisor state at start of epoch if using imitation
-        if self.supervisor is not None:
-            self.supervisor.reset()
 
         for episode in range(self.config.episodes_per_epoch):
             # Reset environment with episode-specific seed

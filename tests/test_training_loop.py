@@ -653,6 +653,28 @@ class TestTrainingModes:
         assert config_dict["supervisor_controller"] == "pid"
         assert config_dict["imitation_weight"] == 1.5
 
+    def test_supervisor_receives_full_config(self, mode_config, tmp_path):
+        """Test that supervisor controller receives config from YAML."""
+        # Add custom PID gains to the config
+        mode_config["training_mode"] = "imitation"
+        mode_config["supervisor_controller"] = "pid"
+        mode_config["pid"] = {
+            "kp_pos": [3.0, 3.0, 5.0],
+            "ki_pos": [0.2, 0.2, 0.3],
+            "kd_pos": [2.0, 2.0, 2.5],
+        }
+
+        config = TrainingConfig.from_dict(mode_config)
+        trainer = Trainer(config)
+
+        # Verify the full_config was preserved
+        assert hasattr(config, "full_config")
+        assert "pid" in config.full_config
+        assert config.full_config["pid"]["kp_pos"] == [3.0, 3.0, 5.0]
+
+        # Verify trainer has access to full_config
+        assert trainer.full_config.get("pid") is not None
+
 
 class TestControllerSelection:
     """Tests for controller selection in training."""
