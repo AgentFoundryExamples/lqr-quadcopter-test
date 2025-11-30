@@ -644,3 +644,163 @@ summary = evaluator.evaluate(num_episodes=10)
 ```
 
 True transfer learning support (loading pretrained weights for fine-tuning) is planned for a future release. See [ROADMAP.md](../ROADMAP.md) for the proposed API design.
+
+## Classical Controller Tuning
+
+This section provides guidance for tuning the PID and LQR classical controllers.
+
+### PID Controller
+
+The PID controller uses separate gains for each axis (X, Y, Z):
+
+```python
+from quadcopter_tracking.controllers import PIDController
+
+pid = PIDController(config={
+    "kp_pos": [2.0, 2.0, 4.0],   # Proportional gains [x, y, z]
+    "ki_pos": [0.1, 0.1, 0.2],   # Integral gains [x, y, z]
+    "kd_pos": [1.5, 1.5, 2.0],   # Derivative gains [x, y, z]
+    "integral_limit": 5.0,       # Windup prevention clamp
+})
+```
+
+#### Gain Tuning Guidelines
+
+| Parameter | Effect of Increase | Typical Range |
+|-----------|-------------------|---------------|
+| `kp_pos` | Faster response, more overshoot | 0.5 - 5.0 |
+| `ki_pos` | Eliminates steady-state error, causes oscillation | 0.01 - 0.5 |
+| `kd_pos` | More damping, reduces overshoot | 0.5 - 3.0 |
+| `integral_limit` | Higher limit = more correction, but risk of windup | 2.0 - 10.0 |
+
+#### Tuning Strategy
+
+1. **Start with proportional only**: Set `ki_pos = [0, 0, 0]`, tune `kp_pos` until system responds without excessive oscillation
+2. **Add derivative**: Increase `kd_pos` to reduce overshoot and oscillation
+3. **Add integral**: Slowly increase `ki_pos` to eliminate steady-state error
+4. **Adjust windup limit**: If tracking large errors, increase `integral_limit`
+
+#### Common Issues
+
+- **Oscillation**: Reduce `kp_pos` or increase `kd_pos`
+- **Slow response**: Increase `kp_pos`
+- **Overshoot**: Increase `kd_pos` or reduce `kp_pos`
+- **Steady-state error**: Increase `ki_pos`
+- **Windup (runaway after large error)**: Reduce `integral_limit`
+
+#### Example Configurations
+
+**Stationary Target (conservative)**:
+```yaml
+pid:
+  kp_pos: [1.5, 1.5, 3.0]
+  ki_pos: [0.05, 0.05, 0.1]
+  kd_pos: [1.0, 1.0, 1.5]
+  integral_limit: 3.0
+```
+
+**Dynamic Tracking (aggressive)**:
+```yaml
+pid:
+  kp_pos: [3.0, 3.0, 5.0]
+  ki_pos: [0.15, 0.15, 0.3]
+  kd_pos: [2.0, 2.0, 2.5]
+  integral_limit: 8.0
+```
+
+### LQR Controller
+
+The LQR controller computes optimal feedback gains from cost weights:
+
+```python
+from quadcopter_tracking.controllers import LQRController
+
+lqr = LQRController(config={
+    "q_pos": [10.0, 10.0, 20.0],  # Position error cost [x, y, z]
+    "q_vel": [5.0, 5.0, 10.0],   # Velocity error cost [vx, vy, vz]
+    "r_thrust": 0.1,              # Thrust control cost
+    "r_rate": 1.0,                # Angular rate control cost
+})
+```
+
+#### Cost Weight Guidelines
+
+| Parameter | Effect of Increase | Typical Range |
+|-----------|-------------------|---------------|
+| `q_pos` | Tighter position tracking | 1.0 - 50.0 |
+| `q_vel` | More velocity damping | 1.0 - 20.0 |
+| `r_thrust` | Smoother thrust changes | 0.01 - 1.0 |
+| `r_rate` | Smoother attitude rate changes | 0.1 - 5.0 |
+
+#### Tuning Strategy
+
+1. **Start with balanced weights**: Use defaults
+2. **Adjust tracking tightness**: Increase `q_pos` for tighter tracking
+3. **Add damping**: Increase `q_vel` if too oscillatory
+4. **Control smoothness**: Increase `r_*` weights for smoother control
+
+#### Pre-computed K Matrix
+
+For advanced users, you can provide a pre-computed feedback gain matrix:
+
+```python
+import numpy as np
+
+# Custom 4x6 gain matrix
+K = np.array([
+    [0, 0, 14.14, 0, 0, 7.42],      # Z error -> thrust
+    [0, 3.16, 0, 0, 2.35, 0],       # Y error -> roll rate
+    [-3.16, 0, 0, -2.35, 0, 0],     # X error -> pitch rate
+    [0, 0, 0, 0, 0, 0],             # yaw (unused)
+])
+
+lqr = LQRController(config={"K": K.tolist()})
+```
+
+#### Operating Envelope
+
+The LQR linearization is valid for:
+- Attitude angles < 30 degrees
+- Velocities < 5 m/s
+- Position errors < 10 m
+
+Outside this envelope, the controller may perform poorly.
+
+### Comparing Controllers
+
+Run evaluation with different controllers:
+
+```bash
+# Evaluate PID
+python -m quadcopter_tracking.eval --controller pid --episodes 10 --motion-type stationary
+
+# Evaluate LQR
+python -m quadcopter_tracking.eval --controller lqr --episodes 10 --motion-type stationary
+
+# Evaluate Deep
+python -m quadcopter_tracking.eval --controller deep --checkpoint checkpoints/best.pt
+```
+
+### Configuration via YAML
+
+Add controller configurations to your experiment YAML files:
+
+```yaml
+# experiments/configs/my_experiment.yaml
+
+# ... other settings ...
+
+# PID gains for this experiment
+pid:
+  kp_pos: [2.0, 2.0, 4.0]
+  ki_pos: [0.1, 0.1, 0.2]
+  kd_pos: [1.5, 1.5, 2.0]
+  integral_limit: 5.0
+
+# LQR weights for this experiment
+lqr:
+  q_pos: [10.0, 10.0, 20.0]
+  q_vel: [5.0, 5.0, 10.0]
+  r_thrust: 0.1
+  r_rate: 1.0
+```

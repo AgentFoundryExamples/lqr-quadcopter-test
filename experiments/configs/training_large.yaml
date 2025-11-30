@@ -48,3 +48,27 @@ curriculum_end_difficulty: 1.0
 # Recovery settings
 nan_recovery_attempts: 5
 lr_reduction_factor: 0.3
+
+# =============================================================================
+# Classical Controller Configuration (PID and LQR)
+# =============================================================================
+# Aggressive gains for complex figure-8 motion tracking.
+# Higher gains enable faster response to dynamic target motion.
+
+# PID Controller Gains - Aggressive for complex motion
+pid:
+  # Higher gains for tracking fast-moving targets
+  kp_pos: [3.0, 3.0, 5.0]
+  ki_pos: [0.15, 0.15, 0.3]
+  kd_pos: [2.0, 2.0, 2.5]
+  # Higher integral limit for extended tracking
+  integral_limit: 8.0
+
+# LQR Controller Gains - Aggressive for complex motion
+lqr:
+  # Higher position cost for tighter tracking
+  q_pos: [15.0, 15.0, 25.0]
+  q_vel: [8.0, 8.0, 12.0]
+  # Lower control costs for more responsive behavior
+  r_thrust: 0.05
+  r_rate: 0.5

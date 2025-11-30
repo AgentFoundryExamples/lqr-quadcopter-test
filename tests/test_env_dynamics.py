@@ -546,3 +546,468 @@ class TestIntegration:
 
             # Both should be numerically stable
             assert np.all(np.isfinite(obs["quadcopter"]["position"]))
+
+
+class TestPIDController:
+    """Tests for PID controller implementation."""
+
+    def test_pid_controller_initialization(self):
+        """Test PID controller initializes with default gains."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+        assert pid.name == "pid"
+        assert pid.kp_pos is not None
+        assert pid.ki_pos is not None
+        assert pid.kd_pos is not None
+        assert pid.integral_limit == 5.0
+        assert len(pid.kp_pos) == 3
+
+    def test_pid_controller_custom_gains(self):
+        """Test PID controller with custom gains."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "kp_pos": [1.0, 2.0, 3.0],
+            "ki_pos": [0.1, 0.2, 0.3],
+            "kd_pos": [0.5, 0.6, 0.7],
+            "integral_limit": 10.0,
+        }
+        pid = PIDController(config=config)
+        assert np.allclose(pid.kp_pos, [1.0, 2.0, 3.0])
+        assert np.allclose(pid.ki_pos, [0.1, 0.2, 0.3])
+        assert np.allclose(pid.kd_pos, [0.5, 0.6, 0.7])
+        assert pid.integral_limit == 10.0
+
+    def test_pid_controller_scalar_gains(self):
+        """Test PID controller with scalar gains (broadcast to all axes)."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {"kp": 2.0, "ki": 0.1, "kd": 1.0}
+        pid = PIDController(config=config)
+        assert np.allclose(pid.kp_pos, [2.0, 2.0, 2.0])
+        assert np.allclose(pid.ki_pos, [0.1, 0.1, 0.1])
+        assert np.allclose(pid.kd_pos, [1.0, 1.0, 1.0])
+
+    def test_pid_compute_action_format(self):
+        """Test PID compute_action returns correct format."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        action = pid.compute_action(obs)
+
+        assert "thrust" in action
+        assert "roll_rate" in action
+        assert "pitch_rate" in action
+        assert "yaw_rate" in action
+        assert isinstance(action["thrust"], float)
+        assert isinstance(action["roll_rate"], float)
+
+    def test_pid_output_bounds(self):
+        """Test PID controller respects output bounds."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "max_thrust": 20.0,
+            "min_thrust": 0.0,
+            "max_rate": 3.0,
+        }
+        pid = PIDController(config=config)
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        # Run multiple steps to build up integral error
+        for _ in range(100):
+            action = pid.compute_action(obs)
+            obs, _, done, _ = env.step(action)
+            if done:
+                break
+
+            assert action["thrust"] >= 0.0
+            assert action["thrust"] <= 20.0
+            assert abs(action["roll_rate"]) <= 3.0
+            assert abs(action["pitch_rate"]) <= 3.0
+            assert abs(action["yaw_rate"]) <= 3.0
+
+    def test_pid_integral_windup_prevention(self):
+        """Test PID integral error is clamped to prevent windup."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {"integral_limit": 2.0}
+        pid = PIDController(config=config)
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        # Run many steps to accumulate integral error
+        for _ in range(200):
+            pid.compute_action(obs)
+
+        # Integral error should be clamped
+        assert np.all(np.abs(pid.integral_error) <= 2.0)
+
+    def test_pid_reset_clears_integral(self):
+        """Test PID reset clears integral error state."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        # Build up integral error
+        for _ in range(50):
+            pid.compute_action(obs)
+
+        # Reset and check
+        pid.reset()
+        assert np.allclose(pid.integral_error, [0.0, 0.0, 0.0])
+
+    def test_pid_responds_to_position_error(self):
+        """Test PID controller responds correctly to position error."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        # Create observation with known error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),  # Target is +1m in X
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = pid.compute_action(obs)
+
+        # Positive X error should result in negative pitch rate (pitch forward)
+        assert action["pitch_rate"] < 0
+
+    def test_pid_moves_quadcopter_toward_target(self):
+        """Test PID controller reduces tracking error over time."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        pid = PIDController()
+
+        # Run controller for several steps and track minimum error achieved
+        min_error = float("inf")
+        for _ in range(500):
+            action = pid.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Controller should achieve reasonable tracking at some point
+        assert min_error < 0.5, f"Min tracking error too high: {min_error}"
+
+    def test_pid_observation_validation(self):
+        """Test PID controller raises error on invalid observation."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        # Missing quadcopter key
+        with pytest.raises(KeyError, match="quadcopter"):
+            pid.compute_action({"target": {}})
+
+        # Missing target key
+        with pytest.raises(KeyError, match="target"):
+            pid.compute_action({"quadcopter": {}})
+
+
+class TestLQRController:
+    """Tests for LQR controller implementation."""
+
+    def test_lqr_controller_initialization(self):
+        """Test LQR controller initializes correctly."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+        assert lqr.name == "lqr"
+        assert lqr.K is not None
+        assert lqr.K.shape == (4, 6)
+
+    def test_lqr_controller_custom_weights(self):
+        """Test LQR controller with custom cost weights."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {
+            "q_pos": [5.0, 5.0, 10.0],
+            "q_vel": [2.0, 2.0, 5.0],
+            "r_thrust": 0.5,
+            "r_rate": 2.0,
+        }
+        lqr = LQRController(config=config)
+        assert lqr.K.shape == (4, 6)
+
+    def test_lqr_controller_custom_k_matrix(self):
+        """Test LQR controller with pre-defined K matrix."""
+        from quadcopter_tracking.controllers import LQRController
+
+        K = np.eye(4, 6) * 2.0
+        config = {"K": K.tolist()}
+        lqr = LQRController(config=config)
+        assert np.allclose(lqr.K, K)
+
+    def test_lqr_controller_invalid_k_shape(self):
+        """Test LQR controller raises error for invalid K shape."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {"K": [[1, 2, 3]]}
+        with pytest.raises(ValueError, match="shape"):
+            LQRController(config=config)
+
+    def test_lqr_compute_action_format(self):
+        """Test LQR compute_action returns correct format."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        action = lqr.compute_action(obs)
+
+        assert "thrust" in action
+        assert "roll_rate" in action
+        assert "pitch_rate" in action
+        assert "yaw_rate" in action
+        assert isinstance(action["thrust"], float)
+        assert isinstance(action["roll_rate"], float)
+
+    def test_lqr_output_bounds(self):
+        """Test LQR controller respects output bounds."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {
+            "max_thrust": 20.0,
+            "min_thrust": 0.0,
+            "max_rate": 3.0,
+        }
+        lqr = LQRController(config=config)
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        for _ in range(50):
+            action = lqr.compute_action(obs)
+            obs, _, done, _ = env.step(action)
+            if done:
+                break
+
+            assert action["thrust"] >= 0.0
+            assert action["thrust"] <= 20.0
+            assert abs(action["roll_rate"]) <= 3.0
+            assert abs(action["pitch_rate"]) <= 3.0
+            assert abs(action["yaw_rate"]) <= 3.0
+
+    def test_lqr_responds_to_state_error(self):
+        """Test LQR controller responds correctly to state error."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+
+        # Create observation with known error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 2.0]),  # Target is +1m in Z
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = lqr.compute_action(obs)
+
+        # Positive Z error should result in increased thrust
+        assert action["thrust"] > 9.81  # More than hover thrust
+
+    def test_lqr_moves_quadcopter_toward_target(self):
+        """Test LQR controller reduces tracking error over time."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        lqr = LQRController()
+
+        # Run controller for several steps and track minimum error achieved
+        min_error = float("inf")
+        for _ in range(500):
+            action = lqr.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Controller should achieve reasonable tracking at some point
+        assert min_error < 0.5, f"Min tracking error too high: {min_error}"
+
+    def test_lqr_stateless(self):
+        """Test LQR controller is stateless (reset is no-op)."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+        K_before = lqr.K.copy()
+        lqr.reset()
+        assert np.allclose(lqr.K, K_before)
+
+    def test_lqr_observation_validation(self):
+        """Test LQR controller raises error on invalid observation."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+
+        # Missing quadcopter key
+        with pytest.raises(KeyError, match="quadcopter"):
+            lqr.compute_action({"target": {}})
+
+        # Missing target key
+        with pytest.raises(KeyError, match="target"):
+            lqr.compute_action({"quadcopter": {}})
+
+
+class TestClassicalControllerIntegration:
+    """Integration tests for classical controllers with environment."""
+
+    def test_pid_full_episode_stationary(self):
+        """Test PID controller completes a full episode with stationary target."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        pid = PIDController()
+
+        done = False
+        min_error = float("inf")
+
+        while not done:
+            action = pid.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+
+        # Controller should achieve some tracking during episode
+        assert min_error < 1.0, f"Min tracking error too high: {min_error}"
+
+    def test_lqr_full_episode_stationary(self):
+        """Test LQR controller completes a full episode with stationary target."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        lqr = LQRController()
+
+        done = False
+        min_error = float("inf")
+
+        while not done:
+            action = lqr.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+
+        # Controller should achieve some tracking during episode
+        assert min_error < 1.0, f"Min tracking error too high: {min_error}"
+
+    def test_pid_linear_tracking(self):
+        """Test PID controller tracks linear motion without diverging."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="linear", speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        pid = PIDController()
+
+        errors = []
+        for _ in range(200):
+            action = pid.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded (not diverge to infinity)
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        # Controller should achieve some tracking at some point
+        assert min(errors) < 2.0, f"Min error too high: {min(errors)}"
+
+    def test_lqr_linear_tracking(self):
+        """Test LQR controller tracks linear motion without diverging."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="linear", speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        lqr = LQRController()
+
+        errors = []
+        for _ in range(200):
+            action = lqr.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded (not diverge to infinity)
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        # Controller should achieve some tracking at some point
+        assert min(errors) < 2.0, f"Min error too high: {min(errors)}"
+
+    def test_controller_saturation_handling(self):
+        """Test controllers handle saturation gracefully."""
+        from quadcopter_tracking.controllers import LQRController, PIDController
+
+        # Create a scenario with large initial error
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=2.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        for ControllerClass in [PIDController, LQRController]:
+            env = QuadcopterEnv(config=config)
+            obs = env.reset(seed=123)
+
+            # Manually set large position offset
+            state = env.get_state_vector()
+            state[0:3] = [5.0, 5.0, 5.0]  # Far from target
+            env.set_state_vector(state)
+            obs = env.render()
+
+            controller = ControllerClass()
+            action = controller.compute_action(obs)
+
+            # Actions should be clipped to valid range
+            assert action["thrust"] <= 20.0
+            assert action["thrust"] >= 0.0
+            assert abs(action["roll_rate"]) <= 3.0
+            assert abs(action["pitch_rate"]) <= 3.0
