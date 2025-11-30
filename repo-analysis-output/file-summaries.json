@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 6,
+  "total_files": 10,
   "files": [
     {
       "schema_version": "2.0",
@@ -60,16 +60,12 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 3397,
-        "loc": 91,
-        "todo_count": 0,
-        "declaration_count": 2
+        "size_bytes": 1991,
+        "loc": 62,
+        "todo_count": 0
       },
       "structure": {
-        "declarations": [
-          "class QuadcopterEnv",
-          "class TargetMotion"
-        ]
+        "declarations": []
       },
       "dependencies": {
         "imports": [],
@@ -77,6 +73,108 @@
         "external": {
           "stdlib": [],
           "third-party": []
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/env/config.py",
+      "language": "Python",
+      "role": "configuration",
+      "role_justification": "configuration file name 'config'",
+      "metrics": {
+        "size_bytes": 9137,
+        "loc": 179,
+        "todo_count": 0,
+        "declaration_count": 6
+      },
+      "structure": {
+        "declarations": [
+          "class QuadcopterParams",
+          "class SimulationParams",
+          "class TargetParams",
+          "class SuccessCriteria",
+          "class LoggingParams",
+          "class EnvConfig"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "dataclasses.dataclass",
+            "dataclasses.field"
+          ],
+          "third-party": []
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/env/quadcopter_env.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 21317,
+        "loc": 470,
+        "todo_count": 0,
+        "declaration_count": 1
+      },
+      "structure": {
+        "declarations": [
+          "class QuadcopterEnv"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "logging",
+            "math"
+          ],
+          "third-party": [
+            "numpy"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/env/target_motion.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 12475,
+        "loc": 335,
+        "todo_count": 0,
+        "declaration_count": 7
+      },
+      "structure": {
+        "declarations": [
+          "class MotionPattern",
+          "class LinearMotion",
+          "class CircularMotion",
+          "class SinusoidalMotion",
+          "class Figure8Motion",
+          "class StationaryMotion",
+          "class TargetMotion"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "math",
+            "typing.Protocol"
+          ],
+          "third-party": [
+            "numpy"
+          ]
         }
       }
     },
@@ -176,6 +274,38 @@
             "unittest.mock"
           ],
           "third-party": []
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_env_dynamics.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "metrics": {
+        "size_bytes": 17777,
+        "loc": 396,
+        "todo_count": 0,
+        "declaration_count": 4
+      },
+      "structure": {
+        "declarations": [
+          "class TestTargetMotion",
+          "class TestQuadcopterEnv",
+          "class TestEnvConfig",
+          "class TestIntegration"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [],
+          "third-party": [
+            "numpy",
+            "pytest"
+          ]
         }
       }
     }

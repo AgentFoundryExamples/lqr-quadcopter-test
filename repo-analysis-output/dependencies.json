@@ -28,6 +28,46 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/env/config.py",
+      "path": "src/quadcopter_tracking/env/config.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "dataclasses.dataclass",
+          "dataclasses.field"
+        ],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/env/quadcopter_env.py",
+      "path": "src/quadcopter_tracking/env/quadcopter_env.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "math"
+        ],
+        "third-party": [
+          "numpy"
+        ]
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/env/target_motion.py",
+      "path": "src/quadcopter_tracking/env/target_motion.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "math",
+          "typing.Protocol"
+        ],
+        "third-party": [
+          "numpy"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/utils/__init__.py",
       "path": "src/quadcopter_tracking/utils/__init__.py",
       "type": "file",
@@ -67,6 +107,18 @@
         ],
         "third-party": []
       }
+    },
+    {
+      "id": "tests/test_env_dynamics.py",
+      "path": "tests/test_env_dynamics.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "numpy",
+          "pytest"
+        ]
+      }
     }
   ],
   "edges": [
@@ -83,26 +135,43 @@
       "target": "src/quadcopter_tracking/utils/__init__.py"
     },
     {
+      "source": "src/quadcopter_tracking/env/__init__.py",
+      "target": "src/quadcopter_tracking/env/config.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/env/__init__.py",
+      "target": "src/quadcopter_tracking/env/target_motion.py"
+    },
+    {
       "source": "tests/test_config.py",
       "target": "src/quadcopter_tracking/utils/__init__.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
     }
   ],
   "external_dependencies_summary": {
     "stdlib": [
+      "dataclasses.dataclass",
+      "dataclasses.field",
       "datetime",
       "json",
       "logging",
+      "math",
       "os",
       "pathlib.Path",
+      "typing.Protocol",
       "unittest.mock"
     ],
     "third-party": [
       "dotenv.load_dotenv",
       "matplotlib.pyplot",
       "numpy",
+      "pytest",
       "yaml"
     ],
-    "stdlib_count": 6,
-    "third-party_count": 4
+    "stdlib_count": 10,
+    "third-party_count": 5
   }
 }

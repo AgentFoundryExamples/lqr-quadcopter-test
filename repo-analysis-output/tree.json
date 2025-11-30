@@ -43,6 +43,10 @@
         {
           "type": "file",
           "name": "architecture.md"
+        },
+        {
+          "type": "file",
+          "name": "environment.md"
         }
       ]
     },
@@ -57,6 +61,14 @@
         {
           "type": "file",
           "name": "dependencies.md"
+        },
+        {
+          "type": "file",
+          "name": "file-summaries.json"
+        },
+        {
+          "type": "file",
+          "name": "file-summaries.md"
         },
         {
           "type": "file",
@@ -97,6 +109,18 @@
                 {
                   "type": "file",
                   "name": "__init__.py"
+                },
+                {
+                  "type": "file",
+                  "name": "config.py"
+                },
+                {
+                  "type": "file",
+                  "name": "quadcopter_env.py"
+                },
+                {
+                  "type": "file",
+                  "name": "target_motion.py"
                 }
               ]
             },
@@ -129,6 +153,10 @@
         {
           "type": "file",
           "name": "test_config.py"
+        },
+        {
+          "type": "file",
+          "name": "test_env_dynamics.py"
         }
       ]
     },

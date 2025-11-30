@@ -8,10 +8,13 @@
   └── workflows
     └── af_maintenance.yml
 ├── docs
-  └── architecture.md
+  ├── architecture.md
+  └── environment.md
 ├── repo-analysis-output
   ├── dependencies.json
   ├── dependencies.md
+  ├── file-summaries.json
+  ├── file-summaries.md
   ├── SUMMARY.md
   ├── tree.json
   └── tree.md
@@ -20,13 +23,17 @@
     ├── controllers
       └── __init__.py
     ├── env
-      └── __init__.py
+      ├── __init__.py
+      ├── config.py
+      ├── quadcopter_env.py
+      └── target_motion.py
     ├── utils
       └── __init__.py
     └── __init__.py
 ├── tests
   ├── __init__.py
-  └── test_config.py
+  ├── test_config.py
+  └── test_env_dynamics.py
 ├── .env.example
 ├── .gitignore
 ├── LICENSE
