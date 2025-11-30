@@ -68,8 +68,14 @@ def main():
         )
         sys.exit(1)
 
-    # Sort by success rate (descending), then on-target ratio (descending)
-    results.sort(key=lambda x: (-x["success_rate"], -x["mean_on_target_ratio"]))
+    # Sort by success rate (desc), then on-target ratio (desc), then error (asc)
+    results.sort(
+        key=lambda x: (
+            -x["success_rate"],
+            -x["mean_on_target_ratio"],
+            x["mean_tracking_error"],
+        )
+    )
 
     # Print report
     print("")
