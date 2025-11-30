@@ -1,6 +1,10 @@
 # Fast training configuration for testing and debugging
 # Uses smaller network and fewer episodes for quick iteration.
 
+# Controller selection
+# Options: deep, lqr, pid
+controller: deep
+
 # Training parameters (reduced for fast testing)
 epochs: 20
 episodes_per_epoch: 5

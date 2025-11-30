@@ -1,6 +1,10 @@
 # Large network configuration for complex tracking tasks
 # Uses deeper network and more extensive training for challenging scenarios.
 
+# Controller selection
+# Options: deep, lqr, pid
+controller: deep
+
 # Extended training
 epochs: 500
 episodes_per_epoch: 20

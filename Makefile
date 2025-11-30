@@ -1,4 +1,4 @@
-.PHONY: install dev-install test lint format run-experiment clean help
+.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr eval-deep eval-pid eval-lqr clean help
 
 # Default Python interpreter
 PYTHON ?= python
@@ -6,6 +6,8 @@ PYTHON ?= python
 # Default experiment configuration
 CONFIG ?= config.yaml
 SEED ?= 42
+EPOCHS ?= 10
+EPISODES ?= 5
 
 help:
 	@echo "Quadcopter Tracking Research - Available Commands"
@@ -20,6 +22,19 @@ help:
 	@echo "  make lint         - Run linter (ruff)"
 	@echo "  make format       - Auto-format code (ruff)"
 	@echo ""
+	@echo "Training (deep controller):"
+	@echo "  make train-deep             - Train deep controller with defaults"
+	@echo "  make train-deep EPOCHS=100  - Train with custom epochs"
+	@echo ""
+	@echo "Evaluation (classical controllers):"
+	@echo "  make train-pid              - Run PID controller evaluation"
+	@echo "  make train-lqr              - Run LQR controller evaluation"
+	@echo ""
+	@echo "Evaluation (all controllers):"
+	@echo "  make eval-deep              - Evaluate deep controller"
+	@echo "  make eval-pid               - Evaluate PID controller"
+	@echo "  make eval-lqr               - Evaluate LQR controller"
+	@echo ""
 	@echo "Experiments:"
 	@echo "  make run-experiment           - Run experiment with default config"
 	@echo "  make run-experiment CONFIG=x  - Run experiment with custom config"
@@ -29,6 +44,8 @@ help:
 	@echo "  make clean        - Remove build artifacts and cache"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make train-deep EPOCHS=50 SEED=123"
+	@echo "  make eval-pid EPISODES=20"
 	@echo "  make run-experiment CONFIG=configs/lqr.yaml SEED=123"
 
 install:
@@ -46,6 +63,26 @@ lint:
 format:
 	$(PYTHON) -m ruff format src/ tests/
 	$(PYTHON) -m ruff check --fix src/ tests/
+
+# Training commands for different controllers
+train-deep:
+	$(PYTHON) -m quadcopter_tracking.train --controller deep --epochs $(EPOCHS) --episodes-per-epoch $(EPISODES) --seed $(SEED)
+
+train-pid:
+	$(PYTHON) -m quadcopter_tracking.train --controller pid --epochs $(EPOCHS) --episodes-per-epoch $(EPISODES) --seed $(SEED)
+
+train-lqr:
+	$(PYTHON) -m quadcopter_tracking.train --controller lqr --epochs $(EPOCHS) --episodes-per-epoch $(EPISODES) --seed $(SEED)
+
+# Evaluation commands
+eval-deep:
+	$(PYTHON) -m quadcopter_tracking.eval --controller deep --episodes $(EPISODES) --seed $(SEED)
+
+eval-pid:
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --episodes $(EPISODES) --seed $(SEED)
+
+eval-lqr:
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --episodes $(EPISODES) --seed $(SEED)
 
 # Note: CONFIG and SEED are validated by Python code, not shell interpolation
 # to prevent command injection vulnerabilities

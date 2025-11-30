@@ -1,16 +1,39 @@
-# Training Deep Learning Controllers
+# Training Quadcopter Controllers
 
-This document describes the deep learning training pipeline for quadcopter tracking controllers.
+This document describes the training pipeline for quadcopter tracking controllers.
 
 ## Overview
 
 The training system provides:
 
+- **Unified CLI** supporting deep learning, PID, and LQR controllers
 - **Neural network controllers** mapping observations to bounded actions
+- **Classical controllers** (PID, LQR) for comparison benchmarks
 - **Configurable loss functions** with various error metrics and weighting
-- **Episode-based training loop** with gradient descent optimization
+- **Episode-based training loop** with gradient descent optimization (deep only)
 - **Experiment tracking** with CSV/JSON logs and checkpointing
 - **Reproducibility** via seed control and checkpoint recovery
+
+## Controller Selection
+
+The `--controller` flag lets you choose between controller types:
+
+| Controller | Description | Training | Checkpoints |
+|------------|-------------|----------|-------------|
+| `deep` | Neural network policy (default) | Yes | Yes |
+| `pid` | PID controller | No (eval only) | No |
+| `lqr` | LQR controller | No (eval only) | No |
+
+```bash
+# Train deep controller
+python -m quadcopter_tracking.train --controller deep --epochs 100
+
+# Run PID evaluation (no training)
+python -m quadcopter_tracking.train --controller pid --epochs 10
+
+# Run LQR evaluation (no training)
+python -m quadcopter_tracking.train --controller lqr --epochs 10
+```
 
 ## Quick Start
 
@@ -20,7 +43,7 @@ The training system provides:
 # Using make (recommended)
 cd lqr-quadcopter-test
 make dev-install
-python -m quadcopter_tracking.train --epochs 100 --seed 42
+python -m quadcopter_tracking.train --controller deep --epochs 100 --seed 42
 
 # Or with a config file
 python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
@@ -30,11 +53,23 @@ python -m quadcopter_tracking.train --config experiments/configs/training_defaul
 
 ```bash
 python -m quadcopter_tracking.train \
+    --controller deep \
     --epochs 200 \
     --lr 0.0005 \
     --hidden-sizes 128 128 64 \
     --motion-type circular \
     --checkpoint-dir checkpoints/experiment1
+```
+
+### Using Makefile Commands
+
+```bash
+# Train deep controller
+make train-deep EPOCHS=100 SEED=42
+
+# Run classical controller evaluations
+make train-pid EPOCHS=10
+make train-lqr EPOCHS=10
 ```
 
 ## Controller Architecture
@@ -138,17 +173,21 @@ reward_loss = RewardShapingLoss(
 
 ```yaml
 # experiments/configs/my_config.yaml
+
+# Controller selection (deep, lqr, pid)
+controller: deep
+
 epochs: 200
 episodes_per_epoch: 10
 batch_size: 32
 
-# Optimizer
+# Optimizer (deep controller only)
 learning_rate: 0.001
 optimizer: adam  # adam, sgd, adamw
 weight_decay: 0.0
 grad_clip: 1.0
 
-# Network
+# Network (deep controller only)
 hidden_sizes: [64, 64]
 activation: relu
 

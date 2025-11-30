@@ -344,6 +344,7 @@ class TestTrainingConfig:
         assert config.epochs == 100
         assert config.learning_rate == 0.001
         assert config.hidden_sizes == [64, 64]
+        assert config.controller == "deep"  # Default controller
 
     def test_config_from_dict(self):
         """Test creating config from dictionary."""
@@ -365,6 +366,7 @@ class TestTrainingConfig:
 
         assert config_dict["epochs"] == 25
         assert config_dict["env_seed"] == 123
+        assert config_dict["controller"] == "deep"
 
     def test_config_from_file(self):
         """Test loading config from YAML file."""
@@ -375,6 +377,36 @@ class TestTrainingConfig:
             config = TrainingConfig.from_file(f.name)
             assert config.epochs == 10
             assert config.learning_rate == 0.01
+
+    def test_config_controller_deep(self):
+        """Test controller selection for deep."""
+        config = TrainingConfig(controller="deep")
+        assert config.controller == "deep"
+
+    def test_config_controller_pid(self):
+        """Test controller selection for pid."""
+        config = TrainingConfig(controller="pid")
+        assert config.controller == "pid"
+
+    def test_config_controller_lqr(self):
+        """Test controller selection for lqr."""
+        config = TrainingConfig(controller="lqr")
+        assert config.controller == "lqr"
+
+    def test_config_invalid_controller(self):
+        """Test error on invalid controller type."""
+        with pytest.raises(ValueError, match="Invalid controller type"):
+            TrainingConfig(controller="invalid")
+
+    def test_config_controller_from_yaml(self):
+        """Test loading controller selection from YAML."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("controller: lqr\nepochs: 5\n")
+            f.flush()
+
+            config = TrainingConfig.from_file(f.name)
+            assert config.controller == "lqr"
+            assert config.epochs == 5
 
 
 class TestTrainer:
@@ -480,6 +512,111 @@ class TestTrainer:
             fast_config.optimizer = opt_name
             trainer = Trainer(fast_config)
             assert trainer.optimizer is not None
+
+
+class TestControllerSelection:
+    """Tests for controller selection in training."""
+
+    @pytest.fixture
+    def base_config(self, tmp_path):
+        """Create base config for controller tests."""
+        return {
+            "epochs": 2,
+            "episodes_per_epoch": 2,
+            "max_steps_per_episode": 100,
+            "batch_size": 8,
+            "checkpoint_dir": str(tmp_path / "checkpoints"),
+            "log_dir": str(tmp_path / "logs"),
+            "device": "cpu",
+        }
+
+    def test_trainer_with_pid_controller(self, base_config, tmp_path):
+        """Test training/evaluation with PID controller."""
+        base_config["controller"] = "pid"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        assert trainer.controller.name == "pid"
+        assert not trainer.is_deep_controller
+        assert trainer.optimizer is None
+
+        # Run evaluation (not training)
+        summary = trainer.train()
+
+        assert summary["controller"] == "pid"
+        assert summary["epochs_completed"] == 2
+        # No checkpoint_dir for classical controllers
+        assert "checkpoint_dir" not in summary
+
+    def test_trainer_with_lqr_controller(self, base_config, tmp_path):
+        """Test training/evaluation with LQR controller."""
+        base_config["controller"] = "lqr"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        assert trainer.controller.name == "lqr"
+        assert not trainer.is_deep_controller
+        assert trainer.optimizer is None
+
+        # Run evaluation (not training)
+        summary = trainer.train()
+
+        assert summary["controller"] == "lqr"
+        assert summary["epochs_completed"] == 2
+
+    def test_trainer_with_deep_controller(self, base_config, tmp_path):
+        """Test training with deep controller."""
+        base_config["controller"] = "deep"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        assert trainer.controller.name == "deep_tracking"
+        assert trainer.is_deep_controller
+        assert trainer.optimizer is not None
+
+        # Run training
+        summary = trainer.train()
+
+        assert summary["controller"] == "deep"
+        assert summary["epochs_completed"] == 2
+        assert "checkpoint_dir" in summary
+        assert "nan_recoveries" in summary
+
+    def test_classical_controller_no_checkpoint(self, base_config, tmp_path):
+        """Test that classical controllers don't create checkpoints."""
+        base_config["controller"] = "pid"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Run evaluation
+        trainer.train()
+
+        # Checkpoint directory should not be created for classical controllers
+        checkpoint_dir = tmp_path / "checkpoints"
+        assert not checkpoint_dir.exists()
+
+    def test_experiment_id_includes_controller_type(self, base_config, tmp_path):
+        """Test that experiment ID includes controller type."""
+        for controller_type in ["deep", "pid", "lqr"]:
+            base_config["controller"] = controller_type
+            config = TrainingConfig.from_dict(base_config)
+            trainer = Trainer(config)
+
+            assert f"train_{controller_type}_" in trainer.experiment_id
+
+    def test_log_epoch_includes_controller_label(self, base_config, tmp_path):
+        """Test that epoch logs include controller type."""
+        base_config["controller"] = "pid"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Run evaluation to populate experiment log
+        trainer.train()
+
+        # Check that logs include controller type
+        assert len(trainer.experiment_log) > 0
+        for entry in trainer.experiment_log:
+            assert entry["controller"] == "pid"
 
 
 class TestIntegration:
