@@ -1030,6 +1030,7 @@ class TestLQRController:
                 "position": np.array([0.0, 0.0, 1.0]),  # Same as quadcopter
                 "velocity": np.array([0.0, 0.0, 0.0]),
             },
+            "time": 0.0,
         }
 
         action = lqr.compute_action(obs)
@@ -1073,6 +1074,7 @@ class TestLQRController:
                 "position": np.array([0.0, 0.0, 1.0]),
                 "velocity": np.array([0.0, 0.0, 0.0]),
             },
+            "time": 0.0,
         }
 
         action = lqr.compute_action(obs)

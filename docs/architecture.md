@@ -182,9 +182,10 @@ The LQR linearization assumes:
 For aggressive maneuvers outside this envelope, performance degrades.
 
 **Hover Thrust Baseline:**
-Like the PID controller, LQR outputs `thrust = hover_thrust + u[0]`, where:
+Like the PID controller, LQR outputs `thrust = hover_thrust + thrust_correction`, where:
 - `hover_thrust = mass × gravity` (e.g., 1.0 kg × 9.81 m/s² = 9.81 N)
-- `u[0]` is the thrust adjustment from the feedback gain matrix
+- `thrust_correction` is the thrust adjustment computed as `K @ state_error` for
+  the thrust row (first element of the control output vector)
 
 At zero state error, the LQR controller outputs exactly `hover_thrust` (~9.81 N
 with default parameters), providing proper gravity compensation.
