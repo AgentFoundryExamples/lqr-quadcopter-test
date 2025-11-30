@@ -593,10 +593,7 @@ class TestControllerSelection:
 
         # Checkpoint directory should not be created for classical controllers
         checkpoint_dir = tmp_path / "checkpoints"
-        # Check that no checkpoint files were created
-        if checkpoint_dir.exists():
-            checkpoint_files = list(checkpoint_dir.glob("*.pt"))
-            assert len(checkpoint_files) == 0
+        assert not checkpoint_dir.exists()
 
     def test_experiment_id_includes_controller_type(self, base_config, tmp_path):
         """Test that experiment ID includes controller type."""

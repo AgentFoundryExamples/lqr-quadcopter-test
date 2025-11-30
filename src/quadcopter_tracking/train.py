@@ -537,19 +537,19 @@ class Trainer:
                 step += 1
 
             # Compute episode metrics
+            epoch_rewards.append(sum(d["reward"] for d in episode_data))
             if info:
-                epoch_rewards.append(sum(d["reward"] for d in episode_data))
                 epoch_on_target_ratios.append(info.get("on_target_ratio", 0.0))
                 epoch_tracking_errors.append(info.get("tracking_error", 0.0))
 
             # Log placeholder loss values for consistency
-            last_error = (
-                epoch_tracking_errors[-1] if epoch_tracking_errors else 0.0
+            mean_error_for_log = (
+                np.mean(epoch_tracking_errors) if epoch_tracking_errors else 0.0
             )
             self.loss_logger.log(
                 {
-                    "total": last_error,
-                    "position": last_error,
+                    "total": mean_error_for_log,
+                    "position": mean_error_for_log,
                     "velocity": 0.0,
                     "control": 0.0,
                 }
