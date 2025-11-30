@@ -106,9 +106,9 @@ class EnvConfig:
             EnvConfig instance.
         """
         quad_dict = config_dict.get("quadcopter", {})
-        sim_dict = config_dict.get("simulation", {})
+        sim_dict = config_dict.get("simulation", {}).copy()
         target_dict = config_dict.get("target", {})
-        success_dict = config_dict.get("success_criteria", {})
+        success_dict = config_dict.get("success_criteria", {}).copy()
         logging_dict = config_dict.get("logging", {})
 
         # Handle legacy flat config structure

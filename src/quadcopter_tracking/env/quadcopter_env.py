@@ -439,11 +439,12 @@ class QuadcopterEnv:
             max_ang_vel,
         )
 
-        # Normalize angles to [-pi, pi]
-        for i in range(self.ROLL, self.YAW + 1):
-            result[i] = self._normalize_angle(result[i])
+        # Normalize all attitude angles to [-pi, pi]
+        attitude = result[self.ROLL:self.YAW + 1]
+        attitude = (attitude + np.pi) % (2 * np.pi) - np.pi
+        result[self.ROLL:self.YAW + 1] = attitude
 
-        # Clip attitude to prevent extreme orientations
+        # Clip roll and pitch to prevent extreme orientations
         max_tilt = math.pi / 3  # 60 degrees
         result[self.ROLL] = np.clip(result[self.ROLL], -max_tilt, max_tilt)
         result[self.PITCH] = np.clip(result[self.PITCH], -max_tilt, max_tilt)
@@ -453,11 +454,7 @@ class QuadcopterEnv:
     @staticmethod
     def _normalize_angle(angle: float) -> float:
         """Normalize angle to [-pi, pi]."""
-        while angle > math.pi:
-            angle -= 2 * math.pi
-        while angle < -math.pi:
-            angle += 2 * math.pi
-        return angle
+        return (angle + math.pi) % (2 * math.pi) - math.pi
 
     def _get_observation(self) -> dict:
         """
