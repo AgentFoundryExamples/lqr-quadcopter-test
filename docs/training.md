@@ -525,36 +525,48 @@ class PartialObservabilityController(BaseController):
 
 ### Transfer Learning
 
+**Current Limitation**: The Trainer class creates its own controller internally, which does not directly support transfer learning from pretrained weights. This section describes the planned approach and a workaround.
+
+#### Planned Approach (requires Trainer modification)
+
 To adapt trained controllers to new scenarios:
 
 1. Load pretrained checkpoint
 2. Freeze early layers (optional)
 3. Fine-tune on new target motion patterns
 
+#### Current Workaround
+
+For inference with pretrained weights, use `DeepTrackingPolicy.load_checkpoint()`:
+
 ```python
 from quadcopter_tracking.controllers import DeepTrackingPolicy
-from quadcopter_tracking.train import TrainingConfig, Trainer
 
-# Create controller and load pretrained weights
+# Load pretrained weights for inference/evaluation
 controller = DeepTrackingPolicy()
 controller.load_checkpoint("checkpoints/pretrained.pt")
 
-# For fine-tuning, create a new trainer with the model's state dict
-# Note: Current Trainer creates its own controller, so for transfer learning
-# you would need to save the weights after loading and configure the trainer
-# to initialize with similar architecture
+# Use controller for evaluation
+from quadcopter_tracking.eval import Evaluator
+evaluator = Evaluator(controller=controller)
+summary = evaluator.evaluate(num_episodes=10)
+```
+
+#### Future Transfer Learning Implementation
+
+To enable true transfer learning, the Trainer class would need modification:
+
+```python
+# Future implementation concept (not currently available)
+# This shows the desired API for transfer learning support
 
 config = TrainingConfig()
 config.target_motion_type = "figure8"
 config.learning_rate = 0.0001  # Lower LR for fine-tuning
 config.epochs = 50
-# Use same hidden_sizes as pretrained model
-config.hidden_sizes = [64, 64]
+config.pretrained_checkpoint = "checkpoints/pretrained.pt"  # Future feature
+config.freeze_layers = [0, 1]  # Future feature: freeze early layers
 
-# Train new controller (weights start random, not pretrained)
 trainer = Trainer(config)
 trainer.train()
-
-# For true transfer learning, modify Trainer to accept initial weights
-# or implement weight copying after trainer initialization
 ```
