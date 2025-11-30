@@ -96,7 +96,7 @@ Key configuration parameters:
 - `QUADCOPTER_SEED`: Random seed for reproducibility
 - `QUADCOPTER_EPISODE_LENGTH`: Duration of tracking episodes (seconds)
 - `QUADCOPTER_TARGET_RADIUS`: On-target threshold (meters)
-- `QUADCOPTER_TARGET_MOTION_TYPE`: Target motion pattern (linear, circular, sinusoidal)
+- `QUADCOPTER_TARGET_MOTION_TYPE`: Target motion pattern (stationary (default), linear, circular, sinusoidal)
 
 See [.env.example](.env.example) for all available options.
 
@@ -169,11 +169,22 @@ print(f"On-target ratio: {info['on_target_ratio']:.1%}")
 
 ### Target Motion Patterns
 
+- **stationary**: Fixed position (hover reference) - **default**
 - **linear**: Constant velocity in random direction
 - **circular**: Orbital motion in horizontal plane
 - **sinusoidal**: Multi-axis oscillation
 - **figure8**: Lemniscate trajectory
-- **stationary**: Fixed position (hover reference)
+
+### Physics Parameters
+
+Controllers (PID/LQR) receive quadcopter physics parameters for computing hover thrust:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| mass | 1.0 kg | Quadcopter mass |
+| gravity | 9.81 m/s² | Gravitational acceleration |
+
+These values are surfaced from the environment configuration to controller constructors, enabling proper hover thrust calculation (`hover_thrust = mass × gravity`).
 
 ### Configuration
 

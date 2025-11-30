@@ -104,8 +104,13 @@ class PIDController(BaseController):
                 - mass: Quadcopter mass in kg (default: 1.0)
                 - gravity: Gravitational acceleration (default: 9.81)
         """
-        super().__init__(name="pid", config=config)
         config = config or {}
+
+        # Physical parameters for hover thrust calculation
+        mass = config.get("mass", 1.0)
+        gravity = config.get("gravity", 9.81)
+
+        super().__init__(name="pid", config=config, mass=mass, gravity=gravity)
 
         # Position PID gains - can be scalar or array
         kp = config.get("kp_pos", config.get("kp", [2.0, 2.0, 4.0]))
@@ -130,10 +135,8 @@ class PIDController(BaseController):
         self.min_thrust = config.get("min_thrust", 0.0)
         self.max_rate = config.get("max_rate", 3.0)
 
-        # Physical parameters for hover thrust calculation
-        mass = config.get("mass", 1.0)
-        gravity = config.get("gravity", 9.81)
-        self.hover_thrust = mass * gravity
+        # Hover thrust from base class params
+        self.hover_thrust = self.mass * self.gravity
 
         # State variables
         self.integral_error = np.zeros(3)
@@ -271,18 +274,21 @@ class LQRController(BaseController):
                 - mass: Quadcopter mass in kg (default: 1.0)
                 - gravity: Gravitational acceleration (default: 9.81)
         """
-        super().__init__(name="lqr", config=config)
         config = config or {}
+
+        # Physical parameters
+        mass = config.get("mass", 1.0)
+        gravity = config.get("gravity", 9.81)
+
+        super().__init__(name="lqr", config=config, mass=mass, gravity=gravity)
 
         # Output limits
         self.max_thrust = config.get("max_thrust", 20.0)
         self.min_thrust = config.get("min_thrust", 0.0)
         self.max_rate = config.get("max_rate", 3.0)
 
-        # Physical parameters
-        mass = config.get("mass", 1.0)
-        gravity = config.get("gravity", 9.81)
-        self.hover_thrust = mass * gravity
+        # Hover thrust from base class params
+        self.hover_thrust = self.mass * self.gravity
 
         # Check for pre-defined K matrix
         if "K" in config and config["K"] is not None:

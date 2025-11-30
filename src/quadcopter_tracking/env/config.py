@@ -55,7 +55,7 @@ class SimulationParams:
 class TargetParams:
     """Target motion parameters."""
 
-    motion_type: str = "linear"  # 'linear', 'circular', 'sinusoidal', 'figure8'
+    motion_type: str = "stationary"  # 'stationary', 'linear', 'circular', etc.
     speed: float = 1.0  # m/s, base speed
     amplitude: float = 2.0  # m, amplitude for oscillatory motion
     frequency: float = 0.5  # Hz, frequency for oscillatory motion
@@ -151,7 +151,7 @@ class EnvConfig:
                 max_position=sim_dict.get("max_position", 1000.0),
             ),
             target=TargetParams(
-                motion_type=target_dict.get("motion_type", "linear"),
+                motion_type=target_dict.get("motion_type", "stationary"),
                 speed=target_dict.get("speed", 1.0),
                 amplitude=target_dict.get("amplitude", 2.0),
                 frequency=target_dict.get("frequency", 0.5),
