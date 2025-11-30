@@ -154,10 +154,16 @@ class TrackingLoss(nn.Module):
 
         total = pos_loss + vel_loss + ctrl_loss
 
-        # Check for NaN
+        # Check for NaN and replace with a large finite value to signal issues
+        # while maintaining gradient flow
         if torch.isnan(total):
             logger.warning("NaN detected in loss computation")
-            total = torch.tensor(0.0, device=self.device, requires_grad=True)
+            # Use a large value that still allows gradient computation
+            total = (
+                torch.nan_to_num(pos_loss, nan=10.0)
+                + torch.nan_to_num(vel_loss, nan=10.0)
+                + torch.nan_to_num(ctrl_loss, nan=10.0)
+            )
 
         return {
             "total": total,
@@ -261,8 +267,10 @@ class RewardShapingLoss(nn.Module):
         elif self.smoothing == "exp":
             penalty = (1 - torch.exp(-tracking_error)) * self.distance_penalty
         elif self.smoothing == "sigmoid":
-            penalty = torch.sigmoid(tracking_error - self.target_radius)
-            penalty = penalty * self.distance_penalty
+            penalty = (
+                torch.sigmoid(tracking_error - self.target_radius)
+                * self.distance_penalty
+            )
         else:
             raise ValueError(f"Unknown smoothing: {self.smoothing}")
 

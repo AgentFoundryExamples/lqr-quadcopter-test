@@ -381,15 +381,15 @@ class TestTrainer:
     """Tests for the Trainer class."""
 
     @pytest.fixture
-    def fast_config(self):
+    def fast_config(self, tmp_path):
         """Create fast training config for tests."""
         return TrainingConfig(
             epochs=2,
             episodes_per_epoch=2,
             max_steps_per_episode=100,
             batch_size=8,
-            checkpoint_dir="/tmp/test_checkpoints",
-            log_dir="/tmp/test_logs",
+            checkpoint_dir=str(tmp_path / "checkpoints"),
+            log_dir=str(tmp_path / "logs"),
             device="cpu",
         )
 
@@ -485,7 +485,7 @@ class TestTrainer:
 class TestIntegration:
     """Integration tests for the complete training pipeline."""
 
-    def test_end_to_end_training(self):
+    def test_end_to_end_training(self, tmp_path):
         """Test complete training pipeline end-to-end."""
         config = TrainingConfig(
             epochs=3,
@@ -493,8 +493,8 @@ class TestIntegration:
             max_steps_per_episode=50,
             batch_size=4,
             hidden_sizes=[16, 16],
-            checkpoint_dir="/tmp/e2e_checkpoints",
-            log_dir="/tmp/e2e_logs",
+            checkpoint_dir=str(tmp_path / "e2e_checkpoints"),
+            log_dir=str(tmp_path / "e2e_logs"),
             device="cpu",
         )
 
@@ -512,7 +512,7 @@ class TestIntegration:
         checkpoint_dir = Path(config.checkpoint_dir)
         assert checkpoint_dir.exists()
 
-    def test_controller_improves_with_training(self):
+    def test_controller_improves_with_training(self, tmp_path):
         """Test that controller behavior changes with training."""
         config = TrainingConfig(
             epochs=5,
@@ -520,8 +520,8 @@ class TestIntegration:
             max_steps_per_episode=100,
             batch_size=8,
             hidden_sizes=[32, 32],
-            checkpoint_dir="/tmp/improvement_checkpoints",
-            log_dir="/tmp/improvement_logs",
+            checkpoint_dir=str(tmp_path / "improvement_checkpoints"),
+            log_dir=str(tmp_path / "improvement_logs"),
             device="cpu",
         )
 
@@ -546,7 +546,7 @@ class TestIntegration:
             rtol=0.01,
         )
 
-    def test_training_with_different_motion_types(self):
+    def test_training_with_different_motion_types(self, tmp_path):
         """Test training with various target motion types."""
         motion_types = ["stationary", "linear", "circular"]
 
@@ -556,8 +556,8 @@ class TestIntegration:
                 episodes_per_epoch=2,
                 max_steps_per_episode=50,
                 target_motion_type=motion_type,
-                checkpoint_dir=f"/tmp/motion_{motion_type}",
-                log_dir=f"/tmp/logs_{motion_type}",
+                checkpoint_dir=str(tmp_path / f"motion_{motion_type}"),
+                log_dir=str(tmp_path / f"logs_{motion_type}"),
                 device="cpu",
             )
 

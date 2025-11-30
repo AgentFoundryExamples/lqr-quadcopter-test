@@ -261,9 +261,9 @@ class Trainer:
         self.best_loss = float("inf")
         self.nan_recovery_count = 0
 
-        # Generate experiment ID
+        # Generate experiment ID with microseconds for uniqueness
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y%m%d_%H%M%S"
+            "%Y%m%d_%H%M%S_%f"
         )
         self.experiment_id = f"train_{timestamp}_{config.env_seed}"
 
@@ -430,7 +430,8 @@ class Trainer:
         batch_size = min(self.config.batch_size, len(episode_data))
         indices = np.random.choice(len(episode_data), batch_size, replace=False)
 
-        total_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
+        # Accumulate losses - start with None to initialize with first value
+        total_loss = None
 
         for idx in indices:
             step_data = episode_data[idx]
@@ -460,12 +461,19 @@ class Trainer:
 
             # Compute loss
             losses = self.loss_fn(pos_error, vel_error, action, tracking_error)
-            total_loss = total_loss + losses["total"]
+
+            # Accumulate - initialize with first loss or add to existing
+            if total_loss is None:
+                total_loss = losses["total"]
+            else:
+                total_loss = total_loss + losses["total"]
 
             # Log losses
             self.loss_logger.log(losses)
 
-        # Average loss
+        # Average loss (handle edge case of empty batch)
+        if total_loss is None:
+            return
         total_loss = total_loss / batch_size
 
         # Backward pass
