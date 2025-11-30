@@ -490,50 +490,13 @@ class CustomRLController(BaseController):
 
 ### Imperfect Information Controllers
 
-For controllers that must handle partial observability:
+Handling partial observability (e.g., with noisy sensor data) is a planned future enhancement. This will likely involve state estimation techniques like Kalman filters and recurrent neural network architectures.
 
-1. **State estimation**: Implement filtering (Kalman, particle filter)
-2. **Memory-based architectures**: Use LSTM/GRU networks
-3. **Uncertainty-aware policies**: Output distributions over actions
-
-```python
-# Pseudocode - components to implement
-class PartialObservabilityController(BaseController):
-    """Example structure for handling partial observability."""
-    def __init__(self, config=None):
-        super().__init__(name="partial_obs", config=config)
-        # Implement your own state estimator (e.g., Kalman filter)
-        self.state_estimator = None  # KalmanFilter(...)
-        # Implement a recurrent policy network
-        self.policy = None  # RecurrentPolicy(...)
-    
-    def compute_action(self, observation):
-        # Add simulated noise for training
-        noisy_obs = self._add_observation_noise(observation)
-        # Estimate true state using your filter
-        estimated_state = self.state_estimator.update(noisy_obs)
-        # Compute action from estimated state
-        return self.policy(estimated_state)
-    
-    def _add_observation_noise(self, observation):
-        # Add Gaussian noise to simulate sensor imperfections
-        import numpy as np
-        noisy = observation.copy()
-        noisy["target"]["position"] += np.random.normal(0, 0.1, 3)
-        return noisy
-```
+See [ROADMAP.md](../ROADMAP.md) for detailed design proposals and pseudocode.
 
 ### Transfer Learning
 
-**Current Limitation**: The Trainer class creates its own controller internally, which does not directly support transfer learning from pretrained weights. This section describes the planned approach and a workaround.
-
-#### Planned Approach (requires Trainer modification)
-
-To adapt trained controllers to new scenarios:
-
-1. Load pretrained checkpoint
-2. Freeze early layers (optional)
-3. Fine-tune on new target motion patterns
+**Current Limitation**: The Trainer class creates its own controller internally, which does not directly support transfer learning from pretrained weights.
 
 #### Current Workaround
 
@@ -552,21 +515,4 @@ evaluator = Evaluator(controller=controller)
 summary = evaluator.evaluate(num_episodes=10)
 ```
 
-#### Future Transfer Learning Implementation
-
-To enable true transfer learning, the Trainer class would need modification:
-
-```python
-# Future implementation concept (not currently available)
-# This shows the desired API for transfer learning support
-
-config = TrainingConfig()
-config.target_motion_type = "figure8"
-config.learning_rate = 0.0001  # Lower LR for fine-tuning
-config.epochs = 50
-config.pretrained_checkpoint = "checkpoints/pretrained.pt"  # Future feature
-config.freeze_layers = [0, 1]  # Future feature: freeze early layers
-
-trainer = Trainer(config)
-trainer.train()
-```
+True transfer learning support (loading pretrained weights for fine-tuning) is planned for a future release. See [ROADMAP.md](../ROADMAP.md) for the proposed API design.

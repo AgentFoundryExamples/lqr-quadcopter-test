@@ -275,25 +275,12 @@ cat reports/comparison/sweep_results.json
 
 ### Imperfect Information Scenarios
 
-The current evaluation assumes perfect target information. To extend to imperfect information:
+The current evaluation assumes perfect target information. Future releases will add support for imperfect information scenarios including observation noise and state estimation.
 
-1. **Add Observation Noise**: Modify the environment to add Gaussian noise to target position/velocity observations
-2. **State Estimation**: Implement a Kalman filter or other state estimator in the controller
-3. **Adjust Success Criteria**: Consider relaxing thresholds when noise is present
-
-Example configuration for future noise scenarios (not yet implemented in the environment):
-
-```yaml
-# Proposed future extension - requires environment modification
-# This configuration format is a design reference, not currently functional
-observation_noise:
-  enabled: true
-  position_stddev: 0.1  # meters
-  velocity_stddev: 0.05  # m/s
-
-# To implement: Modify QuadcopterEnv._get_observation() to add noise
-# when observation_noise.enabled is true in config
-```
+See [ROADMAP.md](../ROADMAP.md) for detailed design proposals on:
+- Observation noise configuration
+- State estimation (Kalman filter) integration
+- Adjusted success criteria for noisy environments
 
 ### Alternative Controller Evaluation
 
