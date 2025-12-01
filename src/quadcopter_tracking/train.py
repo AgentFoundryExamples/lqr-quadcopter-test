@@ -40,6 +40,7 @@ from quadcopter_tracking.controllers import (
     DeepTrackingPolicy,
     LQRController,
     PIDController,
+    RiccatiLQRController,
 )
 from quadcopter_tracking.env import EnvConfig, QuadcopterEnv
 from quadcopter_tracking.utils.diagnostics import Diagnostics, DiagnosticsConfig
@@ -121,7 +122,7 @@ class TrainingConfig:
         diagnostics_generate_plots: bool = True,
     ):
         # Validate and set controller type
-        valid_controllers = ("deep", "lqr", "pid")
+        valid_controllers = ("deep", "lqr", "pid", "riccati_lqr")
         if controller not in valid_controllers:
             raise ValueError(
                 f"Invalid controller type: '{controller}'. "
@@ -158,7 +159,7 @@ class TrainingConfig:
         self.training_mode = training_mode
 
         # Validate supervisor controller (used in imitation mode)
-        valid_supervisors = ("pid", "lqr")
+        valid_supervisors = ("pid", "lqr", "riccati_lqr")
         if supervisor_controller not in valid_supervisors:
             raise ValueError(
                 f"Invalid supervisor_controller: '{supervisor_controller}'. "
@@ -393,8 +394,9 @@ class Trainer:
     def _create_controller(self) -> BaseController:
         """Create controller based on config type.
 
-        For classical controllers (PID, LQR), the controller_config is read from
-        the full_config dictionary under the controller type key (e.g., 'pid', 'lqr').
+        For classical controllers (PID, LQR, Riccati-LQR), the controller_config
+        is read from the full_config dictionary under the controller type key
+        (e.g., 'pid', 'lqr', 'riccati_lqr').
         This allows YAML configs to specify controller-specific gains.
         """
         config = self.config
@@ -419,6 +421,10 @@ class Trainer:
             # Read LQR weights from full_config['lqr'] if available
             controller_config = self.full_config.get("lqr", {})
             return LQRController(config=controller_config)
+        elif config.controller == "riccati_lqr":
+            # Read Riccati-LQR settings from full_config['riccati_lqr'] if available
+            controller_config = self.full_config.get("riccati_lqr", {})
+            return RiccatiLQRController(config=controller_config)
         else:
             raise ValueError(f"Unknown controller type: {config.controller}")
 
@@ -434,6 +440,8 @@ class Trainer:
             return PIDController(config=supervisor_config)
         elif supervisor_type == "lqr":
             return LQRController(config=supervisor_config)
+        elif supervisor_type == "riccati_lqr":
+            return RiccatiLQRController(config=supervisor_config)
         else:
             raise ValueError(f"Unknown supervisor controller type: {supervisor_type}")
 
@@ -1054,7 +1062,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--controller",
         type=str,
-        choices=["deep", "lqr", "pid"],
+        choices=["deep", "lqr", "pid", "riccati_lqr"],
         default=None,
         help="Controller type to train/evaluate (default: deep)",
     )
@@ -1092,7 +1100,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--supervisor-controller",
         type=str,
-        choices=["pid", "lqr"],
+        choices=["pid", "lqr", "riccati_lqr"],
         help="Supervisor controller for imitation/reward-weighted modes",
     )
     parser.add_argument(

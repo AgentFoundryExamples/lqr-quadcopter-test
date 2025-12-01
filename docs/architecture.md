@@ -229,6 +229,87 @@ Like the PID controller, LQR outputs `thrust = hover_thrust + thrust_correction`
 At zero state error, the LQR controller outputs exactly `hover_thrust` (~9.81 N
 with default parameters), providing proper gravity compensation.
 
+### Riccati-LQR Controller Pipeline
+
+The Riccati-LQR controller solves the discrete-time algebraic Riccati equation
+(DARE) to compute mathematically optimal feedback gains. Unlike the heuristic
+LQR, which uses simplified gain computations, Riccati-LQR provides a true optimal
+solution for the linearized quadcopter dynamics.
+
+```
+                 Linearized System Matrices
+ Physical ──► ┌────────────────────────────────┐
+ Parameters   │  A, B = build_linearized_system(dt) │
+              │  (6x6 state transition, 6x4 control) │
+              └──────────────────┬─────────────┘
+                                 │
+                                 ▼
+              ┌────────────────────────────────┐
+              │  DARE Solver (scipy.linalg)    │
+              │  P = solve_discrete_are(A,B,Q,R)│
+              │  K = (R + B'PB)^{-1} B'PA       │
+              └──────────────────┬─────────────┘
+                                 │
+                                 ▼
+              ┌────────────────────────────────┐
+              │  Optimal Feedback: u = K @ x   │
+              │  K: 4x6 gain matrix            │
+              └────────────────────────────────┘
+```
+
+**DARE Solution:**
+The DARE finds the steady-state solution P to:
+```
+A'PA - P - A'PB(R + B'PB)^{-1}B'PA + Q = 0
+```
+
+The optimal feedback gain is then:
+```
+K = (R + B'PB)^{-1}B'PA
+```
+
+**System Linearization:**
+The controller linearizes quadcopter dynamics around hover:
+- State vector: `[x, y, z, vx, vy, vz]` (6D)
+- Control vector: `[thrust_delta, roll_rate, pitch_rate, yaw_rate]` (4D)
+- `thrust_delta` is the deviation from hover thrust
+
+**Configuration:**
+
+```yaml
+riccati_lqr:
+  dt: 0.01                          # Simulation timestep (required)
+  q_pos: [1.0, 1.0, 10.0]           # Position cost [x, y, z]
+  q_vel: [0.1, 0.1, 1.0]            # Velocity cost [vx, vy, vz]
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+  fallback_on_failure: true         # Fall back to heuristic LQR on solver failure
+```
+
+**Use Cases:**
+- Serving as a strong teacher for deep imitation learning
+- Validating control performance against optimal baselines
+- Research on LQR-based quadcopter control
+
+**Fallback Behavior:**
+If the DARE solver fails (e.g., due to ill-conditioned matrices), the controller
+can fall back to the heuristic LQR with matched parameters:
+
+```python
+controller = RiccatiLQRController(config={"dt": 0.01, "fallback_on_failure": True})
+if controller.is_using_fallback():
+    print("Warning: Using fallback heuristic LQR")
+```
+
+**Matrix Validation:**
+The controller validates input matrices:
+- Q must be positive semi-definite (all eigenvalues ≥ 0)
+- R must be positive definite (all eigenvalues > 0)
+- Invalid matrices trigger `ValueError` (or fallback if enabled)
+
+**Dependencies:**
+- Requires `scipy>=1.11.0` for `scipy.linalg.solve_discrete_are`
+- scipy is included in `pyproject.toml` dependencies
+
 ### Feedforward Support (Optional)
 
 Both PID and LQR controllers support optional feedforward terms for improved
@@ -535,7 +616,8 @@ python -m quadcopter_tracking.eval --controller lqr --episodes 10
 |------------|----------|-------------|----------|
 | `deep` | Yes (gradient descent) | Saved/loaded | Complex scenarios, learned behavior |
 | `pid` | No (evaluation only) | None | Stationary/slow targets, tunable gains |
-| `lqr` | No (evaluation only) | None | Optimal linear control, known dynamics |
+| `lqr` | No (evaluation only) | None | Heuristic linear control, known dynamics |
+| `riccati_lqr` | No (evaluation only) | None | Optimal DARE-based control, imitation teacher |
 
 ### Configuration via YAML
 
@@ -543,7 +625,7 @@ Controller-specific settings are read from the YAML config file's controller_con
 
 ```yaml
 # experiments/configs/my_config.yaml
-controller: pid  # Options: deep, lqr, pid
+controller: pid  # Options: deep, lqr, riccati_lqr, pid
 epochs: 10
 episodes_per_epoch: 5
 

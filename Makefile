@@ -1,4 +1,4 @@
-.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr eval-deep eval-pid eval-lqr eval-baseline-stationary eval-baseline-circular compare-controllers generate-comparison-report clean help
+.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr train-riccati-lqr eval-deep eval-pid eval-lqr eval-riccati-lqr eval-baseline-stationary eval-baseline-circular compare-controllers generate-comparison-report clean help
 
 # Default Python interpreter
 PYTHON ?= python
@@ -31,6 +31,7 @@ help:
 	@echo "=== WORKFLOW 1: Baseline PID/LQR Evaluation ==="
 	@echo "  make eval-pid                      - Evaluate PID controller"
 	@echo "  make eval-lqr                      - Evaluate LQR controller"
+	@echo "  make eval-riccati-lqr              - Evaluate Riccati-LQR controller"
 	@echo "  make eval-baseline-stationary      - Evaluate PID+LQR on stationary target"
 	@echo "  make eval-baseline-circular        - Evaluate PID+LQR on circular target"
 	@echo ""
@@ -46,6 +47,7 @@ help:
 	@echo "Legacy/Other Commands:"
 	@echo "  make train-pid              - Run PID controller evaluation loop"
 	@echo "  make train-lqr              - Run LQR controller evaluation loop"
+	@echo "  make train-riccati-lqr      - Run Riccati-LQR controller evaluation loop"
 	@echo "  make run-experiment         - Run experiment with custom config"
 	@echo ""
 	@echo "Maintenance:"
@@ -83,6 +85,9 @@ train-pid:
 train-lqr:
 	$(PYTHON) -m quadcopter_tracking.train --controller lqr --epochs $(EPOCHS) --episodes-per-epoch $(EPISODES) --seed $(SEED)
 
+train-riccati-lqr:
+	$(PYTHON) -m quadcopter_tracking.train --controller riccati_lqr --epochs $(EPOCHS) --episodes-per-epoch $(EPISODES) --seed $(SEED)
+
 # Evaluation commands
 eval-deep:
 	$(PYTHON) -m quadcopter_tracking.eval --controller deep --episodes $(EPISODES) --seed $(SEED)
@@ -92,6 +97,9 @@ eval-pid:
 
 eval-lqr:
 	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --episodes $(EPISODES) --seed $(SEED)
+
+eval-riccati-lqr:
+	$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --episodes $(EPISODES) --seed $(SEED)
 
 # =============================================================================
 # WORKFLOW 1: Baseline PID/LQR Evaluation

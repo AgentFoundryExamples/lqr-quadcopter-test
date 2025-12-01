@@ -36,6 +36,7 @@ from quadcopter_tracking.controllers import (
     DeepTrackingPolicy,
     LQRController,
     PIDController,
+    RiccatiLQRController,
 )
 from quadcopter_tracking.env import EnvConfig, QuadcopterEnv
 from quadcopter_tracking.utils.metrics import (
@@ -476,7 +477,7 @@ def load_controller(
     Load a controller by type and optionally from checkpoint.
 
     Args:
-        controller_type: Type of controller ('deep', 'lqr', 'pid').
+        controller_type: Type of controller ('deep', 'lqr', 'pid', 'riccati_lqr').
         checkpoint_path: Path to checkpoint for neural controllers.
         config: Controller configuration dictionary.
 
@@ -495,6 +496,8 @@ def load_controller(
         return LQRController(config=config)
     elif controller_type == "pid":
         return PIDController(config=config)
+    elif controller_type == "riccati_lqr":
+        return RiccatiLQRController(config=config)
     else:
         raise ValueError(f"Unknown controller type: {controller_type}")
 
@@ -632,7 +635,7 @@ def parse_args() -> argparse.Namespace:
         "--controller",
         type=str,
         default="deep",
-        choices=["deep", "lqr", "pid"],
+        choices=["deep", "lqr", "pid", "riccati_lqr"],
         help="Controller type to evaluate",
     )
     parser.add_argument(

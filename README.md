@@ -233,7 +233,7 @@ Controller-specific settings can be configured via YAML files or CLI arguments. 
 
 ```yaml
 # experiments/configs/my_experiment.yaml
-controller: pid  # or 'lqr', 'deep'
+controller: pid  # or 'lqr', 'riccati_lqr', 'deep'
 
 # PID controller gains (used when controller=pid)
 pid:
@@ -248,6 +248,15 @@ lqr:
   q_vel: [0.01, 0.01, 5.0]
   r_thrust: 1.0
   r_rate: 1.0
+
+# Riccati-LQR controller (used when controller=riccati_lqr)
+# Solves DARE for optimal feedback gains
+riccati_lqr:
+  dt: 0.01                        # Simulation timestep
+  q_pos: [1.0, 1.0, 10.0]         # Position cost weights
+  q_vel: [0.1, 0.1, 1.0]          # Velocity cost weights
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost weights
+  fallback_on_failure: true       # Fall back to heuristic LQR on solver failure
 ```
 
 **Using with training:**
@@ -287,7 +296,8 @@ and evaluation pipelines for all controller types (deep, PID, LQR).
 The `--controller` flag lets you choose between different controller types:
 - `deep`: Neural network controller (requires training)
 - `pid`: PID controller (classical, no training required)
-- `lqr`: LQR controller (classical, no training required)
+- `lqr`: LQR controller (classical, heuristic gains, no training required)
+- `riccati_lqr`: Riccati-LQR controller (optimal DARE-solved gains, requires scipy)
 
 ### Quick Start Training
 
@@ -300,6 +310,9 @@ python -m quadcopter_tracking.train --controller pid --epochs 10
 
 # Run LQR controller evaluation (no training)
 python -m quadcopter_tracking.train --controller lqr --epochs 10
+
+# Run Riccati-LQR controller evaluation (no training)
+python -m quadcopter_tracking.train --controller riccati_lqr --epochs 10
 
 # Train with config file
 python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
@@ -319,6 +332,9 @@ make train-pid EPOCHS=10
 
 # Run LQR evaluation
 make train-lqr EPOCHS=10
+
+# Run Riccati-LQR evaluation
+make train-riccati-lqr EPOCHS=10
 ```
 
 ### Training Configuration
