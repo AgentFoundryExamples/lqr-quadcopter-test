@@ -486,6 +486,92 @@ curriculum_end_difficulty: 1.0
 
 Difficulty interpolates linearly from start to end over training epochs.
 
+## Feedforward Tuning for Moving Targets
+
+PID and LQR controllers support optional feedforward terms for improved tracking of moving targets. This section provides guidance on when and how to enable feedforward.
+
+### When to Enable Feedforward
+
+Enable feedforward when:
+- Tracking moving targets (linear, circular, sinusoidal motion)
+- Target velocity is significant (> 0.5 m/s)
+- Reducing phase lag behind moving targets is important
+
+Keep feedforward disabled when:
+- Tracking stationary targets (feedforward provides no benefit)
+- Initial tuning/debugging (simplifies analysis)
+- Reproducing baseline behavior for comparison experiments
+
+### Configuration
+
+```yaml
+# PID controller with feedforward enabled
+pid:
+  kp_pos: [0.01, 0.01, 4.0]
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.06, 0.06, 2.0]
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]      # Scale target velocity
+  ff_acceleration_gain: [0.05, 0.05, 0.0] # Scale target acceleration
+  ff_max_velocity: 10.0                   # Clamp for noise rejection
+  ff_max_acceleration: 5.0
+
+# LQR controller with feedforward enabled
+lqr:
+  q_pos: [0.0001, 0.0001, 16.0]
+  q_vel: [0.0036, 0.0036, 4.0]
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]
+  ff_acceleration_gain: [0.0, 0.0, 0.0]  # Optional, can be zero
+```
+
+### Recommended Gain Values
+
+| Target Speed | ff_velocity_gain | ff_acceleration_gain |
+|-------------|------------------|----------------------|
+| Slow (< 1 m/s) | [0.05, 0.05, 0.05] | [0.0, 0.0, 0.0] |
+| Moderate (1-3 m/s) | [0.1, 0.1, 0.1] | [0.02, 0.02, 0.0] |
+| Fast (> 3 m/s) | [0.15, 0.15, 0.1] | [0.05, 0.05, 0.02] |
+
+**Tips:**
+- Start with velocity feedforward only; add acceleration if needed
+- Z-axis gains are typically smaller than XY (vertical motion limited)
+- If acceleration data is unavailable, the controller gracefully falls back
+- Use clamping limits to prevent oscillation from noisy measurements
+
+### Diagnostics
+
+Controllers log individual control term contributions:
+
+```python
+from quadcopter_tracking.controllers import PIDController
+
+config = {
+    "feedforward_enabled": True,
+    "ff_velocity_gain": [0.1, 0.1, 0.1],
+}
+pid = PIDController(config=config)
+
+# Compute action
+action = pid.compute_action(observation)
+
+# Get P/I/D/FF breakdown for analysis
+components = pid.get_control_components()
+print("P term:", components["p_term"])
+print("I term:", components["i_term"])
+print("D term:", components["d_term"])
+print("FF velocity:", components["ff_velocity_term"])
+print("FF accel:", components["ff_acceleration_term"])
+```
+
+### Coordinate Frame Warning
+
+Feedforward inputs use the same frame as target observations (ENU - East-North-Up). Ensure target velocity/acceleration units match controller expectations:
+- Velocity: meters/second
+- Acceleration: meters/second²
+
+When combining feedforward with auto-tuned gains, verify coordinate frames are consistent to avoid instability.
+
 ## Checkpointing and Recovery
 
 ### Automatic Checkpointing

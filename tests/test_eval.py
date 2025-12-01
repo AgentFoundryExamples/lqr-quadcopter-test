@@ -726,15 +726,9 @@ class TestControllerConfigPropagation:
         controller = load_controller("pid", config=config)
 
         # Verify custom gains were applied
-        np.testing.assert_array_almost_equal(
-            controller.kp_pos, [0.02, 0.02, 5.0]
-        )
-        np.testing.assert_array_almost_equal(
-            controller.ki_pos, [0.001, 0.001, 0.01]
-        )
-        np.testing.assert_array_almost_equal(
-            controller.kd_pos, [0.1, 0.1, 3.0]
-        )
+        np.testing.assert_array_almost_equal(controller.kp_pos, [0.02, 0.02, 5.0])
+        np.testing.assert_array_almost_equal(controller.ki_pos, [0.001, 0.001, 0.01])
+        np.testing.assert_array_almost_equal(controller.kd_pos, [0.1, 0.1, 3.0])
 
     def test_load_lqr_with_custom_config(self):
         """Test that LQR controller receives custom config."""
@@ -756,9 +750,7 @@ class TestControllerConfigPropagation:
         lqr = load_controller("lqr", config={})
 
         # Check PID uses default gains
-        np.testing.assert_array_almost_equal(
-            pid.kp_pos, [0.01, 0.01, 4.0]
-        )
+        np.testing.assert_array_almost_equal(pid.kp_pos, [0.01, 0.01, 4.0])
 
         # Check LQR has valid K matrix
         assert lqr.K is not None

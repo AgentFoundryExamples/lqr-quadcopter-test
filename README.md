@@ -188,6 +188,25 @@ These values are surfaced from the environment configuration to controller const
 
 **Hover Thrust Baseline:** Both PID and LQR controllers output absolute thrust values that include the hover feedforward term. At zero tracking error (quadcopter at target position with matching velocity), controllers output `hover_thrust` (~9.81 N with default mass/gravity). This ensures training data contains meaningful thrust values suitable for learning gravity compensation.
 
+### Optional Feedforward Support
+
+Both PID and LQR controllers support optional velocity and acceleration feedforward for improved tracking of moving targets. **Feedforward is disabled by default** to preserve baseline behavior.
+
+**When to enable feedforward:**
+- Tracking moving targets (linear, circular, sinusoidal motion)
+- Reducing phase lag behind high-speed targets
+
+**Configuration example:**
+
+```yaml
+pid:
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]
+  ff_acceleration_gain: [0.05, 0.05, 0.0]
+```
+
+See [docs/architecture.md](docs/architecture.md#feedforward-support-optional) for detailed tuning guidance.
+
 ### Default Controller Gains
 
 The default PID and LQR gains are experimentally validated for stable tracking across stationary, linear, and circular target scenarios:

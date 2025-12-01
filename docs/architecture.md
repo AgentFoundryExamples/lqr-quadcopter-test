@@ -174,6 +174,7 @@ Desired Accel ──► Control Mapping ──► [thrust, roll_rate, pitch_rate
 - Integral windup prevention via configurable clamp
 - Per-axis gain tuning (3D arrays)
 - Automatic hover thrust calculation from mass/gravity
+- **Optional feedforward for moving targets** (see below)
 
 **Hover Thrust Baseline:**
 The PID controller outputs `thrust = hover_thrust + correction`, where:
@@ -227,6 +228,92 @@ Like the PID controller, LQR outputs `thrust = hover_thrust + thrust_correction`
 
 At zero state error, the LQR controller outputs exactly `hover_thrust` (~9.81 N
 with default parameters), providing proper gravity compensation.
+
+### Feedforward Support (Optional)
+
+Both PID and LQR controllers support optional feedforward terms for improved
+tracking of moving targets. Feedforward is **disabled by default** to preserve
+baseline behavior and backward compatibility.
+
+```mermaid
+flowchart LR
+    subgraph Feedback
+        A[Position Error] --> B[PID/LQR]
+        C[Velocity Error] --> B
+    end
+    subgraph Feedforward
+        D[Target Velocity] --> E[FF Velocity Gain]
+        F[Target Acceleration] --> G[FF Accel Gain]
+    end
+    B --> H[Total Control]
+    E --> H
+    G --> H
+    H --> I[thrust, roll_rate, pitch_rate, yaw_rate]
+```
+
+**When to Enable Feedforward:**
+- Moving targets (linear, circular, sinusoidal motion)
+- High-speed tracking scenarios
+- Reducing phase lag behind moving targets
+
+**When to Keep Feedforward Disabled:**
+- Stationary targets (no benefit, pure feedback suffices)
+- Initial tuning/debugging (simplifies analysis)
+- Reproducing baseline behavior for comparison
+
+**Configuration:**
+
+```yaml
+pid:
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]      # Scale target velocity (m/s)
+  ff_acceleration_gain: [0.05, 0.05, 0.0] # Scale target acceleration (m/s²)
+  ff_max_velocity: 10.0                   # Clamp velocity for noise rejection
+  ff_max_acceleration: 5.0                # Clamp acceleration for noise rejection
+
+lqr:
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]
+  ff_acceleration_gain: [0.05, 0.05, 0.0]
+  ff_max_velocity: 10.0
+  ff_max_acceleration: 5.0
+```
+
+**Recommended Feedforward Gains:**
+
+| Scenario | ff_velocity_gain | ff_acceleration_gain |
+|----------|------------------|----------------------|
+| Slow moving targets (< 1 m/s) | [0.05, 0.05, 0.05] | [0.0, 0.0, 0.0] |
+| Moderate speeds (1-3 m/s) | [0.1, 0.1, 0.1] | [0.02, 0.02, 0.0] |
+| Fast moving targets (> 3 m/s) | [0.15, 0.15, 0.1] | [0.05, 0.05, 0.02] |
+
+**Notes:**
+- Z-axis feedforward is typically less aggressive than XY (vertical motion limited)
+- Acceleration feedforward is optional; some motion generators don't provide it
+- If acceleration data is missing, the controller gracefully falls back to velocity-only
+- Clamping limits (`ff_max_velocity`, `ff_max_acceleration`) prevent oscillation from noisy inputs
+
+**Diagnostics:**
+
+Controllers log individual control term contributions for analysis:
+
+```python
+pid = PIDController(config={"feedforward_enabled": True, ...})
+pid.compute_action(observation)
+
+# Get breakdown of P/I/D/FF terms
+components = pid.get_control_components()
+print(components["p_term"])             # Proportional contribution
+print(components["i_term"])             # Integral contribution
+print(components["d_term"])             # Derivative contribution
+print(components["ff_velocity_term"])   # Velocity feedforward contribution
+print(components["ff_acceleration_term"]) # Acceleration feedforward contribution
+```
+
+**Coordinate Frame Warning:**
+Feedforward inputs use the same frame as target observations (ENU - East-North-Up).
+When combining feedforward with auto-tuned gains, ensure the target velocity/acceleration
+units match the controller's expected input scale (meters/second, meters/second²).
 
 ### Metrics and Logging Integration
 
