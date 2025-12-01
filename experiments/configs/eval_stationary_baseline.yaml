@@ -51,12 +51,12 @@ generate_plots: true
 # Classical Controller Configuration
 # =============================================================================
 # Conservative gains optimized for stationary target tracking
-# XY gains are small (meter→rad/sec mapping) to prevent actuator saturation.
+# XY gains are small (meter→rad/s mapping) to prevent actuator saturation.
 # Integral term disabled by default to avoid wind-up; tunable for bias rejection.
 
 # PID Controller - validated baseline gains for stationary targets
 pid:
-  kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/sec mapping)
+  kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/s mapping)
   ki_pos: [0.0, 0.0, 0.0]      # Zero integral to avoid wind-up
   kd_pos: [0.06, 0.06, 2.0]    # Low XY damping
   integral_limit: 0.0           # Disabled by default

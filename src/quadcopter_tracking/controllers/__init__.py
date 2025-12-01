@@ -119,7 +119,7 @@ class PIDController(BaseController):
         super().__init__(name="pid", config=config, mass=mass, gravity=gravity)
 
         # Position PID gains - can be scalar or array
-        # XY gains are small because meter→rad/sec mapping would otherwise saturate
+        # XY gains are small because meter→rad/s mapping would otherwise saturate
         kp = config.get("kp_pos", config.get("kp", [0.01, 0.01, 4.0]))
         ki = config.get("ki_pos", config.get("ki", [0.0, 0.0, 0.0]))
         kd = config.get("kd_pos", config.get("kd", [0.06, 0.06, 2.0]))

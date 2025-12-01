@@ -87,7 +87,7 @@ lr_reduction_factor: 0.5
 # =============================================================================
 # These settings are used when evaluating PID or LQR controllers.
 # Validated baseline gains with low XY proportional gains to prevent actuator
-# saturation (meter→rad/sec mapping). Integral term disabled by default.
+# saturation (meter→rad/s mapping). Integral term disabled by default.
 
 # PID Controller Gains
 # Tuned for stable tracking across stationary, linear, and circular scenarios.

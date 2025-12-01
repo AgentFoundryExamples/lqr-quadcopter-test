@@ -67,12 +67,12 @@ lr_reduction_factor: 0.3
 # Classical Controller Configuration (PID and LQR)
 # =============================================================================
 # Validated baseline gains for figure-8 motion tracking.
-# XY gains are small (meter→rad/sec mapping) to prevent actuator saturation.
+# XY gains are small (meter→rad/s mapping) to prevent actuator saturation.
 # These gains provide stable tracking without saturation for complex motion.
 
 # PID Controller Gains - Validated baseline for complex motion
 pid:
-  # Low XY gains for meter→rad/sec mapping
+  # Low XY gains for meter→rad/s mapping
   kp_pos: [0.01, 0.01, 4.0]
   ki_pos: [0.0, 0.0, 0.0]
   kd_pos: [0.06, 0.06, 2.0]
@@ -81,7 +81,7 @@ pid:
 
 # LQR Controller Gains - Validated baseline for complex motion
 lqr:
-  # Low XY position cost for meter→rad/sec mapping
+  # Low XY position cost for meter→rad/s mapping
   q_pos: [0.0001, 0.0001, 16.0]
   q_vel: [0.0036, 0.0036, 4.0]
   r_thrust: 1.0

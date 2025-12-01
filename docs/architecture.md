@@ -303,7 +303,7 @@ Controller gains are configured via YAML. The default gains are experimentally v
 
 ```yaml
 # PID Controller - Validated baseline gains
-# XY gains are small to prevent actuator saturation (meter→rad/sec mapping)
+# XY gains are small to prevent actuator saturation (meter→rad/s mapping)
 pid:
   kp_pos: [0.01, 0.01, 4.0]   # Proportional gains [x, y, z] - low XY
   ki_pos: [0.0, 0.0, 0.0]     # Integral gains [x, y, z] - zero to avoid wind-up
@@ -311,7 +311,7 @@ pid:
   integral_limit: 0.0          # Disabled by default
 
 # LQR Controller - Validated baseline weights
-# XY costs are small to produce low feedback gains (meter→rad/sec mapping)
+# XY costs are small to produce low feedback gains (meter→rad/s mapping)
 lqr:
   q_pos: [0.0001, 0.0001, 16.0]  # Position cost weights - low XY
   q_vel: [0.0036, 0.0036, 4.0]   # Velocity cost weights

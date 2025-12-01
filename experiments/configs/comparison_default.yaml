@@ -21,7 +21,7 @@
 
 configurations:
   # PID Controller - Classical proportional-integral-derivative control
-  # Validated baseline gains with low XY proportional gains (meter→rad/sec mapping)
+  # Validated baseline gains with low XY proportional gains (meter→rad/s mapping)
   - name: pid_baseline
     controller_type: pid
     num_episodes: 10
@@ -30,13 +30,13 @@ configurations:
     episode_length: 30.0
     target_radius: 0.5
     pid:
-      kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/sec mapping)
+      kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/s mapping)
       ki_pos: [0.0, 0.0, 0.0]      # Zero integral to avoid wind-up
       kd_pos: [0.06, 0.06, 2.0]    # Low XY damping
       integral_limit: 0.0
 
   # LQR Controller - Linear Quadratic Regulator (optimal linear control)
-  # Validated baseline weights scaled for meter→rad/sec mapping
+  # Validated baseline weights scaled for meter→rad/s mapping
   - name: lqr_baseline
     controller_type: lqr
     num_episodes: 10

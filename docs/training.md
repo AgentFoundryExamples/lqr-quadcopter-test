@@ -995,7 +995,7 @@ lqr = LQRController(config={
 })
 ```
 
-**Why are XY costs so small?** The LQR gain formula produces K_pos = sqrt(q_pos/r). With the validated weights (q_pos[xy]=0.0001, r_rate=1.0), the XY position gains are sqrt(0.0001) = 0.01, matching the PID baseline. This prevents actuator saturation from the meter→rad/sec mapping.
+**Why are XY costs so small?** The LQR gain formula produces K_pos = sqrt(q_pos/r). With the validated weights (q_pos[xy]=0.0001, r_rate=1.0), the XY position gains are sqrt(0.0001) = 0.01, matching the PID baseline. This prevents actuator saturation from the meter→rad/s mapping.
 
 #### Cost Weight Guidelines
 

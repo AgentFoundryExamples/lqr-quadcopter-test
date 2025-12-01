@@ -556,7 +556,7 @@ class TestPIDController:
 
         Default gains are tuned for stable tracking with small XY proportional
         gains (kp_pos[0:2] = 0.01) to avoid actuator saturation due to the
-        meter→rad/sec mapping. Integral limit defaults to 0.0 for XY axes.
+        meter→rad/s mapping. Integral limit defaults to 0.0 for XY axes.
         """
         from quadcopter_tracking.controllers import PIDController
 
@@ -568,7 +568,7 @@ class TestPIDController:
         # New validated defaults: integral_limit = 0.0 (disabled by default)
         assert pid.integral_limit == 0.0
         assert len(pid.kp_pos) == 3
-        # Verify new XY gains are small (meter→rad/sec scaling)
+        # Verify new XY gains are small (meter→rad/s scaling)
         assert np.allclose(pid.kp_pos[:2], [0.01, 0.01])
         # Verify Z gain remains higher for altitude tracking
         assert pid.kp_pos[2] == 4.0

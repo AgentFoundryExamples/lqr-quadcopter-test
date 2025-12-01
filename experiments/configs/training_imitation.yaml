@@ -75,7 +75,7 @@ lr_reduction_factor: 0.5
 # Classical Controller Configuration (used as supervisor)
 # =============================================================================
 # Validated baseline gains for generating good imitation trajectories.
-# XY gains are small (meter→rad/sec mapping) to prevent actuator saturation.
+# XY gains are small (meter→rad/s mapping) to prevent actuator saturation.
 
 # PID gains - validated baseline for imitation
 pid:
