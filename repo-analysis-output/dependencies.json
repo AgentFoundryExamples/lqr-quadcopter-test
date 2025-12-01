@@ -39,8 +39,12 @@
       "path": "src/quadcopter_tracking/controllers/base.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
-        "third-party": []
+        "stdlib": [
+          "dataclasses.dataclass"
+        ],
+        "third-party": [
+          "numpy"
+        ]
       }
     },
     {
@@ -307,6 +311,10 @@
     {
       "source": "src/quadcopter_tracking/__init__.py",
       "target": "src/quadcopter_tracking/utils/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/controllers/__init__.py",
+      "target": "src/quadcopter_tracking/controllers/base.py"
     },
     {
       "source": "src/quadcopter_tracking/env/__init__.py",

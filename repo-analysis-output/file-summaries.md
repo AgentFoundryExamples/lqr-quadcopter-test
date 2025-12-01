@@ -31,8 +31,8 @@ Total files: 20
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 15.79 KB  
-**LOC:** 282  
+**Size:** 16.63 KB  
+**LOC:** 301  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 3  
 **Top-level declarations:**
@@ -46,12 +46,17 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 1.70 KB  
-**LOC:** 48  
+**Size:** 4.23 KB  
+**LOC:** 103  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 1  
+**Declarations:** 3  
 **Top-level declarations:**
+  - class ActionLimits
+  - function validate_action
   - class BaseController
+**External Dependencies:**
+  - **Stdlib:** `dataclasses.dataclass`
+  - **Third-party:** `numpy`
 
 ## src/quadcopter_tracking/controllers/deep_tracking_policy.py
 **Language:** Python  
@@ -133,15 +138,16 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 22.97 KB  
-**LOC:** 600  
+**Size:** 25.31 KB  
+**LOC:** 647  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 5  
+**Declarations:** 6  
 **Top-level declarations:**
   - class Evaluator
   - function load_controller
   - function run_hyperparameter_sweep
   - function parse_args
+  - function _load_eval_config
   - function main
 **External Dependencies:**
   - **Stdlib:** `argparse`, `collections.abc.Callable`, `datetime.datetime`, `datetime.timezone`, `json`
@@ -152,8 +158,8 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 44.27 KB  
-**LOC:** 927  
+**Size:** 44.77 KB  
+**LOC:** 931  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -214,8 +220,8 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 16.16 KB  
-**LOC:** 395  
+**Size:** 16.11 KB  
+**LOC:** 392  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -233,7 +239,7 @@ Total files: 20
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Size:** 14.77 KB  
-**LOC:** 354  
+**LOC:** 352  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 10  
 **Top-level declarations:**
@@ -280,8 +286,8 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 75.02 KB  
-**LOC:** 1533  
+**Size:** 75.32 KB  
+**LOC:** 1549  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 11  
 **Top-level declarations:**
@@ -303,10 +309,10 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 19.61 KB  
-**LOC:** 437  
+**Size:** 25.48 KB  
+**LOC:** 571  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 8  
+**Declarations:** 10  
 **Top-level declarations:**
   - class TestMetrics
   - class TestEpisodeMetrics
@@ -316,6 +322,8 @@ Total files: 20
   - class TestLoadController
   - class TestIntegration
   - class TestControllerSelectionEval
+  - class TestActionSchema
+  - class TestControllerConfigPropagation
 **External Dependencies:**
   - **Third-party:** `matplotlib.pyplot`, `numpy`, `pytest`
 
@@ -323,8 +331,8 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 38.27 KB  
-**LOC:** 846  
+**Size:** 40.08 KB  
+**LOC:** 885  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 11  
 **Top-level declarations:**

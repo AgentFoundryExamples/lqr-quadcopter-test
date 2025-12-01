@@ -63,8 +63,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 16173,
-        "loc": 282,
+        "size_bytes": 17034,
+        "loc": 301,
         "todo_count": 0,
         "declaration_count": 3
       },
@@ -93,13 +93,15 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 1738,
-        "loc": 48,
+        "size_bytes": 4333,
+        "loc": 103,
         "todo_count": 0,
-        "declaration_count": 1
+        "declaration_count": 3
       },
       "structure": {
         "declarations": [
+          "class ActionLimits",
+          "function validate_action",
           "class BaseController"
         ]
       },
@@ -107,8 +109,12 @@
         "imports": [],
         "exports": [],
         "external": {
-          "stdlib": [],
-          "third-party": []
+          "stdlib": [
+            "dataclasses.dataclass"
+          ],
+          "third-party": [
+            "numpy"
+          ]
         }
       }
     },
@@ -281,10 +287,10 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 23523,
-        "loc": 600,
+        "size_bytes": 25917,
+        "loc": 647,
         "todo_count": 0,
-        "declaration_count": 5
+        "declaration_count": 6
       },
       "structure": {
         "declarations": [
@@ -292,6 +298,7 @@
           "function load_controller",
           "function run_hyperparameter_sweep",
           "function parse_args",
+          "function _load_eval_config",
           "function main"
         ]
       },
@@ -325,8 +332,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 45333,
-        "loc": 927,
+        "size_bytes": 45844,
+        "loc": 931,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -462,8 +469,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 16552,
-        "loc": 395,
+        "size_bytes": 16492,
+        "loc": 392,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -499,8 +506,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 15127,
-        "loc": 354,
+        "size_bytes": 15121,
+        "loc": 352,
         "todo_count": 0,
         "declaration_count": 10
       },
@@ -596,8 +603,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 76820,
-        "loc": 1533,
+        "size_bytes": 77124,
+        "loc": 1549,
         "todo_count": 0,
         "declaration_count": 11
       },
@@ -635,10 +642,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 20078,
-        "loc": 437,
+        "size_bytes": 26090,
+        "loc": 571,
         "todo_count": 0,
-        "declaration_count": 8
+        "declaration_count": 10
       },
       "structure": {
         "declarations": [
@@ -649,7 +656,9 @@
           "class TestEvaluator",
           "class TestLoadController",
           "class TestIntegration",
-          "class TestControllerSelectionEval"
+          "class TestControllerSelectionEval",
+          "class TestActionSchema",
+          "class TestControllerConfigPropagation"
         ]
       },
       "dependencies": {
@@ -672,8 +681,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 39190,
-        "loc": 846,
+        "size_bytes": 41045,
+        "loc": 885,
         "todo_count": 0,
         "declaration_count": 11
       },
