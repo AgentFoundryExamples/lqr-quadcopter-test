@@ -236,6 +236,20 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/utils/coordinate_frame.py",
+      "path": "src/quadcopter_tracking/utils/coordinate_frame.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "dataclasses.dataclass",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "numpy"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/utils/diagnostics.py",
       "path": "src/quadcopter_tracking/utils/diagnostics.py",
       "type": "file",
@@ -441,6 +455,10 @@
     },
     {
       "source": "src/quadcopter_tracking/utils/__init__.py",
+      "target": "src/quadcopter_tracking/utils/coordinate_frame.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/utils/__init__.py",
       "target": "src/quadcopter_tracking/utils/diagnostics.py"
     },
     {
@@ -470,6 +488,14 @@
     {
       "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/eval.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/utils/coordinate_frame.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/utils/__init__.py"
     },
     {
       "source": "tests/test_eval.py",

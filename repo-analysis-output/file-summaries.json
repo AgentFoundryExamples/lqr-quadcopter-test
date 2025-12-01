@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 24,
+  "total_files": 25,
   "files": [
     {
       "schema_version": "2.0",
@@ -288,8 +288,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 1991,
-        "loc": 62,
+        "size_bytes": 2413,
+        "loc": 70,
         "todo_count": 0
       },
       "structure": {
@@ -345,8 +345,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 21735,
-        "loc": 481,
+        "size_bytes": 22152,
+        "loc": 489,
         "todo_count": 0,
         "declaration_count": 1
       },
@@ -503,8 +503,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 13104,
-        "loc": 362,
+        "size_bytes": 14767,
+        "loc": 417,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -535,6 +535,46 @@
             "matplotlib.pyplot",
             "numpy",
             "yaml"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/utils/coordinate_frame.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 14062,
+        "loc": 277,
+        "todo_count": 0,
+        "declaration_count": 10
+      },
+      "structure": {
+        "declarations": [
+          "class CoordinateFrame",
+          "function get_current_frame",
+          "class ENUFrameError",
+          "function assert_gravity_direction_enu",
+          "function assert_thrust_direction_enu",
+          "function assert_control_signs_enu",
+          "function assert_z_up",
+          "function validate_observation_frame",
+          "function compute_expected_hover_thrust",
+          "function compute_position_error_enu"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "dataclasses.dataclass",
+            "typing.Literal"
+          ],
+          "third-party": [
+            "numpy"
           ]
         }
       }
@@ -729,10 +769,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 116641,
-        "loc": 2326,
+        "size_bytes": 139123,
+        "loc": 2739,
         "todo_count": 0,
-        "declaration_count": 16
+        "declaration_count": 17
       },
       "structure": {
         "declarations": [
@@ -751,7 +791,8 @@
           "class TestRiccatiLQRController",
           "class TestRiccatiLQRValidation",
           "class TestRiccatiLQRIntegration",
-          "class TestRiccatiLQRComparison"
+          "class TestRiccatiLQRComparison",
+          "class TestENUCoordinateFrame"
         ]
       },
       "dependencies": {

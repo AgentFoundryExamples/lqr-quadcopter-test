@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 24
+Total files: 25
 
 ## scripts/controller_autotune.py
 **Language:** Python  
@@ -142,8 +142,8 @@ Total files: 24
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 1.94 KB  
-**LOC:** 62  
+**Size:** 2.36 KB  
+**LOC:** 70  
 **TODOs/FIXMEs:** 0  
 
 ## src/quadcopter_tracking/env/config.py
@@ -168,8 +168,8 @@ Total files: 24
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 21.23 KB  
-**LOC:** 481  
+**Size:** 21.63 KB  
+**LOC:** 489  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 1  
 **Top-level declarations:**
@@ -241,8 +241,8 @@ Total files: 24
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 12.80 KB  
-**LOC:** 362  
+**Size:** 14.42 KB  
+**LOC:** 417  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -256,6 +256,29 @@ Total files: 24
 **External Dependencies:**
   - **Stdlib:** `datetime`, `json`, `logging`, `os`, `pathlib.Path`
   - **Third-party:** `dotenv.load_dotenv`, `matplotlib.pyplot`, `numpy`, `yaml`
+
+## src/quadcopter_tracking/utils/coordinate_frame.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 13.73 KB  
+**LOC:** 277  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 10  
+**Top-level declarations:**
+  - class CoordinateFrame
+  - function get_current_frame
+  - class ENUFrameError
+  - function assert_gravity_direction_enu
+  - function assert_thrust_direction_enu
+  - function assert_control_signs_enu
+  - function assert_z_up
+  - function validate_observation_frame
+  - function compute_expected_hover_thrust
+  - function compute_position_error_enu
+**External Dependencies:**
+  - **Stdlib:** `dataclasses.dataclass`, `typing.Literal`
+  - **Third-party:** `numpy`
 
 ## src/quadcopter_tracking/utils/diagnostics.py
 **Language:** Python  
@@ -350,10 +373,10 @@ Total files: 24
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 113.91 KB  
-**LOC:** 2326  
+**Size:** 135.86 KB  
+**LOC:** 2739  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 16  
+**Declarations:** 17  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -365,7 +388,7 @@ Total files: 24
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
-  - ... and 6 more
+  - ... and 7 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 

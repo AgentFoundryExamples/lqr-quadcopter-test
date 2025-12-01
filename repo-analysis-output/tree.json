@@ -272,6 +272,10 @@
                 },
                 {
                   "type": "file",
+                  "name": "coordinate_frame.py"
+                },
+                {
+                  "type": "file",
                   "name": "diagnostics.py"
                 },
                 {
