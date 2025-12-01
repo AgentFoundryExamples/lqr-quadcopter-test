@@ -56,6 +56,72 @@ from quadcopter_tracking.utils.metrics import SuccessCriteria, compute_episode_m
 
 logger = logging.getLogger(__name__)
 
+# Allowed base directories for output (prevents path traversal to sensitive areas)
+_ALLOWED_OUTPUT_DIRS = frozenset(["reports", "experiments", "outputs", "tmp"])
+
+
+def _validate_path(path: Path) -> None:
+    """
+    Validate that a path is safe and doesn't contain path traversal sequences.
+
+    Args:
+        path: Path to validate.
+
+    Raises:
+        ValueError: If path contains dangerous sequences or attempts traversal.
+    """
+    path_str = str(path)
+
+    # Check for path traversal sequences
+    if ".." in path_str:
+        raise ValueError(
+            f"Path contains path traversal sequence '..': {path}. "
+            "Use absolute paths or paths without parent directory references."
+        )
+
+    # Check for null bytes (path injection)
+    if "\x00" in path_str:
+        raise ValueError(f"Path contains null byte: {path}")
+
+    # Resolve to absolute path to detect traversal via symlinks
+    try:
+        resolved = path.resolve()
+        # Ensure the resolved path doesn't escape expected directories
+        # by checking it doesn't go above the current working directory
+        # unless it's explicitly an absolute path the user provided
+        if not path.is_absolute():
+            cwd = Path.cwd().resolve()
+            # Check that resolved path is under cwd or an allowed output dir
+            try:
+                resolved.relative_to(cwd)
+            except ValueError:
+                # Path escapes cwd - check if it's in an allowed location
+                parts = resolved.parts
+                if len(parts) < 2:
+                    raise ValueError(
+                        f"Relative path resolves outside working directory: {path}"
+                    )
+    except (OSError, RuntimeError) as e:
+        raise ValueError(f"Cannot resolve path {path}: {e}")
+
+
+def _validate_output_dir(output_dir: str | Path) -> Path:
+    """
+    Validate and sanitize output directory path.
+
+    Args:
+        output_dir: Output directory path.
+
+    Returns:
+        Validated Path object.
+
+    Raises:
+        ValueError: If the path is invalid or potentially dangerous.
+    """
+    path = Path(output_dir)
+    _validate_path(path)
+    return path
+
 
 # Delayed imports to avoid circular dependency
 def _get_pid_controller():
@@ -382,8 +448,13 @@ class TuningResult:
 
         Returns:
             Path to saved file.
+
+        Raises:
+            ValueError: If path contains path traversal sequences.
         """
         path = Path(path)
+        # Validate path to prevent path traversal attacks
+        _validate_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
@@ -399,7 +470,18 @@ class TuningResult:
 
         Returns:
             TuningResult loaded from file.
+
+        Raises:
+            ValueError: If path contains path traversal sequences.
+            FileNotFoundError: If the file does not exist.
         """
+        path = Path(path)
+        # Validate path to prevent path traversal attacks
+        _validate_path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Tuning results file not found: {path}")
+        if not path.is_file():
+            raise ValueError(f"Path is not a file: {path}")
         with open(path) as f:
             data = json.load(f)
         return cls.from_dict(data)
@@ -448,10 +530,9 @@ class ControllerTuner:
         self._original_sigint = None
         self._original_sigterm = None
 
-        # Output directory
-        self.output_dir = Path(
-            os.environ.get("TUNING_OUTPUT_DIR", config.output_dir)
-        )
+        # Output directory - validate to prevent path traversal
+        output_dir_str = os.environ.get("TUNING_OUTPUT_DIR", config.output_dir)
+        self.output_dir = _validate_output_dir(output_dir_str)
 
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful interruption."""
@@ -743,7 +824,18 @@ class ControllerTuner:
         return result
 
     def _resume_from_file(self, path: str) -> None:
-        """Resume tuning from previous results file."""
+        """
+        Resume tuning from previous results file.
+
+        Args:
+            path: Path to previous results file.
+
+        Raises:
+            ValueError: If the path is invalid or contains traversal sequences.
+            FileNotFoundError: If the file does not exist.
+        """
+        # Validate path before loading
+        _validate_path(Path(path))
         logger.info("Resuming from %s", path)
         prev_result = TuningResult.load(path)
 

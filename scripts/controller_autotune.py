@@ -324,11 +324,54 @@ def get_default_search_space(controller_type: str) -> GainSearchSpace:
         return GainSearchSpace()
 
 
+def _validate_config_path(path: Path) -> None:
+    """
+    Validate that a config file path is safe.
+
+    Args:
+        path: Path to validate.
+
+    Raises:
+        ValueError: If path contains dangerous sequences.
+    """
+    path_str = str(path)
+
+    # Check for path traversal sequences
+    if ".." in path_str:
+        raise ValueError(
+            f"Config path contains path traversal sequence '..': {path}. "
+            "Use absolute paths or paths without parent directory references."
+        )
+
+    # Check for null bytes (path injection)
+    if "\x00" in path_str:
+        raise ValueError(f"Config path contains null byte: {path}")
+
+
 def load_config_file(path: str) -> dict:
-    """Load configuration from YAML or JSON file."""
+    """
+    Load configuration from YAML or JSON file.
+
+    Args:
+        path: Path to config file.
+
+    Returns:
+        Configuration dictionary.
+
+    Raises:
+        FileNotFoundError: If file does not exist.
+        ValueError: If path is invalid or format is unsupported.
+    """
     path = Path(path)
+
+    # Validate path before accessing file
+    _validate_config_path(path)
+
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
+
+    if not path.is_file():
+        raise ValueError(f"Config path is not a file: {path}")
 
     with open(path) as f:
         if path.suffix in (".yaml", ".yml"):

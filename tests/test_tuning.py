@@ -236,6 +236,33 @@ class TestTuningResult:
         assert loaded.best_score == 0.85
         assert loaded.best_config["kp_pos"] == [0.01, 0.01, 4.0]
 
+    def test_save_path_traversal_rejected(self, tmp_path):
+        """Test that path traversal sequences are rejected in save."""
+        result = TuningResult(
+            best_config={"kp_pos": [0.01, 0.01, 4.0]},
+            best_score=0.85,
+            best_metrics={"mean_on_target_ratio": 0.85},
+            all_results=[],
+            iterations_completed=10,
+            interrupted=False,
+            timestamp="2024-01-01T12:00:00Z",
+            config={},
+        )
+
+        # Path with traversal should be rejected
+        with pytest.raises(ValueError, match="path traversal"):
+            result.save(tmp_path / ".." / "escape" / "results.json")
+
+    def test_load_path_traversal_rejected(self):
+        """Test that path traversal sequences are rejected in load."""
+        with pytest.raises(ValueError, match="path traversal"):
+            TuningResult.load("../../../etc/passwd")
+
+    def test_load_nonexistent_file_raises(self, tmp_path):
+        """Test that loading non-existent file raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            TuningResult.load(tmp_path / "nonexistent.json")
+
 
 class TestControllerTuner:
     """Tests for the ControllerTuner class."""
