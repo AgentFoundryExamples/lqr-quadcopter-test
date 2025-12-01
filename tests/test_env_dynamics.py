@@ -1229,20 +1229,16 @@ class TestClassicalControllerIntegration:
 
 def create_hover_observation(
     position: np.ndarray | None = None,
-    mass: float = 1.0,
-    gravity: float = 9.81,
 ) -> dict:
     """
     Create a stationary hover observation with zero tracking error.
 
     This helper constructs an observation dictionary where the quadcopter
     is exactly at the target position with zero velocity - the ideal hover
-    condition where thrust should equal mass * gravity.
+    condition.
 
     Args:
         position: Target/quadcopter position (default: [0, 0, 1]).
-        mass: Quadcopter mass in kg (default: 1.0).
-        gravity: Gravitational acceleration (default: 9.81).
 
     Returns:
         Observation dictionary suitable for controller.compute_action().
@@ -1492,7 +1488,7 @@ class TestHoverThrustIntegration:
 
         expected_thrust = mass * gravity
         controller = PIDController(config={"mass": mass, "gravity": gravity})
-        obs = create_hover_observation(mass=mass, gravity=gravity)
+        obs = create_hover_observation()
 
         action = controller.compute_action(obs)
 
@@ -1523,7 +1519,7 @@ class TestHoverThrustIntegration:
 
         expected_thrust = mass * gravity
         controller = LQRController(config={"mass": mass, "gravity": gravity})
-        obs = create_hover_observation(mass=mass, gravity=gravity)
+        obs = create_hover_observation()
 
         action = controller.compute_action(obs)
 
@@ -1580,25 +1576,33 @@ class TestHoverThrustIntegration:
         """
         from quadcopter_tracking.controllers import PIDController
 
-        mass, gravity = 1.0, 9.81
-        expected_thrust = mass * gravity
+        env_config = create_hover_env_config(mass=1.0, gravity=9.81)
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
 
-        controller = PIDController(config={"mass": mass, "gravity": gravity})
+        # Position quadcopter at hover equilibrium
+        target_state = env.target.get_state(0.0)
+        state = env.get_state_vector()
+        state[0:3] = target_state["position"]
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+
+        controller = PIDController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
 
         # Simulate multiple timesteps at hover
-        thrusts = []
         for i in range(10):
-            # Create fresh observation for each step to avoid mutation side effects
-            obs = create_hover_observation()
-            obs["time"] = i * 0.01  # Advance time
+            obs = env.render()
             action = controller.compute_action(obs)
-            thrusts.append(action["thrust"])
+            env.step(action)
 
-        # All thrusts should be within tolerance of hover thrust
-        for i, thrust in enumerate(thrusts):
-            thrust_error = abs(thrust - expected_thrust)
+            # Verify thrust remains stable
+            thrust_error = abs(action["thrust"] - expected_thrust)
             assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
-                f"PID step {i}: thrust {thrust:.2f}N drifted from "
+                f"PID step {i}: thrust {action['thrust']:.2f}N drifted from "
                 f"hover baseline {expected_thrust:.2f}N"
             )
 
@@ -1611,24 +1615,32 @@ class TestHoverThrustIntegration:
         """
         from quadcopter_tracking.controllers import LQRController
 
-        mass, gravity = 1.0, 9.81
-        expected_thrust = mass * gravity
+        env_config = create_hover_env_config(mass=1.0, gravity=9.81)
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
 
-        controller = LQRController(config={"mass": mass, "gravity": gravity})
+        # Position quadcopter at hover equilibrium
+        target_state = env.target.get_state(0.0)
+        state = env.get_state_vector()
+        state[0:3] = target_state["position"]
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+
+        controller = LQRController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
 
         # Simulate multiple timesteps at hover
-        thrusts = []
         for i in range(10):
-            # Create fresh observation for each step to avoid mutation side effects
-            obs = create_hover_observation()
-            obs["time"] = i * 0.01
+            obs = env.render()
             action = controller.compute_action(obs)
-            thrusts.append(action["thrust"])
+            env.step(action)
 
-        # All thrusts should be within tolerance
-        for i, thrust in enumerate(thrusts):
-            thrust_error = abs(thrust - expected_thrust)
+            # Verify thrust remains stable
+            thrust_error = abs(action["thrust"] - expected_thrust)
             assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
-                f"LQR step {i}: thrust {thrust:.2f}N drifted from "
+                f"LQR step {i}: thrust {action['thrust']:.2f}N drifted from "
                 f"hover baseline {expected_thrust:.2f}N"
             )
