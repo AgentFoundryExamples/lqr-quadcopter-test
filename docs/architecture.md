@@ -547,12 +547,89 @@ This criteria ensures:
 - Some tolerance for transient errors (20% off-target allowed)
 - Clear, measurable benchmark for comparison
 
+## Controller Selection Guide
+
+Use this decision tree to choose the appropriate controller for your use case:
+
+```mermaid
+flowchart TD
+    A[Start: Choose Controller] --> B{Need optimal<br/>gains?}
+    B -->|Yes| C{Have scipy?}
+    C -->|Yes| D[riccati_lqr]
+    C -->|No| E[lqr]
+    B -->|No| F{Need learned<br/>behavior?}
+    F -->|Yes| G{Have training<br/>data?}
+    G -->|Yes| H[deep]
+    G -->|No| I[Train with imitation<br/>from riccati_lqr]
+    I --> H
+    F -->|No| J{Need integral<br/>action?}
+    J -->|Yes| K[pid]
+    J -->|No| L{Research<br/>baseline?}
+    L -->|Yes| D
+    L -->|No| E
+```
+
+### Controller Comparison Matrix
+
+| Controller | Gains | Training | Scipy Required | Best Use Case |
+|------------|-------|----------|----------------|---------------|
+| **PID** | Manual/tuned | No | No | Stationary targets, bias rejection |
+| **LQR** | Heuristic formula | No | No | Quick prototyping, moderate speeds |
+| **Riccati-LQR** | DARE-optimal | No | Yes | Research baselines, imitation teacher |
+| **Deep** | Learned | Yes | No | Complex motion, nonlinear scenarios |
+
+### When to Use Riccati-LQR
+
+**Choose Riccati-LQR when:**
+- You need mathematically optimal feedback gains
+- You want a strong teacher for imitation learning
+- You're establishing research baselines
+- You have scipy available (included in dependencies)
+
+**Avoid Riccati-LQR when:**
+- DARE solver fails repeatedly (use LQR fallback)
+- XY position costs are large (causes actuator saturation)
+- Real-time embedded deployment (solver overhead)
+
+### Controller Limitations Summary
+
+| Controller | Key Limitations |
+|------------|-----------------|
+| **PID** | Oscillates on fast targets, integral windup during transients |
+| **LQR** | Linearization fails for angles > 30° or velocities > 5 m/s |
+| **Riccati-LQR** | DARE may fail with ill-conditioned Q/R, same linear assumptions as LQR |
+| **Deep** | Requires training data, exhibits training regression (see docs/results.md) |
+
+### Riccati-LQR Specific Limitations
+
+The Riccati-LQR controller provides optimal gains but has specific constraints:
+
+1. **Q/R Matrix Requirements:**
+   - Q must be positive semi-definite (all eigenvalues ≥ 0)
+   - R must be positive definite (all eigenvalues > 0)
+   - XY costs should be small: `q_pos[x,y] < 0.001`
+
+2. **DARE Solver Behavior:**
+   - May fail for ill-conditioned matrices
+   - Falls back to heuristic LQR if `fallback_on_failure: true`
+   - Raises `ValueError` if fallback disabled and solver fails
+
+3. **Linearization Assumptions:**
+   - Same operating envelope as LQR (small angles, moderate velocities)
+   - Gains computed around hover equilibrium
+   - Performance degrades for aggressive maneuvers
+
+4. **Timestep Dependency:**
+   - `dt` parameter must match simulation timestep
+   - Mismatch causes incorrect gain scaling
+
 ## Controller Comparison Guide
 
 | Controller | Strengths | Weaknesses | Best For |
 |------------|-----------|------------|----------|
 | **PID** | Simple, intuitive tuning, integral eliminates steady-state error | Can oscillate, requires manual tuning | Stationary targets, slow motion |
 | **LQR** | Optimal for linearized system, systematic gain design | Assumes linear dynamics, no integral action | Moderate velocities, known dynamics |
+| **Riccati-LQR** | Mathematically optimal DARE solution, strong imitation teacher | Same linear assumptions as LQR, solver may fail | Research baselines, imitation learning |
 | **Deep** | Can learn complex mappings, adapts to nonlinearities | Requires training data, black-box | Complex motion, nonlinear scenarios |
 
 ## Future Iteration Workflow
@@ -594,6 +671,7 @@ This criteria ensures:
 ### Classical Controller Limitations
 - **PID**: Performance degrades for fast-moving targets; integral windup during large transients
 - **LQR**: Linearization breaks down for large attitude angles (> 30°) or high velocities
+- **Riccati-LQR**: DARE solver requires well-conditioned Q/R matrices; same linearization constraints as LQR
 
 ## Unified Controller Interface
 
@@ -608,6 +686,7 @@ python -m quadcopter_tracking.train --controller lqr --epochs 10
 python -m quadcopter_tracking.eval --controller deep --checkpoint checkpoints/model.pt
 python -m quadcopter_tracking.eval --controller pid --episodes 10
 python -m quadcopter_tracking.eval --controller lqr --episodes 10
+python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 10
 ```
 
 ### Controller Types
@@ -783,3 +862,63 @@ python -m quadcopter_tracking.train --controller neural  # Invalid name
 **Problem**: Checkpoint options ignored for classical controllers
 
 **Solution**: This is expected. Classical controllers have no trainable parameters and don't support checkpointing. Use deep controller for checkpoint functionality.
+
+### Riccati-LQR Issues
+
+**Problem**: DARE solver fails with "Matrix is not positive definite"
+
+**Solution**: Validate your Q and R matrices:
+
+```python
+import numpy as np
+
+# Check Q is positive semi-definite (eigenvalues >= 0)
+q_pos = np.array([0.0001, 0.0001, 16.0])
+q_vel = np.array([0.0036, 0.0036, 4.0])
+Q = np.diag(np.concatenate([q_pos, q_vel]))
+eigvals_Q = np.linalg.eigvalsh(Q)
+print(f"Q eigenvalues: {eigvals_Q}")
+print(f"Q is PSD: {all(eigvals_Q >= 0)}")
+
+# Check R is positive definite (eigenvalues > 0)
+r_controls = np.array([1.0, 1.0, 1.0, 1.0])
+R = np.diag(r_controls)
+eigvals_R = np.linalg.eigvalsh(R)
+print(f"R eigenvalues: {eigvals_R}")
+print(f"R is PD: {all(eigvals_R > 0)}")
+```
+
+Common fixes:
+- Ensure all Q and R diagonal values are non-negative
+- Ensure all R values are strictly positive (not zero)
+- Reduce XY position costs if they're causing numerical issues
+
+**Problem**: Riccati-LQR falls back to heuristic LQR
+
+**Solution**: Check the log for DARE solver warnings. If fallback is acceptable, leave `fallback_on_failure: true`. For strict optimal-only mode:
+
+```yaml
+riccati_lqr:
+  fallback_on_failure: false  # Will raise error instead of fallback
+```
+
+**Problem**: Riccati-LQR outputs differ from LQR
+
+**Solution**: This is expected - Riccati-LQR computes mathematically optimal gains while heuristic LQR uses approximate formulas. The difference is more pronounced with:
+- Non-unity R values
+- Large Q/R ratio differences across axes
+- Non-default timestep values
+
+### Coordinate Frame Issues
+
+**Problem**: Controller moves quadcopter in wrong direction
+
+**Solution**: Verify coordinate frame conventions match ENU:
+- +X = East/Forward, +Y = North/Left, +Z = Up
+- +pitch_rate → +X velocity
+- +roll_rate → −Y velocity (note negative sign)
+
+If integrating with a simulator using NED convention:
+1. Flip the sign of Y-axis position and velocity
+2. Flip the sign of roll rate commands
+3. Z-axis may need sign flip depending on convention

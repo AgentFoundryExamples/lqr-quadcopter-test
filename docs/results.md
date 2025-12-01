@@ -246,6 +246,176 @@ For faster iteration:
 - Use `--max-steps` to limit episode length
 - Skip plots with `--no-plots`
 
+### Tuning Terminates Early or Returns Empty Results
+
+**Symptoms:**
+- Tuning script exits before max iterations
+- `*_results.json` file is empty or missing
+- Best config file not generated
+
+**Causes and Solutions:**
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| Empty results file | No valid configurations evaluated | Check error messages, widen search range |
+| Partial results | Interrupted without Ctrl+C cleanup | Resume with `--resume` flag |
+| All configs fail | Environment misconfiguration | Verify environment works: `make eval-pid EPISODES=1` |
+| Solver failures only | Invalid Q/R matrices | Narrow search ranges, validate matrices |
+
+**Recovery steps:**
+
+```bash
+# Check if partial results exist
+ls -la reports/tuning/tuning_*_results.json
+
+# Resume from partial results
+python scripts/controller_autotune.py \
+    --resume reports/tuning/tuning_*_results.json \
+    --max-iterations 100
+
+# If no results, verify environment first
+python -m quadcopter_tracking.eval --controller pid --episodes 1
+```
+
+### CPU-Only Feasibility and Expected Slowdown
+
+The following table shows expected runtimes on CPU-only machines:
+
+| Task | GPU Time | CPU Time | Slowdown Factor |
+|------|----------|----------|-----------------|
+| PID evaluation (10 episodes) | ~3s | ~5s | 1.7x |
+| Riccati-LQR evaluation (10 episodes) | ~5s | ~10s | 2x |
+| PID tuning (50 iterations) | ~5 min | ~15 min | 3x |
+| Deep training (100 epochs) | ~2 min | ~15 min | 7.5x |
+| Deep training (500 epochs) | ~10 min | ~75 min | 7.5x |
+
+**Recommendations for CPU-only machines:**
+- Use `training_fast.yaml` configuration for initial experiments
+- Reduce `episodes_per_epoch` to 3-5
+- Use smaller networks: `hidden_sizes: [32, 32]`
+- Consider overnight training for large experiments
+
+```bash
+# Force CPU and optimize for limited resources
+export CUDA_VISIBLE_DEVICES=""
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_fast.yaml \
+    --hidden-sizes 32 32 \
+    --episodes-per-epoch 3
+```
+
+### Headless Server Operation
+
+For servers without display (CI/CD, cloud instances, SSH sessions):
+
+**Required setup:**
+
+```bash
+# Set matplotlib backend before any imports
+export MPLBACKEND=Agg
+
+# Install system dependencies (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install -y libgl1-mesa-glx
+
+# Verify headless operation
+python -c "import matplotlib; matplotlib.use('Agg'); print('Headless mode OK')"
+```
+
+**Skip plot generation for faster runs:**
+
+```bash
+python -m quadcopter_tracking.eval --controller pid --episodes 10 --no-plots
+```
+
+**Common headless issues:**
+
+| Error | Solution |
+|-------|----------|
+| `_tkinter.TclError: couldn't connect to display` | Set `MPLBACKEND=Agg` |
+| `libGL error: No matching fbConfigs` | Install `libgl1-mesa-glx` |
+| `cannot open display` | Ensure no GUI code runs, use `--no-plots` |
+
+### Switching Coordinate Frames for External Simulators
+
+When integrating with other simulators (ROS, Gazebo, AirSim):
+
+**ENU (this project) vs NED conversion:**
+
+```python
+def enu_to_ned(position, velocity):
+    """Convert ENU coordinates to NED."""
+    # ENU: X=East, Y=North, Z=Up
+    # NED: X=North, Y=East, Z=Down
+    pos_ned = np.array([position[1], position[0], -position[2]])
+    vel_ned = np.array([velocity[1], velocity[0], -velocity[2]])
+    return pos_ned, vel_ned
+
+def ned_to_enu(position, velocity):
+    """Convert NED coordinates to ENU."""
+    pos_enu = np.array([position[1], position[0], -position[2]])
+    vel_enu = np.array([velocity[1], velocity[0], -velocity[2]])
+    return pos_enu, vel_enu
+```
+
+**Control output conversion:**
+
+```python
+def convert_action_enu_to_ned(action):
+    """Convert ENU control to NED convention."""
+    return {
+        "thrust": action["thrust"],
+        "roll_rate": -action["roll_rate"],   # Flip roll sign
+        "pitch_rate": -action["pitch_rate"], # Flip pitch sign
+        "yaw_rate": -action["yaw_rate"],     # Flip yaw sign
+    }
+```
+
+**Validation steps:**
+1. Apply small test commands in each axis
+2. Verify direction matches expected behavior
+3. Test with stationary target before motion
+
+### Mixing Stale Tuning Outputs with New Environment Parameters
+
+> ⚠️ **Critical Warning**: Using tuning results from different environment configurations can cause instability or poor performance.
+
+**Safe practices:**
+
+1. **Always re-tune after changing:**
+   - Mass or gravity values
+   - Simulation timestep (dt)
+   - Max thrust or rate limits
+   - Target radius requirement
+
+2. **Version your tuning outputs:**
+   ```bash
+   # Before changing environment
+   mv reports/tuning reports/tuning_mass1.0_dt0.01
+   
+   # After changing environment
+   mkdir reports/tuning
+   # Re-run tuning with new parameters
+   ```
+
+3. **Document environment in config:**
+   ```yaml
+   # tuning_config.yaml
+   # Environment: mass=1.5, gravity=9.81, dt=0.01
+   controller: pid
+   # ... tuning parameters
+   ```
+
+4. **Validate before deploying:**
+   ```bash
+   # After loading old tuning results
+   python -m quadcopter_tracking.eval \
+       --controller pid \
+       --episodes 5 \
+       --motion-type stationary
+   # Verify >80% on-target before using on moving targets
+   ```
+
 ## Comparing Controllers
 
 To systematically compare controllers:
@@ -607,6 +777,146 @@ make tune-pid-linear TUNING_ITERATIONS=20
 3. **Match motion types** between tuning, training, and evaluation
 4. **Monitor imitation loss** during training - it should decrease steadily
 5. **Compare against baselines** using `make compare-controllers`
+
+## Mixed-Mode Training Strategies
+
+Mixed-mode training combines multiple loss components or supervisors to achieve better generalization. This section covers advanced training configurations.
+
+### Training Modes Overview
+
+| Mode | Primary Signal | Secondary Signal | Use Case |
+|------|----------------|------------------|----------|
+| `tracking` | Position/velocity error | Control penalty | Pure RL-style learning |
+| `imitation` | Supervisor action MSE | Tracking loss | Learning from classical controllers |
+| `reward_weighted` | Supervisor-relative control | Tracking loss | Balanced guidance |
+
+### Mixed Imitation + Tracking
+
+Combine imitation learning with tracking loss for policies that can exceed supervisor performance:
+
+```yaml
+# experiments/configs/training_mixed.yaml
+training_mode: imitation
+supervisor_controller: riccati_lqr
+
+# Balance imitation vs tracking
+imitation_weight: 1.5    # How much to match supervisor
+tracking_weight: 0.8     # How much to minimize error directly
+
+# Supervisor configuration (tuned gains)
+riccati_lqr:
+  dt: 0.01
+  q_pos: [0.00012, 0.00012, 16.5]
+  q_vel: [0.0035, 0.0035, 4.2]
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+```
+
+### Progressive Supervisor Transition
+
+Start with strong imitation, then reduce weight to allow policy improvement:
+
+```yaml
+# Stage 1: Strong imitation (epochs 0-25)
+training_mode: imitation
+imitation_weight: 2.0
+tracking_weight: 0.3
+
+# Stage 2: Balanced (epochs 25-50) - modify config and resume
+imitation_weight: 1.0
+tracking_weight: 1.0
+
+# Stage 3: Tracking-focused (epochs 50+) - modify config and resume
+imitation_weight: 0.3
+tracking_weight: 2.0
+```
+
+```bash
+# Run staged training
+python -m quadcopter_tracking.train --config stage1.yaml --epochs 25
+python -m quadcopter_tracking.train --config stage2.yaml --resume checkpoints/*_epoch0025.pt --epochs 50
+python -m quadcopter_tracking.train --config stage3.yaml --resume checkpoints/*_epoch0050.pt --epochs 100
+```
+
+### Multi-Supervisor Ensemble
+
+Train with different supervisors for different motion types:
+
+```bash
+# Train with PID on stationary
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_imitation_stationary.yaml \
+    --epochs 30
+
+# Continue with Riccati-LQR on linear motion
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_imitation_linear.yaml \
+    --resume checkpoints/stationary/*_best.pt \
+    --epochs 60
+```
+
+### Evaluation Checkpoint Strategy
+
+Track training progress with periodic evaluation checkpoints:
+
+```mermaid
+flowchart LR
+    A[Epoch 0] --> B[Eval: Baseline]
+    B --> C[Epochs 1-25]
+    C --> D[Checkpoint 25]
+    D --> E[Eval: Compare to Baseline]
+    E --> F{Improved?}
+    F -->|Yes| G[Continue Training]
+    F -->|No| H[Adjust Config]
+    G --> I[Epochs 26-50]
+    I --> J[Checkpoint 50]
+    J --> K[Eval: Compare to Best]
+```
+
+**Checkpoint evaluation workflow:**
+
+```bash
+# After each checkpoint, evaluate and compare
+for checkpoint in checkpoints/train_*_epoch*.pt; do
+    epoch=$(echo $checkpoint | grep -oP 'epoch\K\d+')
+    python -m quadcopter_tracking.eval \
+        --controller deep \
+        --checkpoint $checkpoint \
+        --episodes 5 \
+        --output-dir reports/checkpoints/epoch${epoch}
+done
+
+# Compare checkpoints
+python scripts/generate_comparison_report.py \
+    --report-dir reports/checkpoints \
+    --output reports/checkpoint_comparison.json
+```
+
+### Early Stopping Criteria
+
+Stop training when performance plateaus:
+
+| Metric | Early Stop Threshold | Action |
+|--------|---------------------|--------|
+| Loss increasing for 5+ epochs | Stop, load best | Reduce learning rate, resume |
+| On-target ratio > 80% | Consider stopping | Evaluate on harder motion |
+| Tracking error < 0.3m | Excellent | Save and evaluate thoroughly |
+
+### Troubleshooting Mixed Training
+
+**Imitation loss decreases but tracking error increases:**
+- Supervisor may be suboptimal for the scenario
+- Reduce `imitation_weight`, increase `tracking_weight`
+- Try different supervisor (Riccati-LQR vs PID)
+
+**Training oscillates between modes:**
+- Loss weights may be fighting each other
+- Use more gradual weight transitions
+- Increase batch size for stability
+
+**Supervisor creates bad habits:**
+- Supervisor may have limitations (e.g., no feedforward)
+- Use Riccati-LQR with feedforward as supervisor
+- Reduce imitation weight earlier in training
 
 ## Release Validation
 

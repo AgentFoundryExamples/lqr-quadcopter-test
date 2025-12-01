@@ -83,6 +83,37 @@ make run-experiment SEED=123
 make run-experiment CONFIG=configs/circular.yaml
 ```
 
+### Riccati-LQR Quick Start
+
+The Riccati-LQR controller provides mathematically optimal feedback gains by solving the discrete-time algebraic Riccati equation (DARE). This is the recommended controller for research baselines and imitation learning.
+
+```bash
+# Evaluate Riccati-LQR with default gains
+python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 10
+
+# Tune Riccati-LQR Q/R weights for your motion pattern
+make tune-riccati-linear TUNING_ITERATIONS=30
+
+# Use tuned Riccati-LQR as teacher for imitation learning
+python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+```
+
+See [Controller Auto-Tuning](#controller-auto-tuning) for detailed tuning guidance.
+
+### Tune → Train → Evaluate Checklist
+
+Use this checklist for end-to-end controller development:
+
+1. **Establish baseline**: `make eval-baseline-stationary EPISODES=10`
+2. **Tune controller gains**: `make tune-riccati-linear TUNING_ITERATIONS=50`
+3. **Review tuning results**: `cat reports/tuning/*_best_config.json`
+4. **Update training config**: Copy best gains to `experiments/configs/training_imitation.yaml`
+5. **Train deep controller**: `python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml`
+6. **Evaluate trained model**: `make eval-baseline-linear EPISODES=10`
+7. **Compare controllers**: `make compare-controllers EPISODES=10`
+
+> **Tip:** For detailed workflow instructions, see [Workflow 4: Tune → Train → Evaluate Pipeline](#workflow-4-tune--train--evaluate-pipeline).
+
 ### Configuration
 
 Copy the example environment file and customize:
@@ -781,6 +812,132 @@ python -m quadcopter_tracking.train \
 ```
 
 See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for detailed low-resource guidance.
+
+## Troubleshooting
+
+### Riccati-LQR Issues
+
+**DARE Solver Fails / Falls Back to Heuristic LQR**
+
+The Riccati controller may fail to solve the DARE equation if the Q/R matrices are ill-conditioned:
+
+```bash
+# Check if fallback was triggered
+grep "Using fallback" reports/*.log
+```
+
+**Solutions:**
+- Ensure Q matrix is positive semi-definite (all eigenvalues ≥ 0)
+- Ensure R matrix is positive definite (all eigenvalues > 0)
+- Keep XY position costs small: `q_pos[x,y] < 0.001`
+- Validate matrices programmatically:
+
+```python
+from quadcopter_tracking.controllers import RiccatiLQRController
+
+controller = RiccatiLQRController(config={"dt": 0.01, "fallback_on_failure": True})
+if controller.is_using_fallback():
+    print("Warning: DARE solver failed, using heuristic gains")
+```
+
+### Tuning Issues
+
+**Tuning Returns Empty or Poor Results**
+
+1. **Check tuning completed**: Verify `reports/tuning/*_results.json` exists and contains iterations
+2. **Interrupt recovery**: Tuning saves partial results on Ctrl+C - resume with `--resume`
+3. **Insufficient iterations**: Increase `TUNING_ITERATIONS` for better coverage
+4. **Narrow search range**: Widen parameter ranges if all results are similar
+
+```bash
+# Resume interrupted tuning
+python scripts/controller_autotune.py \
+    --resume reports/tuning/tuning_pid_*_results.json \
+    --max-iterations 100
+```
+
+**Long Tuning Runs**
+
+For resource-limited machines:
+
+```bash
+# Reduce evaluation load per configuration
+make tune-pid-linear TUNING_ITERATIONS=20
+
+# Or edit config to reduce evaluation_episodes and episode_length
+```
+
+### Coordinate Frame and Sign Conventions
+
+**Controller Outputs Wrong Direction**
+
+If the quadcopter moves opposite to the target:
+
+1. **Verify coordinate frame**: This project uses ENU (East-North-Up)
+2. **Check roll/Y sign**: +roll_rate → −Y velocity (correct for ENU)
+3. **Review axis mapping**: +X error → +pitch_rate, +Y error → −roll_rate
+
+See [docs/architecture.md](docs/architecture.md#coordinate-frame-and-axis-conventions) for detailed conventions.
+
+**Integrating with Other Simulators**
+
+When connecting to external simulators (ROS, Gazebo, etc.):
+
+1. Identify the simulator's coordinate frame (NED vs ENU)
+2. Transform observations if frame differs from ENU
+3. Invert roll/pitch signs if simulator uses opposite conventions
+4. Validate with small test motions before full integration
+
+### Workflow Resumption
+
+**Resuming Training After Interruption**
+
+```bash
+# Resume deep controller training from checkpoint
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_default.yaml \
+    --resume checkpoints/train_*_epoch0050.pt
+```
+
+**Stale Tuning Outputs**
+
+> ⚠️ **Warning**: Do not mix tuning results from different environment parameters (mass, gravity, dt). Gains optimized for one configuration may be unstable with different physics. See [docs/results.md](docs/results.md#mixing-stale-tuning-outputs-with-new-environment-parameters) for detailed guidance.
+
+If you changed environment parameters:
+1. Delete or archive old tuning results: `mv reports/tuning reports/tuning_old`
+2. Re-run tuning with updated parameters
+3. Verify new gains before training
+
+### GPU and Performance
+
+**CPU-Only Feasibility**
+
+Training and evaluation work on CPU-only machines with reduced performance:
+
+| Task | GPU Time | CPU Time | Notes |
+|------|----------|----------|-------|
+| Riccati-LQR eval (10 episodes) | ~5s | ~10s | Minimal difference |
+| PID/LQR tuning (50 iterations) | ~5 min | ~15 min | Acceptable |
+| Deep training (100 epochs) | ~2 min | ~15 min | Consider reducing epochs |
+
+**Force CPU Execution**
+
+```bash
+export CUDA_VISIBLE_DEVICES=""
+python -m quadcopter_tracking.eval --controller riccati_lqr
+```
+
+### Headless Server Operation
+
+For servers without display (CI/CD, remote machines):
+
+```bash
+# Set matplotlib backend before running
+export MPLBACKEND=Agg
+
+# Skip plot generation for faster evaluation
+python -m quadcopter_tracking.eval --controller pid --no-plots
+```
 
 ## v0.3.0 Status and Known Limitations
 

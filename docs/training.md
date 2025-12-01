@@ -1411,6 +1411,174 @@ riccati_lqr:
 | Speed | Slightly slower (solver) | Fast |
 | Use case | Research, baselines | Practical deployment |
 
+## Advanced Tuning for Non-Stationary Targets
+
+Tuning gains for moving targets requires different strategies than stationary targets. This section covers techniques for circular, linear, sinusoidal, and figure8 motion patterns.
+
+### Motion-Specific Tuning Strategy
+
+| Motion Type | Key Challenge | Tuning Focus |
+|-------------|---------------|--------------|
+| Linear | Constant velocity tracking | Velocity feedforward, reduce phase lag |
+| Circular | Centripetal acceleration | Higher velocity damping, acceleration feedforward |
+| Sinusoidal | Variable acceleration | Balanced Q weights, moderate feedforward |
+| Figure8 | Direction reversals | Avoid integral windup, smooth response |
+
+### Step-by-Step Non-Stationary Tuning
+
+1. **Start with stationary baseline**: Ensure gains work for hover before adding motion complexity
+   ```bash
+   make eval-baseline-stationary EPISODES=5
+   ```
+
+2. **Enable feedforward**: For moving targets, feedforward reduces phase lag
+   ```yaml
+   pid:
+     feedforward_enabled: true
+     ff_velocity_gain: [0.1, 0.1, 0.1]
+   ```
+
+3. **Tune for target motion**: Use the motion-specific tuning config
+   ```bash
+   # Copy and modify for your motion type
+   cp experiments/configs/tuning_pid_linear.yaml experiments/configs/tuning_pid_circular.yaml
+   # Edit target_motion_type: circular
+   python scripts/controller_autotune.py --config experiments/configs/tuning_pid_circular.yaml
+   ```
+
+4. **Evaluate on same motion**: Match evaluation motion to tuning motion
+   ```bash
+   python -m quadcopter_tracking.eval --controller pid \
+       --config experiments/configs/eval_circular_baseline.yaml
+   ```
+
+### Tuning Parameter Recommendations by Motion Type
+
+**Linear Motion (constant velocity):**
+```yaml
+pid:
+  kp_pos: [0.015, 0.015, 4.5]  # Slightly higher than stationary
+  kd_pos: [0.08, 0.08, 2.5]   # More damping for velocity tracking
+  feedforward_enabled: true
+  ff_velocity_gain: [0.12, 0.12, 0.08]  # Higher velocity FF
+
+riccati_lqr:
+  q_pos: [0.00012, 0.00012, 18.0]  # Slightly higher position cost
+  q_vel: [0.004, 0.004, 4.5]       # Higher velocity cost
+```
+
+**Circular Motion (centripetal acceleration):**
+```yaml
+pid:
+  kp_pos: [0.012, 0.012, 4.0]
+  kd_pos: [0.1, 0.1, 2.5]    # Higher damping for curved paths
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]
+  ff_acceleration_gain: [0.03, 0.03, 0.0]  # Add acceleration FF
+
+riccati_lqr:
+  q_pos: [0.0001, 0.0001, 16.0]
+  q_vel: [0.005, 0.005, 5.0]  # Higher velocity cost for curves
+```
+
+### Shortening Tuning Runs
+
+For quick iteration or resource-limited machines:
+
+```bash
+# Reduce iterations and episodes
+python scripts/controller_autotune.py --controller pid \
+    --max-iterations 20 \
+    --episodes 3 \
+    --episode-length 15.0
+
+# Or edit config file
+```
+
+```yaml
+# experiments/configs/tuning_fast.yaml
+max_iterations: 20
+evaluation_episodes: 3
+episode_length: 15.0
+evaluation_horizon: 1500  # Steps per evaluation
+```
+
+### Validating Riccati Matrix Inputs
+
+Before tuning Riccati-LQR, validate your Q/R matrices:
+
+```python
+import numpy as np
+from scipy.linalg import solve_discrete_are
+
+def validate_riccati_inputs(q_pos, q_vel, r_controls, dt=0.01):
+    """Validate Q and R matrices for DARE solver."""
+    # Numerical tolerances for validation
+    EIGENVALUE_TOLERANCE = -1e-10  # Allow tiny negative due to floating-point
+    CONDITION_NUMBER_THRESHOLD = 1e12  # Maximum acceptable condition number
+    
+    # Build Q matrix
+    Q = np.diag(np.concatenate([q_pos, q_vel]))
+    R = np.diag(r_controls)
+    
+    # Check positive semi-definite (Q): all eigenvalues >= 0
+    eigvals_Q = np.linalg.eigvalsh(Q)
+    if any(eigvals_Q < EIGENVALUE_TOLERANCE):
+        print(f"WARNING: Q has negative eigenvalues: {eigvals_Q}")
+        return False
+    
+    # Check positive definite (R): all eigenvalues > 0
+    eigvals_R = np.linalg.eigvalsh(R)
+    if any(eigvals_R <= 0):
+        print(f"ERROR: R must be positive definite. Eigenvalues: {eigvals_R}")
+        return False
+    
+    # Check condition number (ill-conditioned matrices cause solver issues)
+    cond_Q = np.linalg.cond(Q)
+    cond_R = np.linalg.cond(R)
+    if cond_Q > CONDITION_NUMBER_THRESHOLD or cond_R > CONDITION_NUMBER_THRESHOLD:
+        print(f"WARNING: Ill-conditioned matrices. cond(Q)={cond_Q:.2e}, cond(R)={cond_R:.2e}")
+    
+    print("Matrices are valid for DARE solver")
+    return True
+
+# Example usage
+validate_riccati_inputs(
+    q_pos=[0.0001, 0.0001, 16.0],
+    q_vel=[0.0036, 0.0036, 4.0],
+    r_controls=[1.0, 1.0, 1.0, 1.0]
+)
+```
+
+### Resuming Interrupted Tuning
+
+Tuning runs can be interrupted and resumed:
+
+```bash
+# Interrupt with Ctrl+C - partial results are saved automatically
+# Progress saved to: reports/tuning/tuning_*_results.json
+
+# Resume from saved state
+python scripts/controller_autotune.py \
+    --resume reports/tuning/tuning_pid_YYYYMMDD_HHMMSS_results.json \
+    --max-iterations 100  # Continue to 100 total
+```
+
+**Important:** When resuming:
+- Environment parameters (mass, gravity, dt) must match original run
+- Motion type should match original run
+- Search ranges are restored from saved state
+
+### Avoiding Stale Tuning Outputs
+
+> ⚠️ **Warning**: Tuning results are specific to the environment configuration. Using gains from a different mass, gravity, or timestep may cause instability. See also: [docs/results.md](results.md#mixing-stale-tuning-outputs-with-new-environment-parameters) for validation steps.
+
+Best practices:
+1. Archive old results before changing environment: `mv reports/tuning reports/tuning_v1`
+2. Include environment parameters in tuning config filenames
+3. Document the environment parameters in your tuning output
+4. Re-tune when changing physics parameters
+
 ## Configuration File Reference
 
 ### Available Configuration Files
