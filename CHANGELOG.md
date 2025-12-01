@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-01
+
+### Added
+
+- **Riccati-LQR Controller**: New `riccati_lqr` controller that solves the discrete-time algebraic Riccati equation (DARE) to compute mathematically optimal feedback gains. Suitable as a strong teacher for deep imitation learning and as an optimal baseline for control research. See [docs/architecture.md](docs/architecture.md) for configuration details.
+
+- **Controller Auto-Tuning Framework**: Automated PID and LQR gain optimization via `scripts/controller_autotune.py`. Features grid and random search strategies, deterministic seeding for reproducibility, graceful interruption with partial results saved, and resume capability. Configurable via `TUNING_OUTPUT_DIR` environment variable. See [docs/training.md](docs/training.md#pid-auto-tuning) for usage instructions.
+
+- **Feedforward Support**: Optional velocity and acceleration feedforward for PID and LQR controllers to improve tracking of moving targets. Disabled by default to preserve baseline behavior. Enable with `feedforward_enabled: true` in YAML configuration.
+
+- **Environment Variable Documentation**: Added `CONTROLLER_CONFIG_ROOT` and `TUNER_RESULTS_DIR` placeholders to `.env.example` for users who want to customize controller configuration and tuning output paths without modifying code.
+
+- **Release Validation Workflow**: Added guidance in `docs/results.md` for regenerating baseline metrics and plots using Make targets (`make eval-baseline-stationary`, `make eval-baseline-circular`) when preparing releases.
+
+### Changed
+
+- **Default Controller Gains**: PID and LQR gains are now experimentally validated for stable tracking across stationary, linear, and circular target scenarios. XY gains are intentionally small (kp=0.01) to prevent actuator saturation—position errors in meters map directly to angular rates in rad/s.
+
+- **Stationary Target Default**: Target motion type now defaults to `stationary` for predictable baseline evaluations, ensuring PID/LQR controllers achieve >80% on-target ratio out of the box.
+
+- **Documentation Consolidation**: README, docs/results.md, and docs/training.md updated to clearly reference tuning workflows, new controller options, and expected baseline performance metrics.
+
+### Migration from v0.2.x
+
+- **No Breaking Changes**: All v0.2.x configurations and checkpoints remain compatible.
+
+- **Recommended Actions**:
+  1. Review the new Riccati-LQR controller if you need mathematically optimal feedback gains.
+  2. Consider using auto-tuning (`scripts/controller_autotune.py`) to optimize PID/LQR gains for your specific scenario.
+  3. If using custom mass/gravity values, ensure controller initialization passes these values explicitly.
+
+- **Verification**: Run baseline evaluations to confirm expected performance:
+  ```bash
+  make eval-baseline-stationary EPISODES=10
+  make eval-baseline-circular EPISODES=10
+  ```
+
+- **Related Issues**: This release consolidates work from the following improvements:
+  - PID/LQR default gain tuning and hover thrust feedforward
+  - Riccati-LQR controller implementation
+  - Auto-tuning framework for controller gain optimization
+  - Documentation and environment variable standardization
+
+[0.3.0]: https://github.com/AgentFoundryExamples/lqr-quadcopter-test/releases/tag/v0.3.0
+
 ## [0.2.1] - 2025-12-01
 
 ### Fixed

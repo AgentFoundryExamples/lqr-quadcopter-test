@@ -1,8 +1,8 @@
-# Evaluation Results Documentation (v0.2.1)
+# Evaluation Results Documentation (v0.3.0)
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
 
-> **v0.2.1 Update:** This version documents hover thrust feedforward fixes, stationary target defaults, and sign convention verification tests. PID and LQR controllers now achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
+> **v0.3.0 Update:** This version consolidates Riccati-LQR controller support, auto-tuning framework, and feedforward capabilities. PID and LQR controllers achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
 
 ## Overview
 
@@ -479,19 +479,74 @@ ls -la reports/plots/*.png
 
 ## Release Validation
 
-When preparing a release, run full evaluation to document achieved metrics:
+When preparing a release, run full evaluation to document achieved metrics and regenerate baseline plots:
+
+### Step 1: Regenerate Baseline Metrics
+
+Run the baseline evaluation Make targets to generate updated metrics and plots:
 
 ```bash
-# Run comprehensive evaluation
+# Regenerate stationary target baseline metrics
+make eval-baseline-stationary EPISODES=50
+
+# Regenerate circular target baseline metrics
+make eval-baseline-circular EPISODES=50
+
+# Results are saved to:
+# - reports/baseline_stationary_pid/
+# - reports/baseline_stationary_lqr/
+# - reports/baseline_circular_pid/
+# - reports/baseline_circular_lqr/
+```
+
+### Step 2: Run Controller Comparison
+
+Generate a side-by-side comparison report:
+
+```bash
+# Run comparison for all controllers
+make compare-controllers EPISODES=50 MOTION_TYPE=stationary
+
+# Generate summary report
+make generate-comparison-report
+
+# View ranked results
+cat reports/comparison/comparison_summary.json | python -m json.tool
+```
+
+### Step 3: Document Release Metrics
+
+For each controller, record the following metrics in release notes:
+
+```bash
+# Document LQR metrics
 python -m quadcopter_tracking.eval \
     --controller lqr \
     --episodes 50 \
     --seed 42 \
     --output-dir reports/release_validation
 
-# Document metrics for release notes
+# View metrics summary
 cat reports/release_validation/metrics.json | python -m json.tool
 ```
+
+### Step 4: Verify Hover Tests
+
+Ensure all hover thrust integration tests pass:
+
+```bash
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
+```
+
+### Expected Baseline Performance (v0.3.0)
+
+| Motion Type | Controller | Expected On-Target Ratio |
+|-------------|------------|-------------------------|
+| Stationary | PID/LQR | >80% (verified) |
+| Stationary | Riccati-LQR | >80% (verified) |
+| Linear | PID/LQR | 70-90% |
+| Circular | PID/LQR | 70-90% |
 
 ## Training Diagnostics Results
 
@@ -751,6 +806,35 @@ These helpers ensure consistent test setup across different hover verification t
 - **Fast**: Each test completes in <1s
 - **CI-Ready**: Suitable for continuous integration workflows
 - **Parameterized**: Tests cover multiple mass/gravity configurations
+
+## v0.3.0 Migration Notes
+
+### Upgrading from v0.2.x
+
+1. **No Breaking Changes**: All v0.2.x configurations and checkpoints remain compatible. No migration required.
+
+2. **New Riccati-LQR Controller**: A new `riccati_lqr` controller type is available that solves the DARE for optimal feedback gains. Use with:
+   ```bash
+   python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 10
+   ```
+
+3. **Auto-Tuning Framework**: Use `scripts/controller_autotune.py` to optimize PID/LQR gains for your specific scenario:
+   ```bash
+   python scripts/controller_autotune.py --controller pid --max-iterations 50
+   ```
+
+4. **Feedforward Support**: Enable feedforward for improved moving target tracking:
+   ```yaml
+   pid:
+     feedforward_enabled: true
+     ff_velocity_gain: [0.1, 0.1, 0.1]
+   ```
+
+5. **Verification**: Run baseline evaluations to confirm expected performance:
+   ```bash
+   make eval-baseline-stationary EPISODES=10
+   make eval-baseline-circular EPISODES=10
+   ```
 
 ## v0.2.1 Migration Notes
 
