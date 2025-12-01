@@ -63,7 +63,7 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 14860,
+        "size_bytes": 15080,
         "loc": 272,
         "todo_count": 0,
         "declaration_count": 3
@@ -596,10 +596,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 58291,
-        "loc": 1192,
+        "size_bytes": 72540,
+        "loc": 1463,
         "todo_count": 0,
-        "declaration_count": 10
+        "declaration_count": 11
       },
       "structure": {
         "declarations": [
@@ -612,7 +612,8 @@
           "class TestClassicalControllerIntegration",
           "function create_hover_observation",
           "function create_hover_env_config",
-          "class TestHoverThrustIntegration"
+          "class TestHoverThrustIntegration",
+          "class TestAxisSignConventions"
         ]
       },
       "dependencies": {

@@ -31,7 +31,7 @@ Total files: 20
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 14.51 KB  
+**Size:** 14.73 KB  
 **LOC:** 272  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 3  
@@ -280,10 +280,10 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 56.92 KB  
-**LOC:** 1192  
+**Size:** 70.84 KB  
+**LOC:** 1463  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 10  
+**Declarations:** 11  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -295,6 +295,7 @@ Total files: 20
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
+  - ... and 1 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 
