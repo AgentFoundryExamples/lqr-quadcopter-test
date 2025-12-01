@@ -691,8 +691,9 @@ class TestPIDController:
 
         action = pid.compute_action(obs)
 
-        # Positive X error should result in negative pitch rate (pitch forward)
-        assert action["pitch_rate"] < 0
+        # Positive X error should result in positive pitch rate
+        # Environment dynamics: +pitch_rate produces +X velocity
+        assert action["pitch_rate"] > 0
 
     def test_pid_moves_quadcopter_toward_target(self):
         """Test PID controller reduces tracking error over time."""
@@ -1643,4 +1644,385 @@ class TestHoverThrustIntegration:
             assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
                 f"LQR step {i}: thrust {action['thrust']:.2f}N drifted from "
                 f"hover baseline {expected_thrust:.2f}N"
+            )
+
+
+# =============================================================================
+# Axis Sign Convention Regression Tests
+# =============================================================================
+# These tests verify the controller sign conventions match environment dynamics:
+#   - Environment: +pitch_rate produces +X velocity
+#   - Environment: +roll_rate produces -Y velocity
+#
+# Controllers must output correct signs:
+#   - Positive X error produces positive pitch_rate
+#   - Positive Y error produces negative roll_rate
+
+
+class TestAxisSignConventions:
+    """
+    Regression tests for axis sign conventions.
+
+    Verifies that controllers output correct signs to match environment dynamics:
+    - +pitch_rate → +X velocity (in environment)
+    - +roll_rate → -Y velocity (in environment)
+
+    These tests prevent future mismatches that would cause the quadcopter
+    to accelerate away from targets instead of toward them.
+    """
+
+    def test_environment_pitch_produces_positive_x(self):
+        """Verify environment: positive pitch_rate produces positive X velocity."""
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=1.0)
+
+        env = QuadcopterEnv(config=config)
+        env.reset(seed=42)
+
+        # Set to hover at origin with zero velocity
+        state = np.zeros(12)
+        state[2] = 1.0  # Z position
+        env.set_state_vector(state)
+
+        # Apply positive pitch_rate for multiple steps
+        x_velocities = []
+        for _ in range(50):
+            action = {
+                "thrust": 9.81,
+                "roll_rate": 0.0,
+                "pitch_rate": 0.5,  # Positive pitch rate
+                "yaw_rate": 0.0,
+            }
+            obs, _, _, _ = env.step(action)
+            x_velocities.append(obs["quadcopter"]["velocity"][0])
+
+        # After applying positive pitch_rate, X velocity should be positive
+        assert x_velocities[-1] > 0, (
+            f"Environment dynamics violated: +pitch_rate should produce +X velocity. "
+            f"Got X velocity = {x_velocities[-1]:.4f}"
+        )
+
+    def test_environment_roll_produces_negative_y(self):
+        """Verify environment: positive roll_rate produces negative Y velocity."""
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=1.0)
+
+        env = QuadcopterEnv(config=config)
+        env.reset(seed=42)
+
+        # Set to hover at origin with zero velocity
+        state = np.zeros(12)
+        state[2] = 1.0  # Z position
+        env.set_state_vector(state)
+
+        # Apply positive roll_rate for multiple steps
+        y_velocities = []
+        for _ in range(50):
+            action = {
+                "thrust": 9.81,
+                "roll_rate": 0.5,  # Positive roll rate
+                "pitch_rate": 0.0,
+                "yaw_rate": 0.0,
+            }
+            obs, _, _, _ = env.step(action)
+            y_velocities.append(obs["quadcopter"]["velocity"][1])
+
+        # After applying positive roll_rate, Y velocity should be negative
+        assert y_velocities[-1] < 0, (
+            f"Environment dynamics violated: +roll_rate should produce -Y velocity. "
+            f"Got Y velocity = {y_velocities[-1]:.4f}"
+        )
+
+    def test_pid_positive_x_error_produces_positive_pitch_rate(self):
+        """Verify PID: positive X error produces positive pitch_rate output."""
+        from quadcopter_tracking.controllers import PIDController
+
+        controller = PIDController()
+
+        # Observation with positive X error (target ahead in X)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),  # +1m in X
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        assert action["pitch_rate"] > 0, (
+            f"PID sign convention violated: +X error should produce +pitch_rate. "
+            f"Got pitch_rate = {action['pitch_rate']:.4f}"
+        )
+
+    def test_pid_positive_y_error_produces_negative_roll_rate(self):
+        """Verify PID: positive Y error produces negative roll_rate output."""
+        from quadcopter_tracking.controllers import PIDController
+
+        controller = PIDController()
+
+        # Observation with positive Y error (target ahead in Y)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 1.0, 1.0]),  # +1m in Y
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        assert action["roll_rate"] < 0, (
+            f"PID sign convention violated: +Y error should produce -roll_rate. "
+            f"Got roll_rate = {action['roll_rate']:.4f}"
+        )
+
+    def test_lqr_positive_x_error_produces_positive_pitch_rate(self):
+        """Verify LQR: positive X error produces positive pitch_rate output."""
+        from quadcopter_tracking.controllers import LQRController
+
+        controller = LQRController()
+
+        # Observation with positive X error (target ahead in X)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),  # +1m in X
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        assert action["pitch_rate"] > 0, (
+            f"LQR sign convention violated: +X error should produce +pitch_rate. "
+            f"Got pitch_rate = {action['pitch_rate']:.4f}"
+        )
+
+    def test_lqr_positive_y_error_produces_negative_roll_rate(self):
+        """Verify LQR: positive Y error produces negative roll_rate output."""
+        from quadcopter_tracking.controllers import LQRController
+
+        controller = LQRController()
+
+        # Observation with positive Y error (target ahead in Y)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 1.0, 1.0]),  # +1m in Y
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        assert action["roll_rate"] < 0, (
+            f"LQR sign convention violated: +Y error should produce -roll_rate. "
+            f"Got roll_rate = {action['roll_rate']:.4f}"
+        )
+
+    def test_pid_convergence_to_stationary_target(self):
+        """Verify PID with fixed signs converges to target within 0.5m."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        controller = PIDController(config={
+            "mass": config.quadcopter.mass,
+            "gravity": config.quadcopter.gravity,
+        })
+
+        # Track minimum error achieved
+        min_error = float("inf")
+        for _ in range(500):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Controller should converge to within 0.5m
+        assert min_error < 0.5, (
+            f"PID controller failed to converge. Min tracking error = "
+            f"{min_error:.3f}m. This may indicate sign convention issues."
+        )
+
+    def test_lqr_convergence_to_stationary_target(self):
+        """Verify LQR with fixed signs converges to target within 0.5m."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        controller = LQRController(config={
+            "mass": config.quadcopter.mass,
+            "gravity": config.quadcopter.gravity,
+        })
+
+        # Track minimum error achieved
+        min_error = float("inf")
+        for _ in range(500):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Controller should converge to within 0.5m
+        assert min_error < 0.5, (
+            f"LQR controller failed to converge. Min tracking error = "
+            f"{min_error:.3f}m. This may indicate sign convention issues."
+        )
+
+    def test_pid_initial_acceleration_direction(self):
+        """Verify PID initial acceleration is toward target, not away."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=1.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        env.reset(seed=42)
+
+        # Get the target position
+        target_state = env.target.get_state(0.0)
+        target_pos = target_state["position"]
+
+        # Position quadcopter away from target to create meaningful error
+        state = np.zeros(12)
+        state[0] = target_pos[0] - 2.0  # 2m behind in X
+        state[1] = target_pos[1] - 2.0  # 2m behind in Y
+        state[2] = target_pos[2]  # Same Z height
+        env.set_state_vector(state)
+
+        controller = PIDController(config={
+            "mass": config.quadcopter.mass,
+            "gravity": config.quadcopter.gravity,
+        })
+
+        obs = env.render()
+
+        # Take a few steps and check velocity direction
+        for _ in range(20):
+            action = controller.compute_action(obs)
+            obs, _, _, _ = env.step(action)
+
+        quad_vel = obs["quadcopter"]["velocity"]
+        quad_pos = obs["quadcopter"]["position"]
+
+        # Compute direction to target
+        to_target = target_pos - quad_pos
+        to_target_xy = to_target[:2]
+        vel_xy = quad_vel[:2]
+
+        # Velocity should have positive dot product with direction to target
+        # (i.e., moving toward target, not away)
+        dot_product = np.dot(vel_xy, to_target_xy)
+        vel_mag = np.linalg.norm(vel_xy)
+
+        # Only check if there's significant XY velocity
+        if vel_mag > 0.1:
+            assert dot_product > 0, (
+                f"PID produces motion AWAY from target. "
+                f"Velocity XY = {vel_xy}, direction to target = {to_target_xy}. "
+                "This indicates sign convention issues."
+            )
+        else:
+            pytest.fail(
+                f"PID failed to produce significant velocity towards target. "
+                f"Velocity magnitude was {vel_mag:.4f}, expecting > 0.1."
+            )
+
+    def test_lqr_initial_acceleration_direction(self):
+        """Verify LQR initial acceleration is toward target, not away."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=1.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        env.reset(seed=42)
+
+        # Get the target position
+        target_state = env.target.get_state(0.0)
+        target_pos = target_state["position"]
+
+        # Position quadcopter away from target to create meaningful error
+        state = np.zeros(12)
+        state[0] = target_pos[0] - 2.0  # 2m behind in X
+        state[1] = target_pos[1] - 2.0  # 2m behind in Y
+        state[2] = target_pos[2]  # Same Z height
+        env.set_state_vector(state)
+
+        controller = LQRController(config={
+            "mass": config.quadcopter.mass,
+            "gravity": config.quadcopter.gravity,
+        })
+
+        obs = env.render()
+
+        # Take a few steps and check velocity direction
+        for _ in range(20):
+            action = controller.compute_action(obs)
+            obs, _, _, _ = env.step(action)
+
+        quad_vel = obs["quadcopter"]["velocity"]
+        quad_pos = obs["quadcopter"]["position"]
+
+        # Compute direction to target
+        to_target = target_pos - quad_pos
+        to_target_xy = to_target[:2]
+        vel_xy = quad_vel[:2]
+
+        # Velocity should have positive dot product with direction to target
+        # (i.e., moving toward target, not away)
+        dot_product = np.dot(vel_xy, to_target_xy)
+        vel_mag = np.linalg.norm(vel_xy)
+
+        # Only check if there's significant XY velocity
+        if vel_mag > 0.1:
+            assert dot_product > 0, (
+                f"LQR produces motion AWAY from target. "
+                f"Velocity XY = {vel_xy}, direction to target = {to_target_xy}. "
+                "This indicates sign convention issues."
+            )
+        else:
+            pytest.fail(
+                f"LQR failed to produce significant velocity towards target. "
+                f"Velocity magnitude was {vel_mag:.4f}, expecting > 0.1."
             )

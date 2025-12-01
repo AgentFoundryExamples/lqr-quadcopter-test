@@ -76,6 +76,28 @@ The utilities package owns:
 
 The repository provides two classical controllers (PID and LQR) that share a common pipeline for processing observations and generating control actions.
 
+### Coordinate Frame and Axis Conventions
+
+The environment uses a right-handed coordinate system (ENU - East-North-Up) with the following axis conventions:
+
+| Axis | Direction | Rotation | Effect |
+|------|-----------|----------|--------|
+| X | Forward/East | Pitch | +pitch_rate → +X velocity |
+| Y | Left/North | Roll | +roll_rate → -Y velocity |
+| Z | Up | Yaw | +thrust → +Z acceleration |
+
+**Important Sign Conventions:**
+- **Positive pitch rate** produces **positive X velocity** (pitching nose up accelerates forward)
+- **Positive roll rate** produces **negative Y velocity** (rolling right accelerates left)
+- **Positive thrust** produces **positive Z acceleration** (upward force)
+
+Controllers use these conventions to correctly map position errors to control outputs:
+- **+X error** (target ahead in X) → **+pitch_rate** output
+- **+Y error** (target ahead in Y) → **-roll_rate** output
+- **+Z error** (target above) → **+thrust** adjustment
+
+These conventions are validated by regression tests in `tests/test_env_dynamics.py::TestAxisSignConventions`.
+
 ### Observation Processing
 
 Both classical controllers extract state information from the observation dictionary:
@@ -128,8 +150,8 @@ Desired Accel ──► Control Mapping ──► [thrust, roll_rate, pitch_rate
 
 **Control Mapping:**
 - Z-axis acceleration → thrust adjustment above hover
-- X-axis acceleration → pitch rate (negative sign: pitch forward to move +X)
-- Y-axis acceleration → roll rate (positive: roll right to move +Y)
+- X-axis acceleration → pitch rate (positive: +pitch_rate produces +X velocity)
+- Y-axis acceleration → roll rate (negative: +roll_rate produces -Y velocity)
 - Yaw rate → zero (no heading tracking)
 
 **Key Features:**
