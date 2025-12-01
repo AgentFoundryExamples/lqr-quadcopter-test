@@ -206,7 +206,44 @@ The default PID and LQR gains are experimentally validated for stable tracking a
 
 See [docs/architecture.md](docs/architecture.md) for detailed gain tuning guidance.
 
-### Configuration
+### Controller Configuration via YAML/CLI
+
+Controller-specific settings can be configured via YAML files or CLI arguments. Both training and evaluation pipelines parse controller_config sections from experiment YAML files.
+
+**YAML Configuration Example:**
+
+```yaml
+# experiments/configs/my_experiment.yaml
+controller: pid  # or 'lqr', 'deep'
+
+# PID controller gains (used when controller=pid)
+pid:
+  kp_pos: [0.02, 0.02, 5.0]
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.08, 0.08, 2.5]
+  integral_limit: 0.0
+
+# LQR controller weights (used when controller=lqr)
+lqr:
+  q_pos: [0.001, 0.001, 20.0]
+  q_vel: [0.01, 0.01, 5.0]
+  r_thrust: 1.0
+  r_rate: 1.0
+```
+
+**Using with training:**
+
+```bash
+python -m quadcopter_tracking.train --config experiments/configs/my_experiment.yaml
+```
+
+**Using with evaluation:**
+
+```bash
+python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
+```
+
+### Environment Configuration
 
 ```python
 from quadcopter_tracking.env import QuadcopterEnv, EnvConfig

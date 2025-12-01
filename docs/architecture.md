@@ -120,15 +120,31 @@ observation = {
 
 ### Control Output Mapping
 
-Both controllers output a dictionary with the following keys:
+All controllers (PID, LQR, and deep) must output a dictionary with the following canonical keys:
 
 ```python
 action = {
-    "thrust": float,      # Total thrust in Newtons [0, max_thrust]
-    "roll_rate": float,   # Desired roll rate in rad/s [-max_rate, max_rate]
-    "pitch_rate": float,  # Desired pitch rate in rad/s [-max_rate, max_rate]
-    "yaw_rate": float,    # Desired yaw rate in rad/s [-max_rate, max_rate]
+    "thrust": float,      # Total thrust in Newtons [0, max_thrust], default max: 20.0
+    "roll_rate": float,   # Desired roll rate in rad/s [-max_rate, max_rate], default max: 3.0
+    "pitch_rate": float,  # Desired pitch rate in rad/s [-max_rate, max_rate], default max: 3.0
+    "yaw_rate": float,    # Desired yaw rate in rad/s [-max_rate, max_rate], default max: 3.0
 }
+```
+
+**Action Schema Validation:**
+
+The `BaseController` module exports validation helpers that can be used to verify action dictionaries:
+
+```python
+from quadcopter_tracking.controllers import ACTION_KEYS, validate_action, ActionLimits
+
+# Validate action has required keys and numeric values
+action = controller.compute_action(observation)
+validate_action(action)  # Raises KeyError or TypeError on invalid action
+
+# Clip action values to valid ranges
+limits = ActionLimits(max_thrust=20.0, max_rate=3.0)
+clipped_action = limits.clip_action(action)
 ```
 
 ### PID Controller Pipeline
@@ -436,12 +452,43 @@ python -m quadcopter_tracking.eval --controller lqr --episodes 10
 
 ### Configuration via YAML
 
+Controller-specific settings are read from the YAML config file's controller_config sections. Both `train.py` and `eval.py` parse these sections and pass them to the controller constructors.
+
 ```yaml
 # experiments/configs/my_config.yaml
 controller: pid  # Options: deep, lqr, pid
 epochs: 10
 episodes_per_epoch: 5
-# ... other settings
+
+# Controller-specific configuration (read when controller=pid)
+pid:
+  kp_pos: [0.02, 0.02, 5.0]
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.08, 0.08, 2.5]
+  integral_limit: 0.0
+  mass: 1.0
+  gravity: 9.81
+
+# Controller-specific configuration (read when controller=lqr)
+lqr:
+  q_pos: [0.001, 0.001, 20.0]
+  q_vel: [0.01, 0.01, 5.0]
+  r_thrust: 1.0
+  r_rate: 1.0
+```
+
+**Config Propagation:**
+
+1. YAML file is loaded with all sections preserved
+2. The full config is stored and accessible to the training/evaluation pipelines
+3. When creating controllers, the pipeline reads the controller-specific section (e.g., `config['pid']`) and passes it to the controller constructor
+4. If no controller-specific section exists, the controller uses its defaults
+
+**Usage with evaluation:**
+
+```bash
+# Eval with YAML config containing controller gains
+python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
 ```
 
 ### Behavior Differences
@@ -463,14 +510,15 @@ For **classical** controllers (pid, lqr):
 - **Invalid controller name**: CLI rejects with helpful error listing valid choices
 - **Checkpoint with classical controller**: Warning logged, checkpoint ignored
 - **Training-specific options with classical controllers**: Warning logged, options ignored
+- **Missing controller_config section**: Controllers use documented defaults without error
 
 ## Development Guidelines
 
 ### Adding a New Controller
 1. Create class inheriting from `BaseController`
-2. Implement `compute_action()` method
+2. Implement `compute_action()` method returning dict with canonical keys (thrust, roll_rate, pitch_rate, yaw_rate)
 3. Add to `__all__` in controllers package
-4. Create experiment config for new controller
+4. Create experiment config for new controller with controller-specific section
 5. Register controller type in `train.py` and `eval.py` if trainable
 
 ### Adding Target Motion Pattern

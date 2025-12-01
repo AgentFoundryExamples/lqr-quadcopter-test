@@ -1415,10 +1415,12 @@ class TestHoverThrustIntegration:
         obs = env.render()
 
         # Create controller with matching physics parameters
-        controller = PIDController(config={
-            "mass": env_config.quadcopter.mass,
-            "gravity": env_config.quadcopter.gravity,
-        })
+        controller = PIDController(
+            config={
+                "mass": env_config.quadcopter.mass,
+                "gravity": env_config.quadcopter.gravity,
+            }
+        )
 
         # Compute action at hover equilibrium
         action = controller.compute_action(obs)
@@ -1469,10 +1471,12 @@ class TestHoverThrustIntegration:
         obs = env.render()
 
         # Create controller with matching physics parameters
-        controller = LQRController(config={
-            "mass": env_config.quadcopter.mass,
-            "gravity": env_config.quadcopter.gravity,
-        })
+        controller = LQRController(
+            config={
+                "mass": env_config.quadcopter.mass,
+                "gravity": env_config.quadcopter.gravity,
+            }
+        )
 
         # Compute action at hover equilibrium
         action = controller.compute_action(obs)
@@ -1666,10 +1670,12 @@ class TestHoverThrustIntegration:
         state[3:6] = [0.0, 0.0, 0.0]
         env.set_state_vector(state)
 
-        controller = PIDController(config={
-            "mass": env_config.quadcopter.mass,
-            "gravity": env_config.quadcopter.gravity,
-        })
+        controller = PIDController(
+            config={
+                "mass": env_config.quadcopter.mass,
+                "gravity": env_config.quadcopter.gravity,
+            }
+        )
         expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
 
         # Simulate multiple timesteps at hover
@@ -1705,10 +1711,12 @@ class TestHoverThrustIntegration:
         state[3:6] = [0.0, 0.0, 0.0]
         env.set_state_vector(state)
 
-        controller = LQRController(config={
-            "mass": env_config.quadcopter.mass,
-            "gravity": env_config.quadcopter.gravity,
-        })
+        controller = LQRController(
+            config={
+                "mass": env_config.quadcopter.mass,
+                "gravity": env_config.quadcopter.gravity,
+            }
+        )
         expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
 
         # Simulate multiple timesteps at hover
@@ -1934,10 +1942,12 @@ class TestAxisSignConventions:
         env = QuadcopterEnv(config=config)
         obs = env.reset(seed=42)
 
-        controller = PIDController(config={
-            "mass": config.quadcopter.mass,
-            "gravity": config.quadcopter.gravity,
-        })
+        controller = PIDController(
+            config={
+                "mass": config.quadcopter.mass,
+                "gravity": config.quadcopter.gravity,
+            }
+        )
 
         # Track minimum error achieved
         min_error = float("inf")
@@ -1965,10 +1975,12 @@ class TestAxisSignConventions:
         env = QuadcopterEnv(config=config)
         obs = env.reset(seed=42)
 
-        controller = LQRController(config={
-            "mass": config.quadcopter.mass,
-            "gravity": config.quadcopter.gravity,
-        })
+        controller = LQRController(
+            config={
+                "mass": config.quadcopter.mass,
+                "gravity": config.quadcopter.gravity,
+            }
+        )
 
         # Track minimum error achieved
         min_error = float("inf")
@@ -2014,14 +2026,16 @@ class TestAxisSignConventions:
 
         # Use higher test gains to get detectable velocity in short time window
         # This tests sign conventions, not the conservative default tuning
-        controller = PIDController(config={
-            "mass": config.quadcopter.mass,
-            "gravity": config.quadcopter.gravity,
-            "kp_pos": [2.0, 2.0, 4.0],  # Higher gains for sign convention test
-            "ki_pos": [0.0, 0.0, 0.0],  # Explicitly zero for clarity
-            "kd_pos": [1.5, 1.5, 2.0],
-            "integral_limit": 0.0,
-        })
+        controller = PIDController(
+            config={
+                "mass": config.quadcopter.mass,
+                "gravity": config.quadcopter.gravity,
+                "kp_pos": [2.0, 2.0, 4.0],  # Higher gains for sign convention test
+                "ki_pos": [0.0, 0.0, 0.0],  # Explicitly zero for clarity
+                "kd_pos": [1.5, 1.5, 2.0],
+                "integral_limit": 0.0,
+            }
+        )
 
         obs = env.render()
 
@@ -2085,14 +2099,16 @@ class TestAxisSignConventions:
 
         # Use higher cost weights to get detectable velocity in short time window
         # This tests sign conventions, not the conservative default tuning
-        controller = LQRController(config={
-            "mass": config.quadcopter.mass,
-            "gravity": config.quadcopter.gravity,
-            "q_pos": [10.0, 10.0, 20.0],  # Higher costs for sign convention test
-            "q_vel": [5.0, 5.0, 10.0],
-            "r_thrust": 0.1,
-            "r_rate": 1.0,
-        })
+        controller = LQRController(
+            config={
+                "mass": config.quadcopter.mass,
+                "gravity": config.quadcopter.gravity,
+                "q_pos": [10.0, 10.0, 20.0],  # Higher costs for sign convention test
+                "q_vel": [5.0, 5.0, 10.0],
+                "r_thrust": 0.1,
+                "r_rate": 1.0,
+            }
+        )
 
         obs = env.render()
 

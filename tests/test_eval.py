@@ -122,11 +122,13 @@ class TestMetrics:
     def test_detect_overshoots_single(self):
         """Test overshoot detection with single overshoot."""
         # Start on target, go off, return
-        errors = np.concatenate([
-            np.ones(30) * 0.3,  # On target
-            np.ones(20) * 0.8,  # Off target (overshoot)
-            np.ones(30) * 0.3,  # Back on target
-        ])
+        errors = np.concatenate(
+            [
+                np.ones(30) * 0.3,  # On target
+                np.ones(20) * 0.8,  # Off target (overshoot)
+                np.ones(30) * 0.3,  # Back on target
+            ]
+        )
         target_radius = 0.5
 
         count, max_overshoot = detect_overshoots(errors, target_radius)
@@ -152,12 +154,14 @@ class TestEpisodeMetrics:
         """Test basic episode metrics computation."""
         episode_data = []
         for i in range(100):
-            episode_data.append({
-                "time": i * 0.01,
-                "quadcopter_position": [0, 0, 0],
-                "target_position": [0.3, 0, 0],  # 0.3m away
-                "action": [10, 0, 0, 0],
-            })
+            episode_data.append(
+                {
+                    "time": i * 0.01,
+                    "quadcopter_position": [0, 0, 0],
+                    "target_position": [0.3, 0, 0],  # 0.3m away
+                    "action": [10, 0, 0, 0],
+                }
+            )
 
         metrics = compute_episode_metrics(episode_data)
 
@@ -178,12 +182,14 @@ class TestEpisodeMetrics:
         # Create episode data that should pass success criteria
         episode_data = []
         for i in range(3001):  # Just over 30 seconds at 100Hz
-            episode_data.append({
-                "time": i * 0.01,
-                "quadcopter_position": [0, 0, 0],
-                "target_position": [0.1, 0, 0],  # Within 0.5m radius
-                "action": [10, 0, 0, 0],
-            })
+            episode_data.append(
+                {
+                    "time": i * 0.01,
+                    "quadcopter_position": [0, 0, 0],
+                    "target_position": [0.1, 0, 0],  # Within 0.5m radius
+                    "action": [10, 0, 0, 0],
+                }
+            )
 
         criteria = SuccessCriteria(
             min_on_target_ratio=0.8,
@@ -200,12 +206,14 @@ class TestEpisodeMetrics:
         """Test failure due to short duration."""
         episode_data = []
         for i in range(100):  # Only 1 second
-            episode_data.append({
-                "time": i * 0.01,
-                "quadcopter_position": [0, 0, 0],
-                "target_position": [0.1, 0, 0],
-                "action": [10, 0, 0, 0],
-            })
+            episode_data.append(
+                {
+                    "time": i * 0.01,
+                    "quadcopter_position": [0, 0, 0],
+                    "target_position": [0.1, 0, 0],
+                    "action": [10, 0, 0, 0],
+                }
+            )
 
         criteria = SuccessCriteria(min_episode_duration=30.0)
         metrics = compute_episode_metrics(episode_data, criteria)
@@ -367,6 +375,7 @@ class TestEvaluator:
 
         assert plot_path.exists()
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_evaluator_plot_tracking_error(self, evaluator, tmp_path):
@@ -378,6 +387,7 @@ class TestEvaluator:
 
         assert plot_path.exists()
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_evaluator_generate_all_plots(self, evaluator):
@@ -598,3 +608,169 @@ class TestControllerSelectionEval:
             assert hasattr(summary, "success_rate")
             assert 0 <= summary.mean_on_target_ratio <= 1
             assert summary.mean_tracking_error >= 0
+
+
+class TestActionSchema:
+    """Tests for action schema validation and consistency."""
+
+    def test_action_keys_constant(self):
+        """Test that ACTION_KEYS contains the expected keys."""
+        from quadcopter_tracking.controllers import ACTION_KEYS
+
+        assert ACTION_KEYS == ("thrust", "roll_rate", "pitch_rate", "yaw_rate")
+
+    def test_validate_action_valid(self):
+        """Test validate_action accepts valid action dictionaries."""
+        from quadcopter_tracking.controllers import validate_action
+
+        valid_action = {
+            "thrust": 10.0,
+            "roll_rate": 0.5,
+            "pitch_rate": -0.5,
+            "yaw_rate": 0.0,
+        }
+        # Should not raise
+        validate_action(valid_action)
+
+    def test_validate_action_missing_key(self):
+        """Test validate_action raises on missing keys."""
+        from quadcopter_tracking.controllers import validate_action
+
+        incomplete_action = {
+            "thrust": 10.0,
+            "roll_rate": 0.5,
+            # Missing pitch_rate and yaw_rate
+        }
+        with pytest.raises(KeyError, match="pitch_rate"):
+            validate_action(incomplete_action)
+
+    def test_validate_action_wrong_type(self):
+        """Test validate_action raises on wrong value types."""
+        from quadcopter_tracking.controllers import validate_action
+
+        invalid_action = {
+            "thrust": "not a number",
+            "roll_rate": 0.5,
+            "pitch_rate": -0.5,
+            "yaw_rate": 0.0,
+        }
+        with pytest.raises(TypeError, match="must be numeric"):
+            validate_action(invalid_action)
+
+    def test_action_limits_clip_thrust(self):
+        """Test ActionLimits clips thrust correctly."""
+        from quadcopter_tracking.controllers import ActionLimits
+
+        limits = ActionLimits(min_thrust=0.0, max_thrust=20.0, max_rate=3.0)
+        action = {
+            "thrust": 25.0,  # Above max
+            "roll_rate": 0.0,
+            "pitch_rate": 0.0,
+            "yaw_rate": 0.0,
+        }
+        clipped = limits.clip_action(action)
+        assert clipped["thrust"] == 20.0
+
+        action["thrust"] = -5.0  # Below min
+        clipped = limits.clip_action(action)
+        assert clipped["thrust"] == 0.0
+
+    def test_action_limits_clip_rates(self):
+        """Test ActionLimits clips rates correctly."""
+        from quadcopter_tracking.controllers import ActionLimits
+
+        limits = ActionLimits(max_rate=3.0)
+        action = {
+            "thrust": 10.0,
+            "roll_rate": 5.0,  # Above max
+            "pitch_rate": -5.0,  # Below min
+            "yaw_rate": 2.0,  # Within bounds
+        }
+        clipped = limits.clip_action(action)
+        assert clipped["roll_rate"] == 3.0
+        assert clipped["pitch_rate"] == -3.0
+        assert clipped["yaw_rate"] == 2.0
+
+    def test_all_controllers_produce_valid_action_schema(self, tmp_path):
+        """Test that all controllers output valid action dictionaries."""
+        from quadcopter_tracking.controllers import validate_action
+        from quadcopter_tracking.env import QuadcopterEnv
+
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        for controller_type in ["pid", "lqr", "deep"]:
+            controller = load_controller(controller_type)
+            action = controller.compute_action(obs)
+
+            # Should not raise
+            validate_action(action)
+
+            # Check action keys
+            assert "thrust" in action
+            assert "roll_rate" in action
+            assert "pitch_rate" in action
+            assert "yaw_rate" in action
+
+
+class TestControllerConfigPropagation:
+    """Tests for controller configuration propagation from YAML."""
+
+    def test_load_pid_with_custom_config(self):
+        """Test that PID controller receives custom config."""
+        config = {
+            "kp_pos": [0.02, 0.02, 5.0],
+            "ki_pos": [0.001, 0.001, 0.01],
+            "kd_pos": [0.1, 0.1, 3.0],
+        }
+        controller = load_controller("pid", config=config)
+
+        # Verify custom gains were applied
+        np.testing.assert_array_almost_equal(
+            controller.kp_pos, [0.02, 0.02, 5.0]
+        )
+        np.testing.assert_array_almost_equal(
+            controller.ki_pos, [0.001, 0.001, 0.01]
+        )
+        np.testing.assert_array_almost_equal(
+            controller.kd_pos, [0.1, 0.1, 3.0]
+        )
+
+    def test_load_lqr_with_custom_config(self):
+        """Test that LQR controller receives custom config."""
+        config = {
+            "q_pos": [0.001, 0.001, 20.0],
+            "q_vel": [0.01, 0.01, 5.0],
+            "r_thrust": 2.0,
+            "r_rate": 0.5,
+        }
+        controller = load_controller("lqr", config=config)
+
+        # LQR should have computed K matrix from these weights
+        assert controller.K is not None
+        assert controller.K.shape == (4, 6)
+
+    def test_load_controller_with_empty_config_uses_defaults(self):
+        """Test that controllers use defaults when config is empty."""
+        pid = load_controller("pid", config={})
+        lqr = load_controller("lqr", config={})
+
+        # Check PID uses default gains
+        np.testing.assert_array_almost_equal(
+            pid.kp_pos, [0.01, 0.01, 4.0]
+        )
+
+        # Check LQR has valid K matrix
+        assert lqr.K is not None
+        assert lqr.K.shape == (4, 6)
+
+    def test_controller_config_propagates_mass_gravity(self):
+        """Test that mass/gravity from config reaches controllers."""
+        config = {"mass": 1.5, "gravity": 10.0}
+        pid = load_controller("pid", config=config)
+        lqr = load_controller("lqr", config=config)
+
+        # Both should have correct hover thrust
+        expected_hover = 1.5 * 10.0
+        assert pid.hover_thrust == expected_hover
+        assert lqr.hover_thrust == expected_hover

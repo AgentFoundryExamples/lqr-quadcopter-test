@@ -207,9 +207,7 @@ class Evaluator:
             self.episode_info_list.append(info)
 
             # Compute metrics for this episode
-            metrics = compute_episode_metrics(
-                episode_data, self.criteria, info
-            )
+            metrics = compute_episode_metrics(episode_data, self.criteria, info)
             episode_metrics_list.append(metrics)
 
             if verbose:
@@ -565,14 +563,16 @@ def run_hyperparameter_sweep(
                 verbose=False,
             )
 
-            results.append({
-                "name": config.get("name", f"config_{i}"),
-                "config": config,
-                "mean_on_target_ratio": summary.mean_on_target_ratio,
-                "success_rate": summary.success_rate,
-                "mean_tracking_error": summary.mean_tracking_error,
-                "meets_criteria": summary.meets_criteria,
-            })
+            results.append(
+                {
+                    "name": config.get("name", f"config_{i}"),
+                    "config": config,
+                    "mean_on_target_ratio": summary.mean_on_target_ratio,
+                    "success_rate": summary.success_rate,
+                    "mean_tracking_error": summary.mean_tracking_error,
+                    "meets_criteria": summary.meets_criteria,
+                }
+            )
 
             logger.info(
                 "  Result: on-target=%.1f%%, success=%.1f%%",
@@ -582,11 +582,13 @@ def run_hyperparameter_sweep(
 
         except Exception as e:
             logger.error("Configuration %s failed: %s", config.get("name"), e)
-            results.append({
-                "name": config.get("name", f"config_{i}"),
-                "config": config,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "name": config.get("name", f"config_{i}"),
+                    "config": config,
+                    "error": str(e),
+                }
+            )
 
     # Rank results by on-target ratio
     valid_results = [r for r in results if "error" not in r]
@@ -616,6 +618,13 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Evaluate quadcopter tracking controllers"
+    )
+
+    # Config file
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to YAML/JSON configuration file for controller-specific settings",
     )
 
     # Controller options
@@ -695,6 +704,37 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _load_eval_config(config_path: str | None) -> dict:
+    """Load evaluation configuration from file.
+
+    Args:
+        config_path: Path to YAML/JSON configuration file.
+
+    Returns:
+        Configuration dictionary (empty if no file specified).
+    """
+    if config_path is None:
+        return {}
+
+    from pathlib import Path
+
+    path = Path(config_path)
+    if not path.exists():
+        logger.warning("Config file not found: %s, using defaults", config_path)
+        return {}
+
+    with open(path) as f:
+        if path.suffix in (".yaml", ".yml"):
+            return yaml.safe_load(f) or {}
+        elif path.suffix == ".json":
+            import json
+
+            return json.load(f)
+        else:
+            logger.warning("Unsupported config format: %s", path.suffix)
+            return {}
+
+
 def main() -> int:
     """Main entry point."""
     args = parse_args()
@@ -704,11 +744,18 @@ def main() -> int:
         run_hyperparameter_sweep(args.sweep, args.output_dir)
         return 0
 
-    # Load controller
+    # Load evaluation config from file if provided
+    eval_config = _load_eval_config(args.config)
+
+    # Get controller-specific config from eval_config
+    controller_config = eval_config.get(args.controller, {})
+
+    # Load controller with config
     try:
         controller = load_controller(
             controller_type=args.controller,
             checkpoint_path=args.checkpoint,
+            config=controller_config,
         )
     except Exception as e:
         logger.error("Failed to load controller: %s", e)
@@ -716,15 +763,22 @@ def main() -> int:
 
     # Setup environment config
     env_config = EnvConfig()
-    env_config.target.motion_type = args.motion_type
-    env_config.simulation.max_episode_time = args.episode_length
-    env_config.success_criteria.target_radius = args.target_radius
+    # Use config file values if present, else CLI args
+    env_config.target.motion_type = eval_config.get(
+        "target_motion_type", args.motion_type
+    )
+    env_config.simulation.max_episode_time = eval_config.get(
+        "episode_length", args.episode_length
+    )
+    env_config.success_criteria.target_radius = eval_config.get(
+        "target_radius", args.target_radius
+    )
 
     # Setup success criteria
     criteria = SuccessCriteria(
         min_on_target_ratio=0.8,
-        min_episode_duration=args.episode_length,
-        target_radius=args.target_radius,
+        min_episode_duration=eval_config.get("episode_length", args.episode_length),
+        target_radius=eval_config.get("target_radius", args.target_radius),
     )
 
     # Create evaluator
@@ -732,13 +786,13 @@ def main() -> int:
         controller=controller,
         env_config=env_config,
         criteria=criteria,
-        output_dir=args.output_dir,
+        output_dir=eval_config.get("output_dir", args.output_dir),
     )
 
     # Run evaluation
     summary = evaluator.evaluate(
-        num_episodes=args.episodes,
-        base_seed=args.seed,
+        num_episodes=eval_config.get("num_episodes", args.episodes),
+        base_seed=eval_config.get("seed", args.seed),
         max_steps_per_episode=args.max_steps,
     )
 
@@ -746,7 +800,8 @@ def main() -> int:
     evaluator.save_report(summary)
 
     # Generate plots
-    if not args.no_plots and evaluator.episode_data_list:
+    generate_plots = eval_config.get("generate_plots", True) and not args.no_plots
+    if generate_plots and evaluator.episode_data_list:
         evaluator.generate_all_plots(summary)
 
     # Exit code based on success criteria
@@ -755,8 +810,7 @@ def main() -> int:
         return 0
     else:
         logger.warning(
-            "FAILED: Evaluation does not meet criteria "
-            "(%.1f%% < 80%% on-target)",
+            "FAILED: Evaluation does not meet criteria (%.1f%% < 80%% on-target)",
             summary.mean_on_target_ratio * 100,
         )
         return 1
