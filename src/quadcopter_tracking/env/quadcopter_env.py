@@ -8,9 +8,14 @@ Provides a simulation environment for quadcopter target tracking with:
 - Action validation and clipping
 - Time series recording
 
+Coordinate Frame (ENU - East-North-Up):
+    - X-axis: East (positive direction)
+    - Y-axis: North (positive direction)
+    - Z-axis: Up (positive direction, gravity in -Z)
+
 State Vector Layout:
-    Position:     [x, y, z]           - meters
-    Velocity:     [vx, vy, vz]        - m/s
+    Position:     [x, y, z]           - meters (ENU frame)
+    Velocity:     [vx, vy, vz]        - m/s (ENU frame)
     Attitude:     [phi, theta, psi]   - radians (roll, pitch, yaw)
     Angular rate: [p, q, r]           - rad/s
 
@@ -19,6 +24,11 @@ Action Space:
     roll_rate: Desired roll rate (rad/s), clipped to [-max, max]
     pitch_rate: Desired pitch rate (rad/s), clipped to [-max, max]
     yaw_rate: Desired yaw rate (rad/s), clipped to [-max, max]
+
+Sign Conventions (ENU):
+    +pitch_rate → +X velocity (pitching nose up accelerates forward/east)
+    +roll_rate → -Y velocity (rolling right accelerates left/south)
+    +thrust → +Z acceleration (upward force)
 """
 
 import logging

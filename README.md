@@ -198,6 +198,45 @@ print(f"On-target ratio: {info['on_target_ratio']:.1%}")
 | Attitude | roll, pitch, yaw | radians |
 | Angular rate | p, q, r | rad/s |
 
+### ENU Coordinate Frame
+
+The project uses **ENU (East-North-Up)** as the single authoritative coordinate frame throughout all subsystems:
+
+| Axis | Direction | Convention |
+|------|-----------|------------|
+| X | East | +X = forward/east |
+| Y | North | +Y = left/north |
+| Z | Up | +Z = upward, gravity in -Z |
+
+**Control Sign Conventions:**
+- **+pitch_rate** → **+X velocity** (pitching nose up accelerates forward/east)
+- **+roll_rate** → **-Y velocity** (rolling right accelerates left/south)
+- **+thrust** → **+Z acceleration** (upward force)
+
+**Frame Utilities:**
+
+The `quadcopter_tracking.utils.coordinate_frame` module provides:
+- ENU constants and frame descriptors
+- Assertion functions (`assert_gravity_direction_enu`, `assert_control_signs_enu`)
+- Validation helpers for observations and actions
+
+```python
+from quadcopter_tracking.utils import (
+    ENU_FRAME,
+    assert_gravity_direction_enu,
+    compute_position_error_enu,
+)
+
+# Verify gravity points in -Z (ENU convention)
+gravity = np.array([0, 0, -9.81])
+assert_gravity_direction_enu(gravity)  # Passes
+
+# Compute position error following ENU convention
+error = compute_position_error_enu(quad_pos, target_pos)
+```
+
+> ⚠️ **Important:** Do NOT use NED (North-East-Down) or other coordinate frames. All controllers, environments, and tests assume ENU. Mixed frames will cause sign errors and divergent tracking.
+
 ### Target Motion Patterns
 
 - **stationary**: Fixed position (hover reference) - **default**

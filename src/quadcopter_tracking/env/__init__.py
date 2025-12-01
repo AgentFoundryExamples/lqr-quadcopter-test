@@ -5,14 +5,19 @@ This package provides simulation environments for quadcopter target-tracking stu
 The environment models quadcopter dynamics, target motion, and observation/reward
 mechanisms suitable for evaluating tracking controllers.
 
+Coordinate Frame (ENU - East-North-Up):
+    - X-axis: East (positive direction)
+    - Y-axis: North (positive direction)
+    - Z-axis: Up (positive direction, gravity acts in -Z)
+
 Key Assumptions:
 - Perfect target information (no sensor noise for initial experiments)
 - Smooth target motion (differentiable trajectories)
 - 3D state space with position and velocity
 
 State Vector Layout:
-    Position:     [x, y, z]           - meters
-    Velocity:     [vx, vy, vz]        - m/s
+    Position:     [x, y, z]           - meters (ENU frame)
+    Velocity:     [vx, vy, vz]        - m/s (ENU frame)
     Attitude:     [phi, theta, psi]   - radians (roll, pitch, yaw)
     Angular rate: [p, q, r]           - rad/s
 
@@ -21,6 +26,11 @@ Action Space:
     roll_rate: Desired roll rate (rad/s), clipped to [-max, max]
     pitch_rate: Desired pitch rate (rad/s), clipped to [-max, max]
     yaw_rate: Desired yaw rate (rad/s), clipped to [-max, max]
+
+Sign Conventions (ENU):
+    +pitch_rate → +X velocity (pitching nose up accelerates forward/east)
+    +roll_rate → -Y velocity (rolling right accelerates left/south)
+    +thrust → +Z acceleration (upward force)
 
 Motion Patterns:
 - linear: Constant velocity in random direction

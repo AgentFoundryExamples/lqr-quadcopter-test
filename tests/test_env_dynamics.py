@@ -3199,3 +3199,469 @@ class TestRiccatiLQRComparison:
         assert abs(action["roll_rate"]) < 0.01
         assert abs(action["pitch_rate"]) < 0.01
         assert abs(action["yaw_rate"]) < 0.01
+
+
+class TestENUCoordinateFrame:
+    """
+    Tests for ENU (East-North-Up) coordinate frame utilities and assertions.
+
+    These tests verify that the coordinate frame module correctly:
+    1. Defines ENU constants and conventions
+    2. Validates gravity direction (should be -Z in ENU)
+    3. Validates thrust direction (should be +Z in body frame)
+    4. Checks control sign conventions match ENU
+    5. Validates observation frame consistency
+
+    These tests serve as regression guards to prevent coordinate frame
+    mismatches that would cause controllers to move quadcopters in wrong
+    directions.
+    """
+
+    def test_enu_frame_constants(self):
+        """Test ENU frame constants are correctly defined."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            AXIS_X,
+            AXIS_Y,
+            AXIS_Z,
+            GRAVITY_DIRECTION_ENU,
+            PITCH_RATE_TO_X_VEL_SIGN,
+            ROLL_RATE_TO_Y_VEL_SIGN,
+            THRUST_DIRECTION_BODY,
+            THRUST_TO_Z_ACCEL_SIGN,
+        )
+
+        # Verify axis indices
+        assert AXIS_X == 0, "X-axis should be index 0"
+        assert AXIS_Y == 1, "Y-axis should be index 1"
+        assert AXIS_Z == 2, "Z-axis should be index 2"
+
+        # Verify gravity direction (should point in -Z for ENU)
+        assert np.allclose(GRAVITY_DIRECTION_ENU, [0, 0, -1]), (
+            "Gravity should point in -Z direction for ENU frame"
+        )
+
+        # Verify thrust direction in body frame (should point in +Z)
+        assert np.allclose(THRUST_DIRECTION_BODY, [0, 0, 1]), (
+            "Thrust in body frame should point in +Z direction"
+        )
+
+        # Verify control-to-motion sign mappings
+        assert PITCH_RATE_TO_X_VEL_SIGN == +1.0, (
+            "+pitch_rate should produce +X velocity in ENU"
+        )
+        assert ROLL_RATE_TO_Y_VEL_SIGN == -1.0, (
+            "+roll_rate should produce -Y velocity in ENU"
+        )
+        assert THRUST_TO_Z_ACCEL_SIGN == +1.0, (
+            "+thrust should produce +Z acceleration in ENU"
+        )
+
+    def test_enu_frame_descriptor(self):
+        """Test ENU frame descriptor properties."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENU_FRAME,
+            get_current_frame,
+        )
+
+        frame = get_current_frame()
+        assert frame is ENU_FRAME
+
+        # Verify ENU properties
+        assert frame.name == "ENU"
+        assert frame.x_direction == "East"
+        assert frame.y_direction == "North"
+        assert frame.z_direction == "Up"
+        assert frame.gravity_axis == "z"
+        assert frame.gravity_sign == "-"
+
+    def test_assert_gravity_direction_enu_valid(self):
+        """Test that correct gravity direction passes assertion."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            assert_gravity_direction_enu,
+        )
+
+        # Standard gravity in ENU (pointing down)
+        gravity = np.array([0.0, 0.0, -9.81])
+        assert_gravity_direction_enu(gravity)  # Should not raise
+
+        # Scaled gravity still pointing in -Z
+        gravity_scaled = np.array([0.0, 0.0, -1.0])
+        assert_gravity_direction_enu(gravity_scaled)  # Should not raise
+
+    def test_assert_gravity_direction_enu_invalid(self):
+        """Test that wrong gravity direction raises ENUFrameError."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_gravity_direction_enu,
+        )
+
+        # Gravity pointing in +Z (wrong for ENU, would be NED style)
+        gravity_up = np.array([0.0, 0.0, 9.81])
+        with pytest.raises(ENUFrameError, match="should point in -Z"):
+            assert_gravity_direction_enu(gravity_up)
+
+        # Gravity pointing in X direction (completely wrong)
+        gravity_x = np.array([9.81, 0.0, 0.0])
+        with pytest.raises(ENUFrameError, match="should point in -Z"):
+            assert_gravity_direction_enu(gravity_x)
+
+    def test_assert_gravity_direction_zero_raises(self):
+        """Test that zero gravity vector raises ENUFrameError."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_gravity_direction_enu,
+        )
+
+        gravity_zero = np.array([0.0, 0.0, 0.0])
+        with pytest.raises(ENUFrameError, match="zero magnitude"):
+            assert_gravity_direction_enu(gravity_zero)
+
+    def test_assert_thrust_direction_enu_valid(self):
+        """Test that correct thrust direction passes assertion."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            assert_thrust_direction_enu,
+        )
+
+        # Thrust pointing up in body frame
+        thrust = np.array([0.0, 0.0, 10.0])
+        assert_thrust_direction_enu(thrust)  # Should not raise
+
+        # Zero thrust is acceptable
+        thrust_zero = np.array([0.0, 0.0, 0.0])
+        assert_thrust_direction_enu(thrust_zero)  # Should not raise
+
+    def test_assert_thrust_direction_enu_invalid(self):
+        """Test that wrong thrust direction raises ENUFrameError."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_thrust_direction_enu,
+        )
+
+        # Thrust pointing down (would be inverted quadcopter)
+        thrust_down = np.array([0.0, 0.0, -10.0])
+        with pytest.raises(ENUFrameError, match="should point in \\+Z"):
+            assert_thrust_direction_enu(thrust_down)
+
+    def test_assert_control_signs_enu_positive_x_error(self):
+        """Test control sign check for positive X error."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # +X error should produce +pitch_rate
+        pos_error = np.array([1.0, 0.0, 0.0])  # Target is ahead in X
+        pitch_rate = 0.5  # Correct: positive
+        roll_rate = 0.0
+
+        # Should not raise
+        assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
+
+        # Wrong sign should raise
+        pitch_rate_wrong = -0.5  # Incorrect: negative for +X error
+        with pytest.raises(ENUFrameError, match="\\+X error"):
+            assert_control_signs_enu(pos_error, pitch_rate_wrong, roll_rate)
+
+    def test_assert_control_signs_enu_positive_y_error(self):
+        """Test control sign check for positive Y error."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # +Y error should produce -roll_rate
+        pos_error = np.array([0.0, 1.0, 0.0])  # Target is ahead in Y
+        pitch_rate = 0.0
+        roll_rate = -0.5  # Correct: negative
+
+        # Should not raise
+        assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
+
+        # Wrong sign should raise
+        roll_rate_wrong = 0.5  # Incorrect: positive for +Y error
+        with pytest.raises(ENUFrameError, match="\\+Y error"):
+            assert_control_signs_enu(pos_error, pitch_rate, roll_rate_wrong)
+
+    def test_assert_control_signs_enu_small_errors_ignored(self):
+        """Test that small errors (< 0.5m) are not checked."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            assert_control_signs_enu,
+        )
+
+        # Small error: should not trigger assertion even with "wrong" signs
+        pos_error = np.array([0.3, 0.3, 0.0])  # Below threshold
+        pitch_rate = -0.5  # Would be "wrong" for +X error
+        roll_rate = 0.5  # Would be "wrong" for +Y error
+
+        # Should not raise because errors are below threshold
+        assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
+
+    def test_assert_z_up_valid(self):
+        """Test that valid altitudes pass assertion."""
+        from quadcopter_tracking.utils.coordinate_frame import assert_z_up
+
+        # Normal flying altitude
+        position = np.array([0.0, 0.0, 10.0])
+        assert_z_up(position)  # Should not raise
+
+        # Ground level
+        position_ground = np.array([0.0, 0.0, 0.0])
+        assert_z_up(position_ground)  # Should not raise
+
+    def test_assert_z_up_invalid(self):
+        """Test that very negative altitude raises ENUFrameError."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_z_up,
+        )
+
+        # Way below ground - indicates possible NED confusion
+        position = np.array([0.0, 0.0, -150.0])
+        with pytest.raises(ENUFrameError, match="Z-axis.*below minimum"):
+            assert_z_up(position)
+
+    def test_validate_observation_frame_valid(self):
+        """Test observation frame validation with valid ENU data."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            validate_observation_frame,
+        )
+
+        observation = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 2.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        assert validate_observation_frame(observation) is True
+
+    def test_validate_observation_frame_negative_target_z(self):
+        """Test observation validation catches negative target Z."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            validate_observation_frame,
+        )
+
+        # Target at very negative altitude - suggests NED frame
+        observation = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, -50.0]),
+            },
+        }
+
+        with pytest.raises(ENUFrameError, match="Target Z position.*very negative"):
+            validate_observation_frame(observation)
+
+    def test_compute_expected_hover_thrust(self):
+        """Test hover thrust computation."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            compute_expected_hover_thrust,
+        )
+
+        # Default mass and gravity
+        thrust = compute_expected_hover_thrust(mass=1.0, gravity=9.81)
+        assert abs(thrust - 9.81) < 0.01
+
+        # Heavier quadcopter
+        thrust_heavy = compute_expected_hover_thrust(mass=2.0, gravity=9.81)
+        assert abs(thrust_heavy - 19.62) < 0.01
+
+    def test_compute_position_error_enu(self):
+        """Test position error computation follows ENU convention."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            compute_position_error_enu,
+        )
+
+        quad_pos = np.array([0.0, 0.0, 1.0])
+        target_pos = np.array([2.0, 3.0, 4.0])
+
+        error = compute_position_error_enu(quad_pos, target_pos)
+
+        # Error = target - current (target is ahead)
+        expected = np.array([2.0, 3.0, 3.0])
+        assert np.allclose(error, expected)
+
+    def test_environment_gravity_matches_enu(self):
+        """Integration test: verify environment uses ENU gravity direction."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            assert_gravity_direction_enu,
+        )
+
+        config = EnvConfig()
+        env = QuadcopterEnv(config=config)
+        env.reset(seed=42)
+
+        # Set quadcopter to hover with no thrust
+        state = np.zeros(12)
+        state[2] = 10.0  # Start at 10m altitude
+        env.set_state_vector(state)
+
+        # Apply zero thrust for several steps
+        initial_vz = state[5]
+        for _ in range(10):
+            action = {
+                "thrust": 0.0,  # No thrust
+                "roll_rate": 0.0,
+                "pitch_rate": 0.0,
+                "yaw_rate": 0.0,
+            }
+            obs, _, _, _ = env.step(action)
+
+        # Velocity should become negative (falling in ENU means -Z velocity)
+        final_vz = obs["quadcopter"]["velocity"][2]
+        assert final_vz < initial_vz, (
+            "Without thrust, velocity should become more negative (falling down). "
+            f"Initial Vz={initial_vz:.4f}, Final Vz={final_vz:.4f}. "
+            "This indicates gravity is not in -Z direction as expected for ENU."
+        )
+
+        # Verify the gravity constant itself
+        gravity_vec = np.array([0.0, 0.0, -config.quadcopter.gravity])
+        assert_gravity_direction_enu(gravity_vec)  # Should not raise
+
+    def test_pid_controller_uses_enu_signs(self):
+        """Integration test: PID controller matches ENU sign conventions."""
+        from quadcopter_tracking.controllers import PIDController
+        from quadcopter_tracking.utils.coordinate_frame import (
+            PITCH_RATE_TO_X_VEL_SIGN,
+            ROLL_RATE_TO_Y_VEL_SIGN,
+        )
+
+        controller = PIDController()
+
+        # Create observation with X and Y errors
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 1.0]),  # +X and +Y error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        # Verify signs match ENU convention
+        # +X error → +pitch_rate
+        assert (
+            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
+        ), f"PID pitch_rate sign wrong: {action['pitch_rate']}"
+
+        # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
+        assert (
+            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
+        ), f"PID roll_rate sign wrong: {action['roll_rate']}"
+
+    def test_lqr_controller_uses_enu_signs(self):
+        """Integration test: LQR controller matches ENU sign conventions."""
+        from quadcopter_tracking.controllers import LQRController
+        from quadcopter_tracking.utils.coordinate_frame import (
+            PITCH_RATE_TO_X_VEL_SIGN,
+            ROLL_RATE_TO_Y_VEL_SIGN,
+        )
+
+        controller = LQRController()
+
+        # Create observation with X and Y errors
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 1.0]),  # +X and +Y error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        # Verify signs match ENU convention
+        # +X error → +pitch_rate
+        assert (
+            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
+        ), f"LQR pitch_rate sign wrong: {action['pitch_rate']}"
+
+        # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
+        assert (
+            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
+        ), f"LQR roll_rate sign wrong: {action['roll_rate']}"
+
+    def test_riccati_lqr_controller_uses_enu_signs(self):
+        """Integration test: Riccati-LQR controller matches ENU sign conventions."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+        from quadcopter_tracking.utils.coordinate_frame import (
+            PITCH_RATE_TO_X_VEL_SIGN,
+            ROLL_RATE_TO_Y_VEL_SIGN,
+        )
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        # Create observation with X and Y errors
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 1.0]),  # +X and +Y error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        # Verify signs match ENU convention
+        # +X error → +pitch_rate
+        assert (
+            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
+        ), f"Riccati-LQR pitch_rate sign wrong: {action['pitch_rate']}"
+
+        # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
+        assert (
+            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
+        ), f"Riccati-LQR roll_rate sign wrong: {action['roll_rate']}"
+
+    def test_target_motion_uses_enu_z_up(self):
+        """Test that target motion generators use ENU Z-up convention."""
+        from quadcopter_tracking.utils.coordinate_frame import AXIS_Z
+
+        # All motion types should have positive Z (above ground)
+        motion_types = ["stationary", "linear", "circular", "sinusoidal"]
+
+        for motion_type in motion_types:
+            params = TargetParams(
+                motion_type=motion_type,
+                center=(0.0, 0.0, 5.0),  # 5m altitude
+            )
+            motion = TargetMotion(params=params, seed=42)
+            motion.reset()
+
+            # Sample several time points
+            for t in [0.0, 1.0, 5.0, 10.0]:
+                state = motion.get_state(t)
+                z_pos = state["position"][AXIS_Z]
+
+                # Z should remain positive (above ground in ENU)
+                assert z_pos > 0, (
+                    f"{motion_type} motion has negative Z ({z_pos:.2f}m) at t={t}. "
+                    "This may indicate NED convention instead of ENU."
+                )

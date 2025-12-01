@@ -23,11 +23,14 @@ The quadcopter state consists of 12 variables:
 | 6-8 | φ, θ, ψ | Attitude (roll, pitch, yaw) | radians |
 | 9-11 | p, q, r | Angular velocity | rad/s |
 
-### Coordinate System
+### Coordinate System (ENU)
+
+The project exclusively uses the **ENU (East-North-Up)** coordinate frame:
 
 - **World frame**: East-North-Up (ENU) convention - X points East, Y points North, Z points Up
 - **Body frame**: X forward, Y left, Z up
 - **Euler angles**: ZYX convention (yaw-pitch-roll)
+- **Gravity**: Acts in -Z direction (downward in world frame)
 
 **Axis-to-Control Mapping:**
 - **Pitch** controls X-axis motion: +pitch_rate → +X velocity (forward)
@@ -35,6 +38,23 @@ The quadcopter state consists of 12 variables:
 - **Thrust** controls Z-axis motion: +thrust → +Z acceleration (upward)
 
 > **Note:** The roll-to-Y mapping has a negative sign because rolling right (positive roll rate) tilts the thrust vector to produce leftward (negative Y) acceleration. This is standard for ENU frames. See [docs/architecture.md](architecture.md#coordinate-frame-and-axis-conventions) for detailed sign convention documentation.
+
+**ENU Frame Validation:**
+
+The `quadcopter_tracking.utils.coordinate_frame` module provides assertion functions to validate ENU compliance:
+
+```python
+from quadcopter_tracking.utils import (
+    assert_gravity_direction_enu,
+    assert_control_signs_enu,
+    validate_observation_frame,
+)
+
+# Verify observation follows ENU conventions
+validate_observation_frame(observation)  # Raises ENUFrameError if invalid
+```
+
+> ⚠️ **Warning:** Do NOT mix ENU with NED or other coordinate frames. All components assume ENU. Use the validation helpers to detect mismatches early.
 
 ## Action Space
 
