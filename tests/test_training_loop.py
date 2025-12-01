@@ -792,8 +792,6 @@ class TestControllerSelection:
         trainer = Trainer(config)
 
         # Verify PID controller received custom gains
-        import numpy as np
-
         np.testing.assert_array_almost_equal(
             trainer.controller.kp_pos, [0.02, 0.02, 5.0]
         )
@@ -821,8 +819,6 @@ class TestControllerSelection:
         self, base_config, tmp_path
     ):
         """Test that controllers use defaults when no YAML config provided."""
-        import numpy as np
-
         base_config["controller"] = "pid"
         # No 'pid' section in config
         config = TrainingConfig.from_dict(base_config)
