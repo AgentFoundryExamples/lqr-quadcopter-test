@@ -229,11 +229,13 @@ See [docs/architecture.md](docs/architecture.md) for detailed gain tuning guidan
 
 Controller-specific settings can be configured via YAML files or CLI arguments. Both training and evaluation pipelines parse controller_config sections from experiment YAML files.
 
+The `controller` key in YAML files specifies the controller type. For `eval.py`, the `--controller` CLI argument takes precedence over the config file if both are provided.
+
 **YAML Configuration Example:**
 
 ```yaml
 # experiments/configs/my_experiment.yaml
-controller: pid  # or 'lqr', 'riccati_lqr', 'deep'
+controller: riccati_lqr  # Options: 'deep', 'lqr', 'riccati_lqr', 'pid'
 
 # PID controller gains (used when controller=pid)
 pid:
@@ -250,13 +252,18 @@ lqr:
   r_rate: 1.0
 
 # Riccati-LQR controller (used when controller=riccati_lqr)
-# Solves DARE for optimal feedback gains
+# Solves DARE for optimal feedback gains with same schema as PID/LQR
 riccati_lqr:
-  dt: 0.01                        # Simulation timestep
-  q_pos: [1.0, 1.0, 10.0]         # Position cost weights
-  q_vel: [0.1, 0.1, 1.0]          # Velocity cost weights
-  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost weights
-  fallback_on_failure: true       # Fall back to heuristic LQR on solver failure
+  dt: 0.01                          # Simulation timestep (required)
+  mass: 1.0                         # Quadcopter mass (kg)
+  gravity: 9.81                     # Gravitational acceleration (m/s²)
+  q_pos: [0.0001, 0.0001, 16.0]     # Position cost weights [x, y, z]
+  q_vel: [0.0036, 0.0036, 4.0]      # Velocity cost weights [vx, vy, vz]
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+  max_thrust: 20.0                  # Output limit (N)
+  min_thrust: 0.0                   # Output limit (N)
+  max_rate: 3.0                     # Output limit (rad/s)
+  fallback_on_failure: true         # Fall back to heuristic LQR on solver failure
 ```
 
 **Using with training:**
@@ -268,6 +275,10 @@ python -m quadcopter_tracking.train --config experiments/configs/my_experiment.y
 **Using with evaluation:**
 
 ```bash
+# Use controller type from config file
+python -m quadcopter_tracking.eval --config experiments/configs/eval_riccati_lqr_baseline.yaml
+
+# Override controller type via CLI
 python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
 ```
 

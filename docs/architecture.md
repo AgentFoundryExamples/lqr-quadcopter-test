@@ -623,9 +623,11 @@ python -m quadcopter_tracking.eval --controller lqr --episodes 10
 
 Controller-specific settings are read from the YAML config file's controller_config sections. Both `train.py` and `eval.py` parse these sections and pass them to the controller constructors.
 
+The `controller` key in the YAML file specifies which controller to use. For `eval.py`, this can be overridden by the `--controller` CLI argument (CLI takes precedence over config file).
+
 ```yaml
 # experiments/configs/my_config.yaml
-controller: pid  # Options: deep, lqr, riccati_lqr, pid
+controller: riccati_lqr  # Options: deep, lqr, riccati_lqr, pid
 epochs: 10
 episodes_per_epoch: 5
 
@@ -644,19 +646,36 @@ lqr:
   q_vel: [0.01, 0.01, 5.0]
   r_thrust: 1.0
   r_rate: 1.0
+
+# Riccati-LQR configuration (read when controller=riccati_lqr)
+# Follows the same schema as PID/LQR with gains, limits, and optional feedforward
+riccati_lqr:
+  dt: 0.01                        # Simulation timestep (required)
+  mass: 1.0                       # Quadcopter mass (kg)
+  gravity: 9.81                   # Gravitational acceleration (m/s²)
+  q_pos: [0.0001, 0.0001, 16.0]   # Position cost weights [x, y, z]
+  q_vel: [0.0036, 0.0036, 4.0]    # Velocity cost weights [vx, vy, vz]
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+  max_thrust: 20.0                # Output limit (N)
+  min_thrust: 0.0                 # Output limit (N)
+  max_rate: 3.0                   # Output limit (rad/s)
+  fallback_on_failure: true       # Fall back to heuristic LQR on solver failure
 ```
 
 **Config Propagation:**
 
 1. YAML file is loaded with all sections preserved
 2. The full config is stored and accessible to the training/evaluation pipelines
-3. When creating controllers, the pipeline reads the controller-specific section (e.g., `config['pid']`) and passes it to the controller constructor
+3. When creating controllers, the pipeline reads the controller-specific section (e.g., `config['riccati_lqr']`) and passes it to the controller constructor
 4. If no controller-specific section exists, the controller uses its defaults
 
 **Usage with evaluation:**
 
 ```bash
-# Eval with YAML config containing controller gains
+# Eval using controller type from config file (no --controller needed)
+python -m quadcopter_tracking.eval --config experiments/configs/eval_riccati_lqr_baseline.yaml
+
+# Override controller via CLI (CLI takes precedence)
 python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
 ```
 

@@ -731,6 +731,24 @@ class TestControllerSelection:
         assert summary["controller"] == "lqr"
         assert summary["epochs_completed"] == 2
 
+    def test_trainer_with_riccati_lqr_controller(self, base_config, tmp_path):
+        """Test training/evaluation with Riccati-LQR controller."""
+        base_config["controller"] = "riccati_lqr"
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        assert trainer.controller.name == "riccati_lqr"
+        assert not trainer.is_deep_controller
+        assert trainer.optimizer is None
+
+        # Run evaluation (not training)
+        summary = trainer.train()
+
+        assert summary["controller"] == "riccati_lqr"
+        assert summary["epochs_completed"] == 2
+        # No checkpoint_dir for classical controllers
+        assert "checkpoint_dir" not in summary
+
     def test_trainer_with_deep_controller(self, base_config, tmp_path):
         """Test training with deep controller."""
         base_config["controller"] = "deep"
@@ -764,7 +782,7 @@ class TestControllerSelection:
 
     def test_experiment_id_includes_controller_type(self, base_config, tmp_path):
         """Test that experiment ID includes controller type."""
-        for controller_type in ["deep", "pid", "lqr"]:
+        for controller_type in ["deep", "pid", "lqr", "riccati_lqr"]:
             base_config["controller"] = controller_type
             config = TrainingConfig.from_dict(base_config)
             trainer = Trainer(config)
@@ -820,6 +838,23 @@ class TestControllerSelection:
         assert trainer.controller.K is not None
         assert trainer.controller.K.shape == (4, 6)
 
+    def test_riccati_lqr_receives_config_from_yaml(self, base_config, tmp_path):
+        """Test that Riccati-LQR controller receives weights from full_config."""
+        base_config["controller"] = "riccati_lqr"
+        base_config["riccati_lqr"] = {
+            "dt": 0.01,
+            "q_pos": [0.001, 0.001, 20.0],
+            "q_vel": [0.01, 0.01, 5.0],
+            "r_controls": [2.0, 1.0, 1.0, 1.0],
+        }
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Verify Riccati-LQR controller was created with a K matrix
+        assert trainer.controller.K is not None
+        assert trainer.controller.K.shape == (4, 6)
+        assert trainer.controller.dt == 0.01
+
     def test_classical_controller_uses_defaults_without_yaml_config(
         self, base_config, tmp_path
     ):
@@ -833,6 +868,23 @@ class TestControllerSelection:
         np.testing.assert_array_almost_equal(
             trainer.controller.kp_pos, [0.01, 0.01, 4.0]
         )
+
+    def test_riccati_lqr_as_supervisor_controller(self, base_config, tmp_path):
+        """Test that Riccati-LQR can be used as supervisor controller."""
+        base_config["controller"] = "deep"
+        base_config["training_mode"] = "imitation"
+        base_config["supervisor_controller"] = "riccati_lqr"
+        base_config["riccati_lqr"] = {
+            "dt": 0.01,
+            "q_pos": [0.0001, 0.0001, 16.0],
+            "q_vel": [0.0036, 0.0036, 4.0],
+        }
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Verify supervisor is Riccati-LQR
+        assert trainer.supervisor is not None
+        assert trainer.supervisor.name == "riccati_lqr"
 
 
 class TestIntegration:

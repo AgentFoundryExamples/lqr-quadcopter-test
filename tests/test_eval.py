@@ -424,6 +424,13 @@ class TestLoadController:
         assert controller is not None
         assert controller.name == "pid"
 
+    def test_load_riccati_lqr_controller(self):
+        """Test loading Riccati-LQR controller."""
+        controller = load_controller("riccati_lqr")
+
+        assert controller is not None
+        assert controller.name == "riccati_lqr"
+
     def test_load_deep_from_checkpoint(self, tmp_path):
         """Test loading deep controller from checkpoint."""
         # Create and save a controller
@@ -547,6 +554,28 @@ class TestControllerSelectionEval:
         summary = evaluator.evaluate(num_episodes=2, verbose=False)
         assert summary.total_episodes == 2
 
+    def test_eval_with_riccati_lqr_controller(self, tmp_path):
+        """Test evaluation with Riccati-LQR controller via load_controller."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = load_controller("riccati_lqr")
+
+        assert isinstance(controller, RiccatiLQRController)
+        assert controller.name == "riccati_lqr"
+
+        # Run short evaluation
+        env_config = EnvConfig()
+        env_config.simulation.max_episode_time = 1.0
+
+        evaluator = Evaluator(
+            controller=controller,
+            env_config=env_config,
+            output_dir=tmp_path / "reports_riccati_lqr",
+        )
+
+        summary = evaluator.evaluate(num_episodes=2, verbose=False)
+        assert summary.total_episodes == 2
+
     def test_eval_with_deep_controller(self, tmp_path):
         """Test evaluation with deep controller via load_controller."""
         controller = load_controller("deep")
@@ -572,6 +601,7 @@ class TestControllerSelectionEval:
         for controller_type, expected_name in [
             ("pid", "pid"),
             ("lqr", "lqr"),
+            ("riccati_lqr", "riccati_lqr"),
             ("deep", "deep_tracking"),
         ]:
             controller = load_controller(controller_type)
@@ -588,7 +618,7 @@ class TestControllerSelectionEval:
 
     def test_all_controllers_generate_comparable_metrics(self, tmp_path):
         """Test that all controllers generate consistent metric formats."""
-        for controller_type in ["pid", "lqr", "deep"]:
+        for controller_type in ["pid", "lqr", "riccati_lqr", "deep"]:
             controller = load_controller(controller_type)
             env_config = EnvConfig()
             env_config.simulation.max_episode_time = 1.0
@@ -699,7 +729,7 @@ class TestActionSchema:
         env = QuadcopterEnv()
         obs = env.reset(seed=42)
 
-        for controller_type in ["pid", "lqr", "deep"]:
+        for controller_type in ["pid", "lqr", "riccati_lqr", "deep"]:
             controller = load_controller(controller_type)
             action = controller.compute_action(obs)
 
@@ -748,6 +778,7 @@ class TestControllerConfigPropagation:
         """Test that controllers use defaults when config is empty."""
         pid = load_controller("pid", config={})
         lqr = load_controller("lqr", config={})
+        riccati_lqr = load_controller("riccati_lqr", config={})
 
         # Check PID uses default gains
         np.testing.assert_array_almost_equal(pid.kp_pos, [0.01, 0.01, 4.0])
@@ -756,13 +787,133 @@ class TestControllerConfigPropagation:
         assert lqr.K is not None
         assert lqr.K.shape == (4, 6)
 
+        # Check Riccati-LQR has valid K matrix
+        assert riccati_lqr.K is not None
+        assert riccati_lqr.K.shape == (4, 6)
+
     def test_controller_config_propagates_mass_gravity(self):
         """Test that mass/gravity from config reaches controllers."""
         config = {"mass": 1.5, "gravity": 10.0}
         pid = load_controller("pid", config=config)
         lqr = load_controller("lqr", config=config)
+        riccati_lqr = load_controller("riccati_lqr", config=config)
 
-        # Both should have correct hover thrust
+        # All should have correct hover thrust
         expected_hover = 1.5 * 10.0
         assert pid.hover_thrust == expected_hover
         assert lqr.hover_thrust == expected_hover
+        assert riccati_lqr.hover_thrust == expected_hover
+
+    def test_load_riccati_lqr_with_custom_config(self):
+        """Test that Riccati-LQR controller receives custom config."""
+        config = {
+            "dt": 0.02,
+            "q_pos": [0.001, 0.001, 20.0],
+            "q_vel": [0.01, 0.01, 5.0],
+            "r_controls": [2.0, 1.0, 1.0, 1.0],
+        }
+        controller = load_controller("riccati_lqr", config=config)
+
+        # Riccati-LQR should have computed K matrix from these weights
+        assert controller.K is not None
+        assert controller.K.shape == (4, 6)
+        assert controller.dt == 0.02
+
+
+class TestRiccatiControllerSelection:
+    """Tests for Riccati-LQR controller selection and config validation."""
+
+    def test_riccati_config_from_yaml_structure(self, tmp_path):
+        """Test that Riccati-LQR config follows same schema as PID/LQR."""
+        # Config structure matching PID/LQR canonical schema
+        config = {
+            "dt": 0.01,
+            "mass": 1.0,
+            "gravity": 9.81,
+            "q_pos": [0.0001, 0.0001, 16.0],
+            "q_vel": [0.0036, 0.0036, 4.0],
+            "r_controls": [1.0, 1.0, 1.0, 1.0],
+            "max_thrust": 20.0,
+            "min_thrust": 0.0,
+            "max_rate": 3.0,
+        }
+        controller = load_controller("riccati_lqr", config=config)
+
+        assert controller.name == "riccati_lqr"
+        assert controller.max_thrust == 20.0
+        assert controller.max_rate == 3.0
+
+    def test_riccati_missing_matrices_uses_defaults(self):
+        """Test that missing Riccati matrices yield default values, not errors."""
+        # Empty config should use defaults, not raise errors
+        controller = load_controller("riccati_lqr", config={})
+
+        # Should have valid K matrix from default Q/R
+        assert controller.K is not None
+        assert controller.K.shape == (4, 6)
+        # Should not be using fallback (DARE should solve with defaults)
+        assert not controller.is_using_fallback()
+
+    def test_riccati_invalid_q_matrix_raises_validation_error(self):
+        """Test that invalid Q matrix produces validation error.
+
+        Note: Riccati controller supports both full matrix (Q/R keys) and
+        array format (q_pos/q_vel/r_controls). This test uses full matrix
+        format to test matrix validation.
+        """
+        # Negative weights would make Q not positive semi-definite
+        config = {
+            "Q": [
+                [-1, 0, 0, 0, 0, 0],  # Negative eigenvalue
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+            ],
+            "fallback_on_failure": False,  # Don't use fallback
+        }
+        with pytest.raises(ValueError, match="positive semi-definite"):
+            load_controller("riccati_lqr", config=config)
+
+    def test_riccati_with_fallback_handles_solver_failure(self):
+        """Test that fallback is used when DARE solver fails.
+
+        Note: Riccati controller supports both full matrix (R key) and
+        array format (r_controls). This test uses full matrix format to
+        test fallback behavior with invalid matrices.
+        """
+        # Invalid R matrix (not positive definite) but with fallback enabled
+        config = {
+            "R": [
+                [0, 0, 0, 0],  # Not positive definite (zero eigenvalue)
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+            ],
+            "fallback_on_failure": True,
+        }
+        controller = load_controller("riccati_lqr", config=config)
+
+        # Should be using fallback
+        assert controller.is_using_fallback()
+
+    def test_riccati_produces_valid_actions(self, tmp_path):
+        """Test that Riccati-LQR controller produces valid actions."""
+        from quadcopter_tracking.controllers import validate_action
+        from quadcopter_tracking.env import QuadcopterEnv
+
+        controller = load_controller("riccati_lqr")
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        action = controller.compute_action(obs)
+
+        # Should not raise
+        validate_action(action)
+
+        # Should be within bounds
+        assert 0.0 <= action["thrust"] <= 20.0
+        assert -3.0 <= action["roll_rate"] <= 3.0
+        assert -3.0 <= action["pitch_rate"] <= 3.0
+        assert -3.0 <= action["yaw_rate"] <= 3.0

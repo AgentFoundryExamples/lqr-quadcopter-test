@@ -32,6 +32,7 @@ import numpy as np
 import yaml
 
 from quadcopter_tracking.controllers import (
+    VALID_CONTROLLER_TYPES,
     BaseController,
     DeepTrackingPolicy,
     LQRController,
@@ -634,9 +635,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--controller",
         type=str,
-        default="deep",
+        default=None,
         choices=["deep", "lqr", "pid", "riccati_lqr"],
-        help="Controller type to evaluate",
+        help="Controller type to evaluate (default: deep, or from config file)",
     )
     parser.add_argument(
         "--checkpoint",
@@ -750,8 +751,25 @@ def main() -> int:
     # Load evaluation config from file if provided
     eval_config = _load_eval_config(args.config)
 
+    # Resolve controller type: CLI > config file > default
+    if args.controller is not None:
+        controller_type = args.controller
+    elif "controller" in eval_config:
+        controller_type = eval_config["controller"]
+        if controller_type not in VALID_CONTROLLER_TYPES:
+            logger.error(
+                "Invalid controller type in config: '%s'. "
+                "Valid choices are: %s",
+                controller_type,
+                ", ".join(VALID_CONTROLLER_TYPES),
+            )
+            return 1
+        logger.info("Using controller type from config: %s", controller_type)
+    else:
+        controller_type = "deep"
+
     # Get controller-specific config from eval_config
-    controller_config = eval_config.get(args.controller, {})
+    controller_config = eval_config.get(controller_type, {})
 
     # Helper to resolve value: CLI (if set) > YAML > default
     def resolve(cli_val, yaml_key, default, is_bool_flag=False):
@@ -773,7 +791,7 @@ def main() -> int:
     # Load controller with config
     try:
         controller = load_controller(
-            controller_type=args.controller,
+            controller_type=controller_type,
             checkpoint_path=args.checkpoint,
             config=controller_config,
         )
