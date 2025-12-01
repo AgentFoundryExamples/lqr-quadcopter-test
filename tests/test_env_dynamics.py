@@ -927,19 +927,19 @@ class TestLQRController:
         # Check XY position gains are small (columns 0 and 1 for X and Y)
         # X position -> pitch rate (row 2, col 0)
         x_pos_gain = abs(lqr.K[2, 0])
-        assert x_pos_gain < 0.02, (
+        assert x_pos_gain == pytest.approx(0.01), (
             f"X position gain should be ~0.01, got {x_pos_gain}"
         )
 
         # Y position -> roll rate (row 1, col 1)
         y_pos_gain = abs(lqr.K[1, 1])
-        assert y_pos_gain < 0.02, (
+        assert y_pos_gain == pytest.approx(0.01), (
             f"Y position gain should be ~0.01, got {y_pos_gain}"
         )
 
         # Z position -> thrust (row 0, col 2)
         z_pos_gain = abs(lqr.K[0, 2])
-        assert z_pos_gain > 3.0, (
+        assert z_pos_gain == pytest.approx(4.0), (
             f"Z position gain should be ~4.0, got {z_pos_gain}"
         )
 
@@ -2018,7 +2018,9 @@ class TestAxisSignConventions:
             "mass": config.quadcopter.mass,
             "gravity": config.quadcopter.gravity,
             "kp_pos": [2.0, 2.0, 4.0],  # Higher gains for sign convention test
+            "ki_pos": [0.0, 0.0, 0.0],  # Explicitly zero for clarity
             "kd_pos": [1.5, 1.5, 2.0],
+            "integral_limit": 0.0,
         })
 
         obs = env.render()
