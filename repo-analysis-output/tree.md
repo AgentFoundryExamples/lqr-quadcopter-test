@@ -77,6 +77,7 @@
 ├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md
+├── CONTRIBUTING.md
 ├── LICENSE
 ├── Makefile
 ├── pyproject.toml
