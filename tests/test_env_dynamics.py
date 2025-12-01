@@ -3396,6 +3396,120 @@ class TestENUCoordinateFrame:
         # Should not raise because errors are below threshold
         assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
 
+    def test_assert_control_signs_enu_negative_x_error(self):
+        """Test control sign check for negative X error."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # -X error should produce -pitch_rate
+        pos_error = np.array([-1.0, 0.0, 0.0])  # Target is behind in X
+        pitch_rate = -0.5  # Correct: negative
+        roll_rate = 0.0
+
+        # Should not raise
+        assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
+
+        # Wrong sign should raise
+        pitch_rate_wrong = 0.5  # Incorrect: positive for -X error
+        with pytest.raises(ENUFrameError, match="-X error"):
+            assert_control_signs_enu(pos_error, pitch_rate_wrong, roll_rate)
+
+    def test_assert_control_signs_enu_negative_y_error(self):
+        """Test control sign check for negative Y error."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # -Y error should produce +roll_rate
+        pos_error = np.array([0.0, -1.0, 0.0])  # Target is behind in Y
+        pitch_rate = 0.0
+        roll_rate = 0.5  # Correct: positive
+
+        # Should not raise
+        assert_control_signs_enu(pos_error, pitch_rate, roll_rate)
+
+        # Wrong sign should raise
+        roll_rate_wrong = -0.5  # Incorrect: negative for -Y error
+        with pytest.raises(ENUFrameError, match="-Y error"):
+            assert_control_signs_enu(pos_error, pitch_rate, roll_rate_wrong)
+
+    def test_assert_control_signs_enu_zero_control_raises(self):
+        """Test that zero control output for significant error raises."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # +X error with zero pitch_rate should raise
+        pos_error_x = np.array([1.0, 0.0, 0.0])
+        with pytest.raises(ENUFrameError, match="\\+X error"):
+            assert_control_signs_enu(pos_error_x, 0.0, 0.0)
+
+        # -X error with zero pitch_rate should raise
+        pos_error_neg_x = np.array([-1.0, 0.0, 0.0])
+        with pytest.raises(ENUFrameError, match="-X error"):
+            assert_control_signs_enu(pos_error_neg_x, 0.0, 0.0)
+
+        # +Y error with zero roll_rate should raise
+        pos_error_y = np.array([0.0, 1.0, 0.0])
+        with pytest.raises(ENUFrameError, match="\\+Y error"):
+            assert_control_signs_enu(pos_error_y, 0.0, 0.0)
+
+        # -Y error with zero roll_rate should raise
+        pos_error_neg_y = np.array([0.0, -1.0, 0.0])
+        with pytest.raises(ENUFrameError, match="-Y error"):
+            assert_control_signs_enu(pos_error_neg_y, 0.0, 0.0)
+
+    def test_assert_control_signs_enu_custom_threshold(self):
+        """Test that error threshold parameter is respected."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            ENUFrameError,
+            assert_control_signs_enu,
+        )
+
+        # With default threshold (0.5m), this error is too small to check
+        pos_error = np.array([0.3, 0.0, 0.0])
+
+        # Should not raise with default threshold because 0.3m < 0.5m threshold
+        # The "wrong" sign (-0.5) is ignored since the error is below threshold
+        assert_control_signs_enu(pos_error, -0.5, 0.0)
+
+        # With lower threshold (0.2m), now 0.3m > 0.2m so sign is checked
+        # The -0.5 pitch_rate is wrong for +X error, so it should raise
+        with pytest.raises(ENUFrameError, match="\\+X error"):
+            assert_control_signs_enu(pos_error, -0.5, 0.0, error_threshold=0.2)
+
+    def test_tolerance_constants_defined(self):
+        """Test that tolerance constants are properly defined and exported."""
+        from quadcopter_tracking.utils.coordinate_frame import (
+            DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD,
+            DIRECTION_DOT_PRODUCT_TOLERANCE,
+            ZERO_MAGNITUDE_THRESHOLD,
+        )
+
+        # Check constants have expected values
+        assert DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD == 0.5
+        assert DIRECTION_DOT_PRODUCT_TOLERANCE == 0.99
+        assert ZERO_MAGNITUDE_THRESHOLD == 1e-10
+
+        # Check they are also exported from utils package
+        from quadcopter_tracking.utils import (
+            DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD as pkg_threshold,
+        )
+        from quadcopter_tracking.utils import (
+            DIRECTION_DOT_PRODUCT_TOLERANCE as pkg_dot_tol,
+        )
+        from quadcopter_tracking.utils import (
+            ZERO_MAGNITUDE_THRESHOLD as pkg_zero_mag,
+        )
+
+        assert pkg_threshold == 0.5
+        assert pkg_dot_tol == 0.99
+        assert pkg_zero_mag == 1e-10
+
     def test_assert_z_up_valid(self):
         """Test that valid altitudes pass assertion."""
         from quadcopter_tracking.utils.coordinate_frame import assert_z_up

@@ -36,6 +36,9 @@ from .coordinate_frame import (
     AXIS_X,
     AXIS_Y,
     AXIS_Z,
+    # Validation tolerance constants
+    DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD,
+    DIRECTION_DOT_PRODUCT_TOLERANCE,
     ENU_FRAME,
     GRAVITY_DIRECTION_ENU,
     NED_FRAME,
@@ -43,6 +46,7 @@ from .coordinate_frame import (
     ROLL_RATE_TO_Y_VEL_SIGN,
     THRUST_DIRECTION_BODY,
     THRUST_TO_Z_ACCEL_SIGN,
+    ZERO_MAGNITUDE_THRESHOLD,
     CoordinateFrame,
     ENUFrameError,
     assert_control_signs_enu,
@@ -123,6 +127,10 @@ __all__ = [
     "PITCH_RATE_TO_X_VEL_SIGN",
     "ROLL_RATE_TO_Y_VEL_SIGN",
     "THRUST_TO_Z_ACCEL_SIGN",
+    # Validation tolerance constants
+    "DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD",
+    "DIRECTION_DOT_PRODUCT_TOLERANCE",
+    "ZERO_MAGNITUDE_THRESHOLD",
     "CoordinateFrame",
     "ENU_FRAME",
     "NED_FRAME",

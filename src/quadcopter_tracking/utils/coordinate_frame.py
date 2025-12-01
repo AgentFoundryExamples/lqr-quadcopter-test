@@ -57,6 +57,25 @@ PITCH_RATE_TO_X_VEL_SIGN = +1.0  # +pitch_rate → +X velocity
 ROLL_RATE_TO_Y_VEL_SIGN = -1.0  # +roll_rate → -Y velocity
 THRUST_TO_Z_ACCEL_SIGN = +1.0  # +thrust → +Z acceleration
 
+# ==============================================================================
+# Validation Tolerance Constants
+# ==============================================================================
+
+# Dot product tolerance for direction checks (cosine of ~8 degrees).
+# This allows small numerical deviations while catching major frame errors.
+# A value of 0.99 means vectors must be within ~8 degrees of expected direction.
+DIRECTION_DOT_PRODUCT_TOLERANCE = 0.99
+
+# Minimum vector magnitude to consider non-zero.
+# Vectors with magnitude below this are treated as zero (no direction check).
+ZERO_MAGNITUDE_THRESHOLD = 1e-10
+
+# Default position error threshold for control sign checks (meters).
+# Only errors larger than this trigger sign convention validation.
+# This avoids false positives from noise or small oscillations during hover.
+# Value of 0.5m chosen as typical tracking precision threshold.
+DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD = 0.5
+
 
 # ==============================================================================
 # Frame Identification
@@ -144,7 +163,7 @@ def assert_gravity_direction_enu(gravity_vector: np.ndarray) -> None:
 
     # Normalize for direction check
     magnitude = np.linalg.norm(gravity_vector)
-    if magnitude < 1e-10:
+    if magnitude < ZERO_MAGNITUDE_THRESHOLD:
         raise ENUFrameError("Gravity vector has zero magnitude")
 
     normalized = gravity_vector / magnitude
@@ -153,7 +172,7 @@ def assert_gravity_direction_enu(gravity_vector: np.ndarray) -> None:
     expected = GRAVITY_DIRECTION_ENU
     dot_product = np.dot(normalized, expected)
 
-    if dot_product < 0.99:  # Allow small numerical tolerance
+    if dot_product < DIRECTION_DOT_PRODUCT_TOLERANCE:
         raise ENUFrameError(
             f"ENU frame violation: Gravity should point in -Z direction "
             f"(expected ~[0, 0, -1], got {normalized}). "
@@ -180,14 +199,14 @@ def assert_thrust_direction_enu(thrust_body: np.ndarray) -> None:
         raise ValueError(f"Thrust vector must be 3D, got shape {thrust_body.shape}")
 
     magnitude = np.linalg.norm(thrust_body)
-    if magnitude < 1e-10:
+    if magnitude < ZERO_MAGNITUDE_THRESHOLD:
         return  # Zero thrust is acceptable
 
     normalized = thrust_body / magnitude
     expected = THRUST_DIRECTION_BODY
     dot_product = np.dot(normalized, expected)
 
-    if dot_product < 0.99:  # Allow small numerical tolerance
+    if dot_product < DIRECTION_DOT_PRODUCT_TOLERANCE:
         raise ENUFrameError(
             f"ENU frame violation: Thrust in body frame should point in +Z direction "
             f"(expected ~[0, 0, 1], got {normalized}). "
@@ -199,6 +218,7 @@ def assert_control_signs_enu(
     pos_error: np.ndarray,
     pitch_rate: float,
     roll_rate: float,
+    error_threshold: float = DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD,
 ) -> None:
     """
     Assert that control outputs have correct signs for ENU frame.
@@ -211,32 +231,34 @@ def assert_control_signs_enu(
         pos_error: Position error [x, y, z] in meters (target - current).
         pitch_rate: Pitch rate control output in rad/s.
         roll_rate: Roll rate control output in rad/s.
+        error_threshold: Minimum position error magnitude to check (meters).
+            Errors below this threshold are ignored to avoid triggering on
+            noise or small oscillations. Default: 0.5m (typical tracking
+            precision threshold).
 
     Raises:
         ENUFrameError: If control signs violate ENU conventions.
         ValueError: If pos_error is not 3D.
 
     Note:
-        This assertion checks for large errors (> 0.5m) to avoid
-        triggering on noise or small oscillations.
+        Zero control outputs (pitch_rate=0 or roll_rate=0) for significant
+        errors are treated as violations, as the controller should be
+        actively correcting the error.
     """
     pos_error = np.asarray(pos_error)
     if pos_error.shape != (3,):
         raise ValueError(f"Position error must be 3D, got shape {pos_error.shape}")
 
-    # Only check when errors are significant (> 0.5m)
-    error_threshold = 0.5
-
     # Check X-axis: +X error should produce +pitch_rate
     if pos_error[AXIS_X] > error_threshold:
-        if pitch_rate < 0:
+        if pitch_rate <= 0:
             raise ENUFrameError(
                 f"ENU sign violation: +X error ({pos_error[AXIS_X]:.2f}m) "
                 f"should produce +pitch_rate, but got pitch_rate={pitch_rate:.4f}. "
                 "Check controller X-axis to pitch_rate mapping."
             )
     elif pos_error[AXIS_X] < -error_threshold:
-        if pitch_rate > 0:
+        if pitch_rate >= 0:
             raise ENUFrameError(
                 f"ENU sign violation: -X error ({pos_error[AXIS_X]:.2f}m) "
                 f"should produce -pitch_rate, but got pitch_rate={pitch_rate:.4f}. "
@@ -245,14 +267,14 @@ def assert_control_signs_enu(
 
     # Check Y-axis: +Y error should produce -roll_rate
     if pos_error[AXIS_Y] > error_threshold:
-        if roll_rate > 0:
+        if roll_rate >= 0:
             raise ENUFrameError(
                 f"ENU sign violation: +Y error ({pos_error[AXIS_Y]:.2f}m) "
                 f"should produce -roll_rate, but got roll_rate={roll_rate:.4f}. "
                 "Check controller Y-axis to roll_rate mapping."
             )
     elif pos_error[AXIS_Y] < -error_threshold:
-        if roll_rate < 0:
+        if roll_rate <= 0:
             raise ENUFrameError(
                 f"ENU sign violation: -Y error ({pos_error[AXIS_Y]:.2f}m) "
                 f"should produce +roll_rate, but got roll_rate={roll_rate:.4f}. "
