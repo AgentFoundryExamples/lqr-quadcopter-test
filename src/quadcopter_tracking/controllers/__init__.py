@@ -63,7 +63,12 @@ __all__ = [
     "GainSearchSpace",
     "TuningConfig",
     "TuningResult",
+    "VALID_CONTROLLER_TYPES",
 ]
+
+# Valid controller type names for config validation
+# Used by train.py, eval.py, and other entry points
+VALID_CONTROLLER_TYPES = ("deep", "lqr", "pid", "riccati_lqr")
 
 
 def _validate_observation(observation: dict) -> None:

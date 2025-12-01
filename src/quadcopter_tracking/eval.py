@@ -32,6 +32,7 @@ import numpy as np
 import yaml
 
 from quadcopter_tracking.controllers import (
+    VALID_CONTROLLER_TYPES,
     BaseController,
     DeepTrackingPolicy,
     LQRController,
@@ -751,18 +752,16 @@ def main() -> int:
     eval_config = _load_eval_config(args.config)
 
     # Resolve controller type: CLI > config file > default
-    # Valid controller types
-    valid_controllers = ("deep", "lqr", "pid", "riccati_lqr")
     if args.controller is not None:
         controller_type = args.controller
     elif "controller" in eval_config:
         controller_type = eval_config["controller"]
-        if controller_type not in valid_controllers:
+        if controller_type not in VALID_CONTROLLER_TYPES:
             logger.error(
                 "Invalid controller type in config: '%s'. "
                 "Valid choices are: %s",
                 controller_type,
-                ", ".join(valid_controllers),
+                ", ".join(VALID_CONTROLLER_TYPES),
             )
             return 1
         logger.info("Using controller type from config: %s", controller_type)

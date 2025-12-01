@@ -36,6 +36,7 @@ import torch.optim as optim
 import yaml
 
 from quadcopter_tracking.controllers import (
+    VALID_CONTROLLER_TYPES,
     BaseController,
     DeepTrackingPolicy,
     LQRController,
@@ -122,11 +123,10 @@ class TrainingConfig:
         diagnostics_generate_plots: bool = True,
     ):
         # Validate and set controller type
-        valid_controllers = ("deep", "lqr", "pid", "riccati_lqr")
-        if controller not in valid_controllers:
+        if controller not in VALID_CONTROLLER_TYPES:
             raise ValueError(
                 f"Invalid controller type: '{controller}'. "
-                f"Valid choices are: {', '.join(valid_controllers)}"
+                f"Valid choices are: {', '.join(VALID_CONTROLLER_TYPES)}"
             )
         self.controller = controller
 
