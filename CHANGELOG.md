@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Feedforward Support**: Optional velocity and acceleration feedforward for PID and LQR controllers to improve tracking of moving targets. Disabled by default to preserve baseline behavior. Enable with `feedforward_enabled: true` in YAML configuration.
 
-- **Environment Variable Documentation**: Added `CONTROLLER_CONFIG_ROOT` and `TUNER_RESULTS_DIR` placeholders to `.env.example` for users who want to customize controller configuration and tuning output paths without modifying code.
+- **Environment Variable Documentation**: Added `CONTROLLER_CONFIG_ROOT` placeholder to `.env.example` for users who want to customize controller configuration paths without modifying code. Use `TUNING_OUTPUT_DIR` for tuning results directory.
 
 - **Release Validation Workflow**: Added guidance in `docs/results.md` for regenerating baseline metrics and plots using Make targets (`make eval-baseline-stationary`, `make eval-baseline-circular`) when preparing releases.
 
