@@ -63,14 +63,15 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 17034,
-        "loc": 301,
+        "size_bytes": 26313,
+        "loc": 435,
         "todo_count": 0,
-        "declaration_count": 3
+        "declaration_count": 4
       },
       "structure": {
         "declarations": [
           "function _validate_observation",
+          "function _ensure_array",
           "class PIDController",
           "class LQRController"
         ]
@@ -603,10 +604,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 77124,
-        "loc": 1549,
+        "size_bytes": 92956,
+        "loc": 1870,
         "todo_count": 0,
-        "declaration_count": 11
+        "declaration_count": 12
       },
       "structure": {
         "declarations": [
@@ -620,7 +621,8 @@
           "function create_hover_observation",
           "function create_hover_env_config",
           "class TestHoverThrustIntegration",
-          "class TestAxisSignConventions"
+          "class TestAxisSignConventions",
+          "class TestFeedforwardSupport"
         ]
       },
       "dependencies": {
@@ -642,8 +644,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 26090,
-        "loc": 571,
+        "size_bytes": 26002,
+        "loc": 563,
         "todo_count": 0,
         "declaration_count": 10
       },

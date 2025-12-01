@@ -31,12 +31,13 @@ Total files: 20
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 16.63 KB  
-**LOC:** 301  
+**Size:** 25.70 KB  
+**LOC:** 435  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 3  
+**Declarations:** 4  
 **Top-level declarations:**
   - function _validate_observation
+  - function _ensure_array
   - class PIDController
   - class LQRController
 **External Dependencies:**
@@ -286,10 +287,10 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 75.32 KB  
-**LOC:** 1549  
+**Size:** 90.78 KB  
+**LOC:** 1870  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 11  
+**Declarations:** 12  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -301,7 +302,7 @@ Total files: 20
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
-  - ... and 1 more
+  - ... and 2 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 
@@ -309,8 +310,8 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 25.48 KB  
-**LOC:** 571  
+**Size:** 25.39 KB  
+**LOC:** 563  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 10  
 **Top-level declarations:**
