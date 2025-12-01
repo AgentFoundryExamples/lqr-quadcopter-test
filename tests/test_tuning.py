@@ -319,10 +319,16 @@ class TestControllerTuner:
         tuner2 = ControllerTuner(fast_config)
         result2 = tuner2.tune()
 
-        # Results should differ (with high probability)
-        # Note: Could theoretically be equal by chance, but very unlikely
-        assert result1.best_config != result2.best_config or \
-               result1.all_results != result2.all_results
+        # Results should differ - check that the configurations sampled are different
+        # We compare the first result's config from each run
+        config1 = result1.all_results[0]["config"]
+        config2 = result2.all_results[0]["config"]
+        configs_differ = config1 != config2
+
+        # At minimum, the sampled configurations should be different
+        assert configs_differ, (
+            f"Seeds 123 and 456 produced identical first configurations: {config1}"
+        )
 
     def test_tuner_saves_results(self, fast_config, tmp_path):
         """Test that tuner saves results to disk."""
@@ -457,9 +463,17 @@ class TestControllerTuner:
         assert "kp_pos" in random_config
         assert "kd_pos" in random_config
 
-        # Values should be within ranges
-        for i, val in enumerate(random_config["kp_pos"]):
-            assert 0.005 <= val <= 0.05 or (i == 2 and 2.0 <= val <= 6.0)
+        # Validate kp_pos values are within ranges
+        kp = random_config["kp_pos"]
+        assert 0.005 <= kp[0] <= 0.05, f"kp_pos[x]={kp[0]} out of range [0.005, 0.05]"
+        assert 0.005 <= kp[1] <= 0.05, f"kp_pos[y]={kp[1]} out of range [0.005, 0.05]"
+        assert 2.0 <= kp[2] <= 6.0, f"kp_pos[z]={kp[2]} out of range [2.0, 6.0]"
+
+        # Validate kd_pos values are within ranges
+        kd = random_config["kd_pos"]
+        assert 0.02 <= kd[0] <= 0.15, f"kd_pos[x]={kd[0]} out of range [0.02, 0.15]"
+        assert 0.02 <= kd[1] <= 0.15, f"kd_pos[y]={kd[1]} out of range [0.02, 0.15]"
+        assert 1.0 <= kd[2] <= 3.0, f"kd_pos[z]={kd[2]} out of range [1.0, 3.0]"
 
 
 class TestTuningIntegration:

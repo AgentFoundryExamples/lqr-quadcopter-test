@@ -45,6 +45,7 @@ import os
 import signal
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -547,7 +548,6 @@ class ControllerTuner:
                     grids.append(list(np.linspace(lo, hi, n)))
 
             # Cartesian product of axis grids
-            from itertools import product
             return [list(combo) for combo in product(*grids)]
 
         def make_scalar_grid(range_def: tuple[float, float]) -> list[float]:
@@ -585,8 +585,6 @@ class ControllerTuner:
             return []
 
         # Generate all combinations
-        from itertools import product
-
         param_names = list(param_grids.keys())
         param_values = [param_grids[name] for name in param_names]
 
