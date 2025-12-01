@@ -63,8 +63,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 15080,
-        "loc": 272,
+        "size_bytes": 16173,
+        "loc": 282,
         "todo_count": 0,
         "declaration_count": 3
       },
@@ -596,8 +596,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 72540,
-        "loc": 1463,
+        "size_bytes": 76820,
+        "loc": 1533,
         "todo_count": 0,
         "declaration_count": 11
       },
