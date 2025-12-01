@@ -1177,6 +1177,139 @@ lqr:
   r_rate: 1.0
 ```
 
+## PID Auto-Tuning
+
+The auto-tuning feature provides an automated way to find optimal PID (and
+feedforward) gains by systematically searching through parameter space and
+evaluating tracking performance.
+
+### Quick Start
+
+```bash
+# Basic PID auto-tuning with random search (uses sensible defaults)
+python scripts/controller_autotune.py --controller pid --max-iterations 50
+
+# Grid search with 3 points per dimension
+python scripts/controller_autotune.py --controller pid --strategy grid
+
+# LQR auto-tuning
+python scripts/controller_autotune.py --controller lqr --max-iterations 30
+```
+
+### Search Strategies
+
+The tuner supports two search strategies:
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `random` | Uniform random sampling | Fast exploration, large spaces |
+| `grid` | Exhaustive grid search | Precise, smaller spaces |
+
+### Custom Search Ranges
+
+Specify custom gain ranges using min/max vectors for [x, y, z] axes:
+
+```bash
+# PID with custom Kp and Kd ranges
+python scripts/controller_autotune.py --controller pid \
+    --kp-range 0.005,0.005,2.0 0.05,0.05,6.0 \
+    --kd-range 0.02,0.02,1.0 0.15,0.15,3.0
+
+# Include feedforward tuning
+python scripts/controller_autotune.py --controller pid --feedforward \
+    --ff-velocity-range 0.0,0.0,0.0 0.2,0.2,0.1
+```
+
+### Evaluation Settings
+
+Configure how each configuration is evaluated:
+
+```bash
+python scripts/controller_autotune.py \
+    --controller pid \
+    --episodes 10 \           # Episodes per configuration
+    --episode-length 30.0 \   # Episode duration in seconds
+    --motion-type circular \  # Target motion type
+    --seed 42                 # Deterministic seeding
+```
+
+### Resume from Previous Run
+
+Long tuning runs can be interrupted and resumed:
+
+```bash
+# Interrupt with Ctrl+C - partial results are saved automatically
+
+# Resume from saved results
+python scripts/controller_autotune.py \
+    --resume reports/tuning/tuning_pid_20240101_120000_results.json \
+    --max-iterations 100  # Continue to 100 total iterations
+```
+
+### Output Files
+
+Tuning results are saved to the output directory (default: `reports/tuning/`):
+
+| File | Contents |
+|------|----------|
+| `tuning_pid_*_results.json` | Full tuning results with all configurations |
+| `tuning_pid_*_best_config.json` | Best configuration for easy loading |
+
+### Loading Tuned Configuration
+
+After tuning, load the best configuration into your experiments:
+
+```python
+import json
+from quadcopter_tracking.controllers import PIDController
+
+# Load tuned gains
+with open("reports/tuning/tuning_pid_*_best_config.json") as f:
+    best = json.load(f)
+
+# Create controller with tuned gains
+controller = PIDController(config=best["pid"])
+```
+
+Or use in a YAML config file:
+
+```yaml
+# experiments/configs/my_tuned_experiment.yaml
+controller: pid
+pid:
+  kp_pos: [0.034, 0.042, 3.77]  # Values from tuning
+  kd_pos: [0.049, 0.092, 1.13]
+```
+
+### Environment Variable
+
+Set the output directory via environment variable:
+
+```bash
+export TUNING_OUTPUT_DIR=/path/to/custom/output
+python scripts/controller_autotune.py --controller pid
+```
+
+See `.env.example` for all environment variables.
+
+### Workflow Diagram
+
+```mermaid
+flowchart TD
+    A[Define Search Space] --> B{Choose Strategy}
+    B -->|Random| C[Sample Random Configs]
+    B -->|Grid| D[Generate Grid Points]
+    C --> E[Evaluate Configuration]
+    D --> E
+    E --> F{Better than Best?}
+    F -->|Yes| G[Update Best Config]
+    F -->|No| H{More Iterations?}
+    G --> H
+    H -->|Yes| E
+    H -->|No| I[Save Results]
+    I --> J[Load Best Config into Experiment]
+```
+
 ## Configuration File Reference
 
 ### Available Configuration Files
