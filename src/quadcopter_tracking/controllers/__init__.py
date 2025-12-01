@@ -79,6 +79,22 @@ def _validate_observation(observation: dict) -> None:
             raise KeyError(f"Observation['target'] missing required key: '{key}'")
 
 
+def _ensure_array(value, size: int = 3) -> np.ndarray:
+    """
+    Convert a scalar or sequence to a numpy array.
+
+    Args:
+        value: Scalar or sequence of values.
+        size: Expected size of the output array.
+
+    Returns:
+        Numpy array of the specified size.
+    """
+    if hasattr(value, "__len__"):
+        return np.array(value)
+    return np.array([value] * size)
+
+
 class PIDController(BaseController):
     """
     PID controller for quadcopter tracking with optional feedforward support.
@@ -170,12 +186,7 @@ class PIDController(BaseController):
         ki = config.get("ki_pos", config.get("ki", [0.0, 0.0, 0.0]))
         kd = config.get("kd_pos", config.get("kd", [0.06, 0.06, 2.0]))
 
-        # Convert scalars to arrays using helper
-        def _ensure_array(value, size=3):
-            if hasattr(value, "__len__"):
-                return np.array(value)
-            return np.array([value] * size)
-
+        # Convert scalars to arrays using module-level helper
         self.kp_pos = _ensure_array(kp)
         self.ki_pos = _ensure_array(ki)
         self.kd_pos = _ensure_array(kd)
@@ -434,12 +445,6 @@ class LQRController(BaseController):
 
         # Hover thrust from base class params
         self.hover_thrust = self.mass * self.gravity
-
-        # Helper to ensure arrays
-        def _ensure_array(value, size=3):
-            if hasattr(value, "__len__"):
-                return np.array(value)
-            return np.array([value] * size)
 
         # Feedforward configuration
         # Default to disabled (gains = 0) to preserve baseline behavior
