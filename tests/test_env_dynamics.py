@@ -2142,3 +2142,429 @@ class TestAxisSignConventions:
                 f"LQR failed to produce significant velocity towards target. "
                 f"Velocity magnitude was {vel_mag:.4f}, expecting > 0.1."
             )
+
+
+# =============================================================================
+# Feedforward Support Tests
+# =============================================================================
+# These tests verify the optional feedforward support in PID and LQR controllers.
+# Feedforward terms scale target velocity and acceleration to improve tracking
+# of moving targets while remaining fully optional and backwards-compatible.
+
+
+class TestFeedforwardSupport:
+    """
+    Tests for optional feedforward support in PID and LQR controllers.
+
+    Tests verify:
+    - Feedforward is disabled by default (backward compatibility)
+    - Feedforward can be enabled via configuration
+    - Feedforward improves tracking of moving targets
+    - Fallback when acceleration data is unavailable
+    - Stationary targets remain stable with feedforward off
+    - Diagnostics logging of P/I/D/FF components
+    """
+
+    def test_pid_feedforward_disabled_by_default(self):
+        """Test PID feedforward is disabled by default for backward compat."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        assert pid.feedforward_enabled is False
+        assert np.allclose(pid.ff_velocity_gain, [0.0, 0.0, 0.0])
+        assert np.allclose(pid.ff_acceleration_gain, [0.0, 0.0, 0.0])
+
+    def test_lqr_feedforward_disabled_by_default(self):
+        """Test LQR feedforward is disabled by default for backward compat."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+
+        assert lqr.feedforward_enabled is False
+        assert np.allclose(lqr.ff_velocity_gain, [0.0, 0.0, 0.0])
+        assert np.allclose(lqr.ff_acceleration_gain, [0.0, 0.0, 0.0])
+
+    def test_pid_feedforward_can_be_enabled(self):
+        """Test PID feedforward can be enabled via config."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        pid = PIDController(config=config)
+
+        assert pid.feedforward_enabled is True
+        assert np.allclose(pid.ff_velocity_gain, [0.1, 0.1, 0.1])
+        assert np.allclose(pid.ff_acceleration_gain, [0.05, 0.05, 0.05])
+
+    def test_lqr_feedforward_can_be_enabled(self):
+        """Test LQR feedforward can be enabled via config."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        lqr = LQRController(config=config)
+
+        assert lqr.feedforward_enabled is True
+        assert np.allclose(lqr.ff_velocity_gain, [0.1, 0.1, 0.1])
+        assert np.allclose(lqr.ff_acceleration_gain, [0.05, 0.05, 0.05])
+
+    def test_pid_feedforward_scalar_gains(self):
+        """Test PID feedforward accepts scalar gains (broadcast to array)."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": 0.2,
+            "ff_acceleration_gain": 0.1,
+        }
+        pid = PIDController(config=config)
+
+        assert np.allclose(pid.ff_velocity_gain, [0.2, 0.2, 0.2])
+        assert np.allclose(pid.ff_acceleration_gain, [0.1, 0.1, 0.1])
+
+    def test_pid_stationary_stable_with_feedforward_off(self):
+        """Test PID with feedforward OFF is stable for stationary targets."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        # Feedforward disabled by default
+        pid = PIDController()
+        assert pid.feedforward_enabled is False
+
+        min_error = float("inf")
+        for _ in range(300):
+            action = pid.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Should converge well with feedforward disabled
+        assert min_error < 0.5, (
+            f"PID with feedforward OFF should converge. Min error: {min_error:.3f}"
+        )
+
+    def test_lqr_stationary_stable_with_feedforward_off(self):
+        """Test LQR with feedforward OFF is stable for stationary targets."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        # Feedforward disabled by default
+        lqr = LQRController()
+        assert lqr.feedforward_enabled is False
+
+        min_error = float("inf")
+        for _ in range(300):
+            action = lqr.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Should converge well with feedforward disabled
+        assert min_error < 0.5, (
+            f"LQR with feedforward OFF should converge. Min error: {min_error:.3f}"
+        )
+
+    def test_pid_baseline_unchanged_with_feedforward_disabled(self):
+        """Test PID output is unchanged when feedforward is disabled."""
+        from quadcopter_tracking.controllers import PIDController
+
+        # Create observation with moving target
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([1.0, 0.0, 0.0]),
+                "acceleration": np.array([0.5, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        pid_off = PIDController(config={"feedforward_enabled": False})
+        pid_on = PIDController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.1, 0.1, 0.1],
+            }
+        )
+
+        action_off = pid_off.compute_action(obs)
+        action_on = pid_on.compute_action(obs)
+
+        # With feedforward enabled, pitch_rate should be higher (tracking X vel)
+        assert action_on["pitch_rate"] > action_off["pitch_rate"], (
+            "Feedforward should increase pitch_rate for +X target velocity"
+        )
+
+    def test_pid_diagnostics_logs_control_components(self):
+        """Test PID logs P/I/D/FF control components for diagnostics."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        pid = PIDController(config=config)
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.5, 0.0, 0.0]),
+                "acceleration": np.array([0.2, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        pid.compute_action(obs)
+        components = pid.get_control_components()
+
+        assert components is not None
+        assert "p_term" in components
+        assert "i_term" in components
+        assert "d_term" in components
+        assert "ff_velocity_term" in components
+        assert "ff_acceleration_term" in components
+        assert "total_correction" in components
+
+        # FF terms should be nonzero with moving target
+        assert components["ff_velocity_term"][0] > 0  # X velocity feedforward
+        assert components["ff_acceleration_term"][0] > 0  # X accel feedforward
+
+    def test_lqr_diagnostics_logs_control_components(self):
+        """Test LQR logs feedback/FF control components for diagnostics."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+        }
+        lqr = LQRController(config=config)
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.5, 0.0, 0.0]),
+                "acceleration": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        lqr.compute_action(obs)
+        components = lqr.get_control_components()
+
+        assert components is not None
+        assert "feedback_u" in components
+        assert "ff_velocity_term" in components
+        assert "ff_acceleration_term" in components
+
+        # FF velocity term should be nonzero
+        assert components["ff_velocity_term"][0] > 0
+
+    def test_pid_feedforward_graceful_fallback_no_acceleration(self):
+        """Test PID gracefully falls back when acceleration data missing."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        pid = PIDController(config=config)
+
+        # Observation without acceleration key
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.5, 0.0, 0.0]),
+                # No "acceleration" key
+            },
+            "time": 0.0,
+        }
+
+        # Should not raise error
+        action = pid.compute_action(obs)
+
+        assert "thrust" in action
+        assert "pitch_rate" in action
+
+        # Check diagnostics show zero acceleration feedforward
+        components = pid.get_control_components()
+        assert np.allclose(components["ff_acceleration_term"], [0.0, 0.0, 0.0])
+
+    def test_lqr_feedforward_graceful_fallback_no_acceleration(self):
+        """Test LQR gracefully falls back when acceleration data missing."""
+        from quadcopter_tracking.controllers import LQRController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        lqr = LQRController(config=config)
+
+        # Observation without acceleration key
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.5, 0.0, 0.0]),
+                # No "acceleration" key
+            },
+            "time": 0.0,
+        }
+
+        # Should not raise error
+        action = lqr.compute_action(obs)
+
+        assert "thrust" in action
+        assert "pitch_rate" in action
+
+        # Check diagnostics show zero acceleration feedforward
+        components = lqr.get_control_components()
+        assert np.allclose(components["ff_acceleration_term"], [0.0, 0.0, 0.0])
+
+    def test_pid_feedforward_velocity_clamping(self):
+        """Test PID clamps feedforward velocity to prevent oscillation."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [1.0, 1.0, 1.0],
+            "ff_max_velocity": 2.0,
+        }
+        pid = PIDController(config=config)
+
+        # Observation with very high target velocity
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),  # Zero position error
+                "velocity": np.array([100.0, 0.0, 0.0]),  # Very high velocity
+            },
+            "time": 0.0,
+        }
+
+        pid.compute_action(obs)
+        components = pid.get_control_components()
+
+        # Feedforward should be clamped to max_velocity * gain
+        ff_x = components["ff_velocity_term"][0]
+        assert ff_x <= 2.0 * 1.0, (
+            f"Feedforward should be clamped. Got {ff_x}, expected <= 2.0"
+        )
+
+    def test_pid_feedforward_acceleration_clamping(self):
+        """Test PID clamps feedforward acceleration to prevent oscillation."""
+        from quadcopter_tracking.controllers import PIDController
+
+        config = {
+            "feedforward_enabled": True,
+            "ff_acceleration_gain": [1.0, 1.0, 1.0],
+            "ff_max_acceleration": 3.0,
+        }
+        pid = PIDController(config=config)
+
+        # Observation with very high target acceleration
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "acceleration": np.array([50.0, 0.0, 0.0]),  # Very high accel
+            },
+            "time": 0.0,
+        }
+
+        pid.compute_action(obs)
+        components = pid.get_control_components()
+
+        # Feedforward should be clamped
+        ff_x = components["ff_acceleration_term"][0]
+        assert ff_x <= 3.0 * 1.0, (
+            f"Feedforward should be clamped. Got {ff_x}, expected <= 3.0"
+        )
+
+    def test_pid_reset_clears_diagnostics(self):
+        """Test PID reset clears control component diagnostics."""
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController(config={"feedforward_enabled": True})
+
+        obs = create_hover_observation()
+        pid.compute_action(obs)
+        assert pid.get_control_components() is not None
+
+        pid.reset()
+        assert pid.get_control_components() is None
+
+    def test_lqr_reset_clears_diagnostics(self):
+        """Test LQR reset clears control component diagnostics."""
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController(config={"feedforward_enabled": True})
+
+        obs = create_hover_observation()
+        lqr.compute_action(obs)
+        assert lqr.get_control_components() is not None
+
+        lqr.reset()
+        assert lqr.get_control_components() is None

@@ -103,6 +103,16 @@ pid:
   kd_pos: [0.06, 0.06, 2.0]
   # Integral windup limit - disabled by default
   integral_limit: 0.0
+  # Feedforward configuration (optional, disabled by default)
+  # Enable for improved tracking of moving targets
+  feedforward_enabled: false
+  # Feedforward gains for target velocity [x, y, z] (m/s -> control units)
+  ff_velocity_gain: [0.0, 0.0, 0.0]
+  # Feedforward gains for target acceleration [x, y, z] (m/s² -> control units)
+  ff_acceleration_gain: [0.0, 0.0, 0.0]
+  # Max velocity/acceleration for clamping (prevents oscillation from noise)
+  ff_max_velocity: 10.0
+  ff_max_acceleration: 5.0
 
 # LQR Controller Gains
 # Cost weights scaled to produce feedback gains consistent with PID baseline.
@@ -116,3 +126,13 @@ lqr:
   r_thrust: 1.0
   # Angular rate control cost
   r_rate: 1.0
+  # Feedforward configuration (optional, disabled by default)
+  # Enable for improved tracking of moving targets
+  feedforward_enabled: false
+  # Feedforward gains for target velocity [x, y, z]
+  ff_velocity_gain: [0.0, 0.0, 0.0]
+  # Feedforward gains for target acceleration [x, y, z]
+  ff_acceleration_gain: [0.0, 0.0, 0.0]
+  # Max velocity/acceleration for clamping
+  ff_max_velocity: 10.0
+  ff_max_acceleration: 5.0
