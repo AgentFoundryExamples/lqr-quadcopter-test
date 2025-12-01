@@ -1584,11 +1584,12 @@ class TestHoverThrustIntegration:
         expected_thrust = mass * gravity
 
         controller = PIDController(config={"mass": mass, "gravity": gravity})
-        obs = create_hover_observation()
 
         # Simulate multiple timesteps at hover
         thrusts = []
         for i in range(10):
+            # Create fresh observation for each step to avoid mutation side effects
+            obs = create_hover_observation()
             obs["time"] = i * 0.01  # Advance time
             action = controller.compute_action(obs)
             thrusts.append(action["thrust"])
@@ -1614,11 +1615,12 @@ class TestHoverThrustIntegration:
         expected_thrust = mass * gravity
 
         controller = LQRController(config={"mass": mass, "gravity": gravity})
-        obs = create_hover_observation()
 
         # Simulate multiple timesteps at hover
         thrusts = []
         for i in range(10):
+            # Create fresh observation for each step to avoid mutation side effects
+            obs = create_hover_observation()
             obs["time"] = i * 0.01
             action = controller.compute_action(obs)
             thrusts.append(action["thrust"])
