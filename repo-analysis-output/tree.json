@@ -84,6 +84,10 @@
             },
             {
               "type": "file",
+              "name": "eval_linear_baseline.yaml"
+            },
+            {
+              "type": "file",
               "name": "eval_riccati_lqr_baseline.yaml"
             },
             {
@@ -108,11 +112,27 @@
             },
             {
               "type": "file",
+              "name": "tuning_lqr.yaml"
+            },
+            {
+              "type": "file",
+              "name": "tuning_lqr_linear.yaml"
+            },
+            {
+              "type": "file",
               "name": "tuning_pid.yaml"
             },
             {
               "type": "file",
+              "name": "tuning_pid_linear.yaml"
+            },
+            {
+              "type": "file",
               "name": "tuning_riccati.yaml"
+            },
+            {
+              "type": "file",
+              "name": "tuning_riccati_linear.yaml"
             }
           ]
         }
