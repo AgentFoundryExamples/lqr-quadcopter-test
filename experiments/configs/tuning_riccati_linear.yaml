@@ -1,0 +1,109 @@
+# Riccati-LQR Controller Auto-Tuning Configuration for LINEAR Motion Targets
+# This file configures auto-tuning for a linear (constant velocity) target
+# using the Riccati-LQR controller with DARE-solved optimal gains.
+#
+# Linear motion is more challenging than stationary targets. The Riccati-LQR
+# controller provides mathematically optimal feedback gains by solving the
+# discrete-time algebraic Riccati equation (DARE).
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_riccati_linear.yaml
+#
+# Or use Makefile target:
+#   make tune-riccati-linear
+#
+# Workflow:
+#   1. Run this tuning config to find optimal Riccati-LQR Q/R weights
+#   2. Copy best weights to training_imitation.yaml (set supervisor_controller: riccati_lqr)
+#   3. Train deep controller using imitation mode with tuned Riccati-LQR as supervisor
+#   4. Evaluate trained model with eval_linear_baseline.yaml
+#
+# For other motion patterns, copy this file and change:
+#   - target_motion_type: circular, sinusoidal, figure8
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+controller_type: riccati_lqr
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+strategy: random
+
+# Riccati-LQR requires DARE solving (O(n³) matrix operations) - slightly slower
+# Start with fewer iterations than heuristic controllers
+max_iterations: 30
+
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE - Optimized for Linear Motion
+# =============================================================================
+# For Riccati-LQR, tune Q (state cost) and R (control cost) weights.
+# Linear motion tracking may benefit from higher velocity costs.
+
+search_space:
+  # Position cost weights range [x, y, z]
+  q_pos_range:
+    - [0.00005, 0.00005, 10.0]   # min
+    - [0.0005, 0.0005, 25.0]     # max
+
+  # Velocity cost weights range [vx, vy, vz]
+  # Higher velocity costs help with motion tracking
+  q_vel_range:
+    - [0.001, 0.001, 2.0]        # min
+    - [0.01, 0.01, 8.0]          # max
+
+  # Control cost weights range [thrust, roll, pitch, yaw]
+  r_controls_range:
+    - [0.5, 0.5, 0.5, 0.5]       # min
+    - [2.0, 2.0, 2.0, 2.0]       # max
+
+# =============================================================================
+# EVALUATION SETTINGS - Linear Motion
+# =============================================================================
+evaluation_episodes: 5
+evaluation_horizon: 3000
+episode_length: 30.0
+
+# Linear target motion - constant velocity in random direction
+target_motion_type: linear
+
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+seed: 42
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+output_dir: reports/tuning
+
+# =============================================================================
+# EDGE CASE HANDLING
+# =============================================================================
+#
+# 1. DARE solver failure:
+#    If the Riccati equation cannot be solved (system not stabilizable),
+#    the controller falls back to heuristic LQR gains. Check logs for warnings.
+#
+# 2. Resource-limited machines:
+#    Reduce max_iterations, evaluation_episodes, or evaluation_horizon.
+#    DARE solving adds ~10-20ms overhead per controller instantiation.
+#
+# 3. Combining with imitation learning:
+#    The Riccati-LQR controller makes an excellent teacher for deep policies.
+#    Set supervisor_controller: riccati_lqr in training_imitation.yaml.
+
+# =============================================================================
+# RESOURCE-LIMITED MACHINES
+# =============================================================================
+# If running on limited resources, reduce:
+#   - max_iterations: 15          (fewer configurations to test)
+#   - evaluation_episodes: 3      (faster per-config evaluation)
+#   - evaluation_horizon: 1500    (shorter episodes)
+#   - episode_length: 15.0        (shorter episode duration)

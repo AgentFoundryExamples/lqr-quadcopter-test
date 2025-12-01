@@ -1,0 +1,91 @@
+# LQR Controller Auto-Tuning Configuration for LINEAR Motion Targets
+# This file configures auto-tuning for a linear (constant velocity) target.
+#
+# Linear motion is more challenging than stationary targets because the
+# controller must track a moving reference. This configuration searches for
+# Q/R cost weights that minimize tracking error while maintaining stability.
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_lqr_linear.yaml
+#
+# Or use Makefile target:
+#   make tune-lqr-linear
+#
+# Workflow:
+#   1. Run this tuning config to find optimal LQR weights for linear motion
+#   2. Copy best weights to training_imitation.yaml or training_default.yaml
+#   3. Train deep controller using imitation mode with tuned LQR as supervisor
+#   4. Evaluate trained model with eval_linear_baseline.yaml
+#
+# For other motion patterns, copy this file and change:
+#   - target_motion_type: circular, sinusoidal, figure8
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+controller_type: lqr
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+strategy: random
+max_iterations: 30
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE - Optimized for Linear Motion
+# =============================================================================
+# Linear motion may benefit from slightly different Q/R ratios than stationary.
+# Velocity costs become more important for tracking moving targets.
+
+search_space:
+  # Position cost weights range [x, y, z]
+  q_pos_range:
+    - [0.00005, 0.00005, 10.0]   # min
+    - [0.0005, 0.0005, 25.0]     # max
+
+  # Velocity cost weights range [vx, vy, vz]
+  # Higher velocity costs may help with motion tracking
+  q_vel_range:
+    - [0.001, 0.001, 2.0]        # min
+    - [0.01, 0.01, 8.0]          # max
+
+  # Thrust and rate control costs (optional tuning)
+  # r_thrust_range:
+  #   - 0.5
+  #   - 2.0
+  # r_rate_range:
+  #   - 0.5
+  #   - 2.0
+
+# =============================================================================
+# EVALUATION SETTINGS - Linear Motion
+# =============================================================================
+evaluation_episodes: 5
+evaluation_horizon: 3000
+episode_length: 30.0
+
+# Linear target motion - constant velocity in random direction
+target_motion_type: linear
+
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+seed: 42
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+output_dir: reports/tuning
+
+# =============================================================================
+# RESOURCE-LIMITED MACHINES
+# =============================================================================
+# If running on limited resources, reduce:
+#   - max_iterations: 15          (fewer configurations to test)
+#   - evaluation_episodes: 3      (faster per-config evaluation)
+#   - evaluation_horizon: 1500    (shorter episodes)
+#   - episode_length: 15.0        (shorter episode duration)

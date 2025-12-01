@@ -1,4 +1,4 @@
-.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr train-riccati-lqr eval-deep eval-pid eval-lqr eval-riccati-lqr eval-baseline-stationary eval-baseline-circular compare-controllers generate-comparison-report clean help
+.PHONY: install dev-install test lint format run-experiment train-deep train-pid train-lqr train-riccati-lqr eval-deep eval-pid eval-lqr eval-riccati-lqr eval-baseline-stationary eval-baseline-circular eval-baseline-linear compare-controllers generate-comparison-report tune-pid-linear tune-lqr-linear tune-riccati-linear clean help
 
 # Default Python interpreter
 PYTHON ?= python
@@ -12,8 +12,8 @@ EPISODES ?= 5
 # Default motion type for evaluation
 MOTION_TYPE ?= circular
 
-# Comparison configuration
-COMPARISON_CONFIG ?= experiments/configs/comparison_default.yaml
+# Default tuning iterations
+TUNING_ITERATIONS ?= 50
 
 help:
 	@echo "Quadcopter Tracking Research - Available Commands"
@@ -34,6 +34,7 @@ help:
 	@echo "  make eval-riccati-lqr              - Evaluate Riccati-LQR controller"
 	@echo "  make eval-baseline-stationary      - Evaluate PID+LQR on stationary target"
 	@echo "  make eval-baseline-circular        - Evaluate PID+LQR on circular target"
+	@echo "  make eval-baseline-linear          - Evaluate PID+LQR on linear target"
 	@echo ""
 	@echo "=== WORKFLOW 2: Deep Controller Training ==="
 	@echo "  make train-deep                    - Train deep controller"
@@ -43,6 +44,18 @@ help:
 	@echo "=== WORKFLOW 3: Controller Comparison ==="
 	@echo "  make compare-controllers           - Run comparison across controllers"
 	@echo "  make generate-comparison-report    - Generate side-by-side metrics report"
+	@echo ""
+	@echo "=== WORKFLOW 4: Controller Tuning (Linear Motion) ==="
+	@echo "  make tune-pid-linear               - Tune PID gains for linear motion"
+	@echo "  make tune-lqr-linear               - Tune LQR weights for linear motion"
+	@echo "  make tune-riccati-linear           - Tune Riccati-LQR for linear motion"
+	@echo ""
+	@echo "  Tuning uses TUNING_ITERATIONS iterations (default: 50)"
+	@echo "  Override with: make tune-pid-linear TUNING_ITERATIONS=100"
+	@echo ""
+	@echo "  For other motion patterns, edit the target_motion_type in:"
+	@echo "    experiments/configs/tuning_*_linear.yaml"
+	@echo "  Valid options: stationary, linear, circular, sinusoidal, figure8"
 	@echo ""
 	@echo "Legacy/Other Commands:"
 	@echo "  make train-pid              - Run PID controller evaluation loop"
@@ -58,6 +71,7 @@ help:
 	@echo "  make eval-pid EPISODES=20"
 	@echo "  make compare-controllers MOTION_TYPE=stationary"
 	@echo "  make run-experiment CONFIG=experiments/configs/training_fast.yaml"
+	@echo "  make tune-pid-linear TUNING_ITERATIONS=100 SEED=42"
 
 install:
 	$(PYTHON) -m pip install -e .
@@ -125,6 +139,18 @@ eval-baseline-circular:
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_circular_*/"
 
+eval-baseline-linear:
+	@echo "=== Evaluating PID on linear target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_pid
+	@echo ""
+	@echo "=== Evaluating LQR on linear target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_lqr
+	@echo ""
+	@echo "=== Evaluating Riccati-LQR on linear target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_riccati
+	@echo ""
+	@echo "Baseline evaluation complete. Results in reports/baseline_linear_*/"
+
 # =============================================================================
 # WORKFLOW 3: Controller Comparison
 # =============================================================================
@@ -144,6 +170,82 @@ compare-controllers:
 generate-comparison-report:
 	@echo "=== Generating Comparison Report ==="
 	@$(PYTHON) scripts/generate_comparison_report.py --report-dir reports/comparison
+
+# =============================================================================
+# WORKFLOW 4: Controller Tuning (Linear Motion)
+# =============================================================================
+# Auto-tune controller gains for linear motion tracking.
+# These targets use YAML configs from experiments/configs/tuning_*_linear.yaml
+#
+# Workflow: tune → train → evaluate
+#   1. Run tuning (this section)
+#   2. Copy best config from reports/tuning/*_best_config.json to training YAML
+#   3. Train with imitation mode using tuned controller as supervisor
+#   4. Evaluate with eval-baseline-linear
+#
+# For other motion patterns (circular, sinusoidal, figure8):
+#   Copy tuning_*_linear.yaml, change target_motion_type, and use --config
+#
+# Error handling: Tuning will fail with clear error if config file is missing
+
+_check-tuning-config = @if [ ! -f $(1) ]; then \
+	echo "ERROR: Required config file not found: $(1)"; \
+	echo "Please ensure the config file exists at the specified path."; \
+	exit 1; \
+fi
+
+tune-pid-linear:
+	$(call _check-tuning-config,experiments/configs/tuning_pid_linear.yaml)
+	@echo "=== Auto-tuning PID for linear motion ==="
+	@echo "Config: experiments/configs/tuning_pid_linear.yaml"
+	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
+	@echo ""
+	$(PYTHON) scripts/controller_autotune.py \
+		--config experiments/configs/tuning_pid_linear.yaml \
+		--max-iterations $(TUNING_ITERATIONS) \
+		--seed $(SEED)
+	@echo ""
+	@echo "Tuning complete. Best config saved to reports/tuning/"
+	@echo "Next steps:"
+	@echo "  1. Copy best gains to experiments/configs/training_imitation.yaml"
+	@echo "  2. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  3. Run: make eval-baseline-linear"
+
+tune-lqr-linear:
+	$(call _check-tuning-config,experiments/configs/tuning_lqr_linear.yaml)
+	@echo "=== Auto-tuning LQR for linear motion ==="
+	@echo "Config: experiments/configs/tuning_lqr_linear.yaml"
+	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
+	@echo ""
+	$(PYTHON) scripts/controller_autotune.py \
+		--config experiments/configs/tuning_lqr_linear.yaml \
+		--max-iterations $(TUNING_ITERATIONS) \
+		--seed $(SEED)
+	@echo ""
+	@echo "Tuning complete. Best config saved to reports/tuning/"
+	@echo "Next steps:"
+	@echo "  1. Copy best weights to experiments/configs/training_imitation.yaml"
+	@echo "  2. Set supervisor_controller: lqr"
+	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  4. Run: make eval-baseline-linear"
+
+tune-riccati-linear:
+	$(call _check-tuning-config,experiments/configs/tuning_riccati_linear.yaml)
+	@echo "=== Auto-tuning Riccati-LQR for linear motion ==="
+	@echo "Config: experiments/configs/tuning_riccati_linear.yaml"
+	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
+	@echo ""
+	$(PYTHON) scripts/controller_autotune.py \
+		--config experiments/configs/tuning_riccati_linear.yaml \
+		--max-iterations $(TUNING_ITERATIONS) \
+		--seed $(SEED)
+	@echo ""
+	@echo "Tuning complete. Best config saved to reports/tuning/"
+	@echo "Next steps:"
+	@echo "  1. Copy best Q/R weights to experiments/configs/training_imitation.yaml"
+	@echo "  2. Set supervisor_controller: riccati_lqr"
+	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  4. Run: make eval-baseline-linear"
 
 # Note: CONFIG and SEED are validated by Python code, not shell interpolation
 # to prevent command injection vulnerabilities

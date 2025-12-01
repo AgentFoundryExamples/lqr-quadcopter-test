@@ -587,6 +587,9 @@ make eval-baseline-stationary EPISODES=10
 # Baseline evaluation on circular motion
 make eval-baseline-circular EPISODES=10
 
+# Baseline evaluation on linear motion (includes Riccati-LQR)
+make eval-baseline-linear EPISODES=10
+
 # Or run individually with custom parameters
 python -m quadcopter_tracking.eval \
     --controller pid \
@@ -606,10 +609,12 @@ python -m quadcopter_tracking.eval \
 **Configuration files:**
 - `experiments/configs/eval_stationary_baseline.yaml` - Stationary target baseline
 - `experiments/configs/eval_circular_baseline.yaml` - Circular motion baseline
+- `experiments/configs/eval_linear_baseline.yaml` - Linear motion baseline
 
 **Expected results:**
 - PID/LQR should achieve >80% on-target ratio on stationary targets
-- Circular motion is more challenging; expect 70-90% on-target ratio
+- Linear motion: expect 70-90% on-target ratio
+- Circular motion: expect 70-90% on-target ratio
 
 ### Workflow 2: Deep Controller Training
 
@@ -664,6 +669,55 @@ cat reports/comparison/comparison_summary.json
 - `reports/comparison/<controller>/plots/*.png` - Visualization plots
 - `reports/comparison/comparison_summary.json` - Ranked comparison
 
+### Workflow 4: Tune → Train → Evaluate Pipeline
+
+This workflow chains tuning, training, and evaluation for optimal controller performance on moving targets.
+
+```bash
+# Step 1: Tune controller gains for linear motion
+make tune-pid-linear TUNING_ITERATIONS=50
+
+# Step 2: Copy best gains to training config
+# View best config: cat reports/tuning/*_best_config.json
+# Then manually copy gains to experiments/configs/training_imitation.yaml
+
+# Step 3: Train deep controller using tuned PID as supervisor
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_imitation.yaml
+
+# Step 4: Evaluate trained model on linear motion
+make eval-baseline-linear EPISODES=10
+
+# Or evaluate with specific checkpoint
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/imitation/train_*_best.pt \
+    --config experiments/configs/eval_linear_baseline.yaml
+```
+
+**Tuning Makefile targets:**
+- `make tune-pid-linear` - Tune PID gains for linear motion
+- `make tune-lqr-linear` - Tune LQR weights for linear motion
+- `make tune-riccati-linear` - Tune Riccati-LQR for linear motion
+
+**Configuration files:**
+- `experiments/configs/tuning_pid_linear.yaml` - PID tuning for linear motion
+- `experiments/configs/tuning_lqr_linear.yaml` - LQR tuning for linear motion
+- `experiments/configs/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
+- `experiments/configs/eval_linear_baseline.yaml` - Linear motion evaluation
+
+**For other motion patterns** (circular, sinusoidal, figure8):
+1. Copy the `tuning_*_linear.yaml` config
+2. Change `target_motion_type` to desired pattern
+3. Run with `--config path/to/your/config.yaml`
+
+**Resource-limited machines:**
+Reduce tuning iterations and evaluation episodes:
+```bash
+make tune-pid-linear TUNING_ITERATIONS=20 EPISODES=3
+```
+Or edit the config file to reduce `evaluation_horizon` and `episode_length`.
+
 ### Workflow Diagram
 
 ```mermaid
@@ -685,8 +739,15 @@ flowchart TD
         B3 --> C3[Analyze Rankings]
     end
     
+    subgraph "Workflow 4: Tune-Train-Evaluate"
+        T1[Run Tuning] --> T2[Copy Best Gains]
+        T2 --> T3[Train with Imitation]
+        T3 --> T4[Evaluate on Target Motion]
+    end
+    
     D1 --> A2
     D2 --> A3
+    T4 --> A3
 ```
 
 ## System Dependencies

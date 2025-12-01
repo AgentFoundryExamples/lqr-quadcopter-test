@@ -3,6 +3,17 @@
 #
 # Usage:
 #   python scripts/controller_autotune.py --config experiments/configs/tuning_pid.yaml
+#
+# Workflow: Tune → Train → Evaluate
+# =================================
+#   1. Run this tuning config to find optimal PID gains for stationary targets
+#   2. Copy best gains from reports/tuning/*_best_config.json
+#   3. Paste gains into experiments/configs/training_imitation.yaml (pid section)
+#   4. Train deep controller: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+#   5. Evaluate: make eval-baseline-stationary
+#
+# For LINEAR motion targets, use experiments/configs/tuning_pid_linear.yaml
+# For other motion patterns, copy this file and change target_motion_type
 
 # Controller type to tune: 'pid' or 'lqr'
 controller_type: pid
