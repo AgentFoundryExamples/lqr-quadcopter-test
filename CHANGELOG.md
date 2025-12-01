@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-12-01
+
+### Added
+
+- **Release Verification Documentation**: Added comprehensive release verification checklist in `docs/results.md` to ensure docs, Make targets, and configurations reference the correct version tag before publishing.
+
+- **Riccati Migration Notes**: Enhanced CHANGELOG with detailed migration guidance for users on older configurations who need to adopt the new Riccati schema.
+
+### Changed
+
+- **Roadmap Update**: Marked Riccati milestone as complete in `ROADMAP.md`, including DARE-based optimal control, auto-tuning framework, and documentation consolidation. Updated next focus areas to emphasize observation noise and state estimation (v0.4+).
+
+- **Version Bump**: Incremented patch version to v0.3.1 to capture release metadata finalization after v0.3.0 feature freeze.
+
+### Migration from v0.3.0
+
+- **No Breaking Changes**: All v0.3.0 configurations and checkpoints remain fully compatible.
+
+- **Riccati Schema Migration for v0.2.x Users**: If you are migrating from v0.2.x and want to use the new Riccati-LQR controller, update your YAML configuration to include the `riccati_lqr` block:
+
+  ```yaml
+  controller: riccati_lqr
+
+  riccati_lqr:
+    dt: 0.01                          # Must match your simulation timestep
+    mass: 1.0                         # Must match your quadcopter mass
+    gravity: 9.81                     # Must match your gravity setting
+    q_pos: [0.0001, 0.0001, 16.0]     # Position cost weights [x, y, z]
+    q_vel: [0.0036, 0.0036, 4.0]      # Velocity cost weights [vx, vy, vz]
+    r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+    fallback_on_failure: true         # Recommended: fall back to heuristic LQR on solver failure
+  ```
+
+- **Verification Commands**: Confirm your setup works with the new version:
+
+  ```bash
+  # Verify version
+  pip show quadcopter-tracking | grep Version
+
+  # Run baseline evaluations
+  make eval-baseline-stationary EPISODES=10
+  make eval-baseline-circular EPISODES=10
+
+  # Test Riccati-LQR controller
+  python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 5
+  ```
+
+### Version Conflict Resolution
+
+When multiple teams work on releases simultaneously:
+
+1. Always pull the latest `main` branch before cutting a release
+2. Use `git merge --no-ff` to preserve release history
+3. If version conflicts occur, increment to the next available patch version
+4. Update CHANGELOG entries to reflect the merged changes
+
+[0.3.1]: https://github.com/AgentFoundryExamples/lqr-quadcopter-test/releases/tag/v0.3.1
+
 ## [0.3.0] - 2025-12-01
 
 ### Added

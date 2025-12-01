@@ -1,6 +1,6 @@
 # Quadcopter Target Tracking Research
 
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -939,7 +939,7 @@ export MPLBACKEND=Agg
 python -m quadcopter_tracking.eval --controller pid --no-plots
 ```
 
-## v0.3.0 Status and Known Limitations
+## v0.3.1 Status and Known Limitations
 
 **Release Date:** December 1, 2025
 
