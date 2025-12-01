@@ -38,7 +38,7 @@ class ActionLimits:
 
     def clip_action(self, action: dict) -> dict:
         """
-        Clip action values to valid ranges.
+        Clip action values to valid ranges using numpy.
 
         Args:
             action: Action dictionary with control commands.
@@ -46,11 +46,13 @@ class ActionLimits:
         Returns:
             Clipped action dictionary.
         """
+        import numpy as np
+
         return {
-            "thrust": max(self.min_thrust, min(self.max_thrust, action["thrust"])),
-            "roll_rate": max(-self.max_rate, min(self.max_rate, action["roll_rate"])),
-            "pitch_rate": max(-self.max_rate, min(self.max_rate, action["pitch_rate"])),
-            "yaw_rate": max(-self.max_rate, min(self.max_rate, action["yaw_rate"])),
+            "thrust": np.clip(action["thrust"], self.min_thrust, self.max_thrust),
+            "roll_rate": np.clip(action["roll_rate"], -self.max_rate, self.max_rate),
+            "pitch_rate": np.clip(action["pitch_rate"], -self.max_rate, self.max_rate),
+            "yaw_rate": np.clip(action["yaw_rate"], -self.max_rate, self.max_rate),
         }
 
 

@@ -751,8 +751,11 @@ def main() -> int:
     controller_config = eval_config.get(args.controller, {})
 
     # Helper to resolve value: CLI (if set) > YAML > default
-    def resolve(cli_val, yaml_key, default):
-        if cli_val is not None:
+    def resolve(cli_val, yaml_key, default, is_bool_flag=False):
+        if is_bool_flag:
+            if cli_val is True:  # CLI flag is present
+                return cli_val
+        elif cli_val is not None:  # CLI argument was provided
             return cli_val
         return eval_config.get(yaml_key, default)
 
@@ -806,8 +809,10 @@ def main() -> int:
     # Save reports
     evaluator.save_report(summary)
 
-    # Generate plots
-    generate_plots = eval_config.get("generate_plots", True) and not args.no_plots
+    # Resolve whether to generate plots, with CLI taking precedence.
+    no_plots = resolve(args.no_plots, "no_plots", False, is_bool_flag=True)
+    generate_plots = not no_plots
+
     if generate_plots and evaluator.episode_data_list:
         evaluator.generate_all_plots(summary)
 
