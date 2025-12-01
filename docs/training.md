@@ -1310,6 +1310,107 @@ flowchart TD
     I --> J[Load Best Config into Experiment]
 ```
 
+## Riccati-LQR Auto-Tuning
+
+The Riccati-LQR controller uses the discrete-time algebraic Riccati equation
+(DARE) solver to compute mathematically optimal feedback gains. The auto-tuning
+feature searches for Q/R cost weight combinations that minimize tracking error.
+
+### Quick Start
+
+```bash
+# Basic Riccati-LQR auto-tuning with random search (uses sensible defaults)
+python scripts/controller_autotune.py --controller riccati_lqr --max-iterations 30
+
+# Grid search with custom Q/R ranges
+python scripts/controller_autotune.py --controller riccati_lqr --strategy grid \
+    --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0 \
+    --r-controls-range 0.5,0.5,0.5,0.5 2.0,2.0,2.0,2.0
+
+# Use YAML configuration
+python scripts/controller_autotune.py --config experiments/configs/tuning_riccati.yaml
+```
+
+### Riccati-Specific Parameters
+
+The Riccati-LQR tuner searches over Q and R cost matrices:
+
+| Parameter | Description | Default Range |
+|-----------|-------------|---------------|
+| `q_pos` | Position cost weights [x, y, z] | [0.00005, 0.00005, 10.0] to [0.0005, 0.0005, 25.0] |
+| `q_vel` | Velocity cost weights [vx, vy, vz] | [0.001, 0.001, 2.0] to [0.01, 0.01, 8.0] |
+| `r_controls` | Control cost weights [thrust, roll, pitch, yaw] | [0.5, 0.5, 0.5, 0.5] to [2.0, 2.0, 2.0, 2.0] |
+
+**Cost Function:** `J = integral(x'Qx + u'Ru) dt`
+- Higher Q values → more aggressive tracking
+- Higher R values → smoother control, less actuator effort
+
+### Custom Search Ranges
+
+```bash
+# Custom Q matrix diagonal weights (position and velocity)
+python scripts/controller_autotune.py --controller riccati_lqr \
+    --q-pos-range 0.00008,0.00008,14.0 0.00015,0.00015,18.0 \
+    --q-vel-range 0.003,0.003,3.5 0.004,0.004,4.5
+
+# Custom R matrix diagonal weights (control costs)
+python scripts/controller_autotune.py --controller riccati_lqr \
+    --r-controls-range 0.8,0.8,0.8,0.8 1.2,1.2,1.2,1.2
+```
+
+### Loading Riccati Tuning Results
+
+After tuning, load the best configuration:
+
+```python
+import json
+from quadcopter_tracking.controllers import RiccatiLQRController
+
+# Load tuned cost weights
+with open("reports/tuning/tuning_riccati_lqr_*_best_config.json") as f:
+    best = json.load(f)
+
+# Create controller with tuned weights
+controller = RiccatiLQRController(config=best["riccati_lqr"])
+```
+
+Or use in a YAML config file:
+
+```yaml
+# experiments/configs/my_tuned_riccati.yaml
+controller: riccati_lqr
+riccati_lqr:
+  dt: 0.01
+  q_pos: [0.00012, 0.00012, 16.5]   # Values from tuning
+  q_vel: [0.0035, 0.0035, 4.2]
+  r_controls: [1.1, 1.0, 1.0, 1.0]
+```
+
+### Edge Cases and Warnings
+
+1. **DARE Solver Failure**: If the Riccati equation cannot be solved (e.g.,
+   ill-conditioned matrices), the controller falls back to heuristic LQR gains.
+   A warning is logged but tuning continues.
+
+2. **Narrow Q/R Ranges**: Very narrow ranges effectively fix parameters. Useful
+   for ablation studies. Logs a warning but proceeds normally.
+
+3. **Wide Q/R Ranges**: Extremely wide ranges may produce unstable configurations.
+   The DARE solver handles most cases gracefully.
+
+4. **XY Position Costs**: Keep `q_pos[x]` and `q_pos[y]` small (< 0.001) to
+   prevent actuator saturation from the meter→rad/s mapping.
+
+### Riccati vs Heuristic LQR Tuning
+
+| Aspect | Riccati-LQR | Heuristic LQR |
+|--------|-------------|---------------|
+| Feedback gains | DARE-solved optimal | Approximate formula |
+| Parameters | Full Q/R matrices | Scalar weights |
+| Accuracy | Mathematically optimal | Reasonable approximation |
+| Speed | Slightly slower (solver) | Fast |
+| Use case | Research, baselines | Practical deployment |
+
 ## Configuration File Reference
 
 ### Available Configuration Files

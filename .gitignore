@@ -63,6 +63,7 @@ reports/comparison/
 reports/baseline_*/
 reports/checkpoints_*/
 reports/logs_*/
+reports/tuning/
 !reports/.gitkeep
 !reports/plots/.gitkeep
 

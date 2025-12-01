@@ -586,3 +586,184 @@ class TestTuningIntegration:
         result = tuner.tune()
 
         assert result.iterations_completed == 2
+
+
+class TestRiccatiTuning:
+    """Tests for Riccati-LQR controller tuning."""
+
+    def test_riccati_controller_type_valid(self):
+        """Test that riccati_lqr controller type is accepted."""
+        config = TuningConfig(controller_type="riccati_lqr")
+        assert config.controller_type == "riccati_lqr"
+
+    def test_r_controls_range_validation(self):
+        """Test r_controls_range validation for Riccati-LQR."""
+        space = GainSearchSpace(
+            r_controls_range=([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0])
+        )
+        space.validate()  # Should not raise
+        assert "r_controls" in space.get_active_parameters()
+
+    def test_r_controls_range_wrong_dimension_raises(self):
+        """Test that r_controls_range with wrong dimensions raises ValueError."""
+        space = GainSearchSpace(
+            r_controls_range=([0.5, 0.5, 0.5], [2.0, 2.0, 2.0])  # Only 3 values
+        )
+        with pytest.raises(ValueError, match="exactly 4 values"):
+            space.validate()
+
+    def test_r_controls_range_inverted_raises(self):
+        """Test that inverted r_controls_range raises ValueError."""
+        space = GainSearchSpace(
+            r_controls_range=([2.0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5])  # min > max
+        )
+        with pytest.raises(ValueError, match="inverted range"):
+            space.validate()
+
+    def test_r_controls_range_negative_raises(self):
+        """Test that negative r_controls_range raises ValueError."""
+        space = GainSearchSpace(
+            r_controls_range=([-0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0])
+        )
+        with pytest.raises(ValueError, match="negative minimum"):
+            space.validate()
+
+    def test_r_controls_range_from_dict(self):
+        """Test creating search space with r_controls_range from dictionary."""
+        config = {
+            "q_pos_range": ([0.0001, 0.0001, 16.0], [0.001, 0.001, 25.0]),
+            "r_controls_range": ([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0]),
+        }
+        space = GainSearchSpace.from_dict(config)
+        assert space.q_pos_range == ([0.0001, 0.0001, 16.0], [0.001, 0.001, 25.0])
+        assert space.r_controls_range == ([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0])
+
+    def test_r_controls_range_to_dict(self):
+        """Test converting search space with r_controls_range to dictionary."""
+        space = GainSearchSpace(
+            r_controls_range=([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0])
+        )
+        d = space.to_dict()
+        assert d["r_controls_range"] == ([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0])
+
+    def test_tuner_riccati_controller(self, tmp_path):
+        """Test tuning Riccati-LQR controller."""
+        config = TuningConfig(
+            controller_type="riccati_lqr",
+            search_space=GainSearchSpace(
+                q_pos_range=([0.0001, 0.0001, 16.0], [0.0001, 0.0001, 16.0]),
+                r_controls_range=([1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]),
+            ),
+            strategy="random",
+            max_iterations=2,
+            evaluation_episodes=1,
+            evaluation_horizon=100,
+            episode_length=1.0,
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+        )
+
+        tuner = ControllerTuner(config)
+        result = tuner.tune()
+
+        assert result.iterations_completed == 2
+        assert result.best_config is not None
+
+    def test_generate_random_config_riccati(self, tmp_path):
+        """Test random configuration generation for Riccati-LQR."""
+        config = TuningConfig(
+            controller_type="riccati_lqr",
+            search_space=GainSearchSpace(
+                q_pos_range=([0.00005, 0.00005, 10.0], [0.0005, 0.0005, 25.0]),
+                q_vel_range=([0.001, 0.001, 2.0], [0.01, 0.01, 8.0]),
+                r_controls_range=([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0]),
+            ),
+            strategy="random",
+            seed=42,
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        random_config = tuner._generate_random_config()
+
+        # Should have Q and R parameters
+        assert "q_pos" in random_config
+        assert "q_vel" in random_config
+        assert "r_controls" in random_config
+
+        # Validate q_pos values are within ranges
+        q_pos = random_config["q_pos"]
+        assert 0.00005 <= q_pos[0] <= 0.0005
+        assert 0.00005 <= q_pos[1] <= 0.0005
+        assert 10.0 <= q_pos[2] <= 25.0
+
+        # Validate r_controls values are within ranges
+        r_controls = random_config["r_controls"]
+        assert len(r_controls) == 4
+        for i in range(4):
+            assert 0.5 <= r_controls[i] <= 2.0
+
+    def test_generate_grid_configs_riccati(self, tmp_path):
+        """Test grid configuration generation for Riccati-LQR."""
+        config = TuningConfig(
+            controller_type="riccati_lqr",
+            search_space=GainSearchSpace(
+                r_controls_range=([0.5, 0.5, 0.5, 0.5], [1.5, 1.5, 1.5, 1.5]),
+            ),
+            strategy="grid",
+            grid_points_per_dim=2,
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        configs = tuner._generate_grid_configs()
+
+        # 2 points per dim, 4 dims = 2^4 = 16 configs
+        assert len(configs) == 16
+
+        # Each config should have r_controls with 4 values
+        for cfg in configs:
+            assert "r_controls" in cfg
+            assert len(cfg["r_controls"]) == 4
+
+    def test_end_to_end_riccati_tuning(self, tmp_path):
+        """Test complete Riccati-LQR tuning workflow."""
+        config = TuningConfig(
+            controller_type="riccati_lqr",
+            search_space=GainSearchSpace(
+                q_pos_range=([0.00008, 0.00008, 14.0], [0.00012, 0.00012, 18.0]),
+                q_vel_range=([0.003, 0.003, 3.5], [0.004, 0.004, 4.5]),
+                r_controls_range=([0.8, 0.8, 0.8, 0.8], [1.2, 1.2, 1.2, 1.2]),
+            ),
+            strategy="random",
+            max_iterations=3,
+            evaluation_episodes=2,
+            evaluation_horizon=200,
+            episode_length=2.0,
+            target_motion_type="stationary",
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+        )
+
+        tuner = ControllerTuner(config)
+        result = tuner.tune()
+
+        # Verify result structure
+        assert result.iterations_completed == 3
+        assert result.best_config is not None
+        assert "q_pos" in result.best_config
+        assert "q_vel" in result.best_config
+        assert "r_controls" in result.best_config
+        assert 0 <= result.best_metrics["mean_on_target_ratio"] <= 1
+        assert result.best_metrics["mean_tracking_error"] >= 0
+
+        # Verify files saved
+        output_dir = tmp_path / "tuning"
+        assert len(list(output_dir.glob("*_results.json"))) == 1
+        assert len(list(output_dir.glob("*_best_config.json"))) == 1
+
+        # Verify serialized config contains riccati_lqr
+        results_files = list(output_dir.glob("*_results.json"))
+        with open(results_files[0]) as f:
+            data = json.load(f)
+            assert data["config"]["controller_type"] == "riccati_lqr"

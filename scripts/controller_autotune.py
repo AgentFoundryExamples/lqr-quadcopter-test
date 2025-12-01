@@ -2,8 +2,8 @@
 """
 Controller Auto-Tuning CLI Script
 
-This script provides a command-line interface for auto-tuning PID and LQR
-controller gains. It supports grid search and random search strategies,
+This script provides a command-line interface for auto-tuning PID, LQR, and
+Riccati-LQR controller gains. It supports grid search and random search strategies,
 deterministic seeding for reproducibility, and can resume from interrupted runs.
 
 Usage Examples:
@@ -25,6 +25,11 @@ Usage Examples:
     # LQR tuning
     python scripts/controller_autotune.py --controller lqr \\
         --q-pos-range 0.00001,0.00001,10.0 0.001,0.001,25.0
+
+    # Riccati-LQR tuning with Q/R cost weights
+    python scripts/controller_autotune.py --controller riccati_lqr \\
+        --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0 \\
+        --r-controls-range 0.5,0.5,0.5,0.5 2.0,2.0,2.0,2.0
 
 Environment Variables:
     TUNING_OUTPUT_DIR: Override default output directory for tuning results
@@ -65,10 +70,23 @@ def parse_vector_arg(value: str) -> list[float]:
         raise argparse.ArgumentTypeError(f"Invalid vector format: {value}. {e}")
 
 
+def parse_4d_vector_arg(value: str) -> list[float]:
+    """Parse comma-separated 4D vector like '1.0,1.0,1.0,1.0'."""
+    try:
+        parts = value.split(",")
+        if len(parts) != 4:
+            raise ValueError(
+                f"Expected 4 values for [thrust,roll,pitch,yaw], got {len(parts)}"
+            )
+        return [float(p.strip()) for p in parts]
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"Invalid 4D vector format: {value}. {e}")
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Auto-tune PID or LQR controller gains",
+        description="Auto-tune PID, LQR, or Riccati-LQR controller gains",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -82,6 +100,10 @@ Examples:
   # Tune LQR controller
   python scripts/controller_autotune.py --controller lqr \\
       --q-pos-range 0.00001,0.00001,10.0 0.001,0.001,25.0
+
+  # Tune Riccati-LQR controller with Q/R weights
+  python scripts/controller_autotune.py --controller riccati_lqr \\
+      --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0
 
   # Resume from previous tuning run
   python scripts/controller_autotune.py --resume reports/tuning/results.json
@@ -99,7 +121,7 @@ Examples:
     parser.add_argument(
         "--controller",
         type=str,
-        choices=["pid", "lqr"],
+        choices=["pid", "lqr", "riccati_lqr"],
         default="pid",
         help="Controller type to tune (default: pid)",
     )
@@ -208,6 +230,18 @@ Examples:
         help="LQR rate cost weight range",
     )
 
+    # Riccati-LQR specific ranges
+    parser.add_argument(
+        "--r-controls-range",
+        nargs=2,
+        type=parse_4d_vector_arg,
+        metavar=("MIN", "MAX"),
+        help=(
+            "Riccati-LQR control cost weights range "
+            "[thrust,roll,pitch,yaw], e.g., '0.5,0.5,0.5,0.5' '2.0,2.0,2.0,2.0'"
+        ),
+    )
+
     # Evaluation parameters
     parser.add_argument(
         "--episodes",
@@ -302,6 +336,9 @@ def build_search_space(args: argparse.Namespace) -> GainSearchSpace:
         q_vel_range=tuple(args.q_vel_range) if args.q_vel_range else None,
         r_thrust_range=tuple(args.r_thrust_range) if args.r_thrust_range else None,
         r_rate_range=tuple(args.r_rate_range) if args.r_rate_range else None,
+        r_controls_range=(
+            tuple(args.r_controls_range) if args.r_controls_range else None
+        ),
     )
 
 
@@ -319,6 +356,15 @@ def get_default_search_space(controller_type: str) -> GainSearchSpace:
             # Default LQR cost weight ranges
             q_pos_range=([0.00005, 0.00005, 10.0], [0.0005, 0.0005, 25.0]),
             q_vel_range=([0.001, 0.001, 2.0], [0.01, 0.01, 8.0]),
+        )
+    elif controller_type == "riccati_lqr":
+        return GainSearchSpace(
+            # Default Riccati-LQR cost weight ranges
+            # Q weights for position and velocity (matched to heuristic LQR defaults)
+            q_pos_range=([0.00005, 0.00005, 10.0], [0.0005, 0.0005, 25.0]),
+            q_vel_range=([0.001, 0.001, 2.0], [0.01, 0.01, 8.0]),
+            # R weights for controls [thrust, roll, pitch, yaw]
+            r_controls_range=([0.5, 0.5, 0.5, 0.5], [2.0, 2.0, 2.0, 2.0]),
         )
     else:
         return GainSearchSpace()
