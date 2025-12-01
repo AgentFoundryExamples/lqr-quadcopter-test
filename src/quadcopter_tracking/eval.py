@@ -645,14 +645,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--episodes",
         type=int,
-        default=10,
-        help="Number of evaluation episodes",
+        default=None,  # None allows detecting explicit CLI usage
+        help="Number of evaluation episodes (default: 10)",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
-        help="Base random seed",
+        default=None,
+        help="Base random seed (default: 42)",
     )
     parser.add_argument(
         "--max-steps",
@@ -664,29 +664,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--motion-type",
         type=str,
-        default="circular",
+        default=None,
         choices=["linear", "circular", "sinusoidal", "figure8", "stationary"],
-        help="Target motion type",
+        help="Target motion type (default: circular)",
     )
     parser.add_argument(
         "--episode-length",
         type=float,
-        default=30.0,
-        help="Episode duration in seconds",
+        default=None,
+        help="Episode duration in seconds (default: 30.0)",
     )
     parser.add_argument(
         "--target-radius",
         type=float,
-        default=0.5,
-        help="On-target radius threshold in meters",
+        default=None,
+        help="On-target radius threshold in meters (default: 0.5)",
     )
 
     # Output options
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="reports",
-        help="Output directory for reports and plots",
+        default=None,
+        help="Output directory for reports and plots (default: reports)",
     )
     parser.add_argument(
         "--no-plots",
@@ -741,7 +741,7 @@ def main() -> int:
 
     # Run sweep if specified
     if args.sweep:
-        run_hyperparameter_sweep(args.sweep, args.output_dir)
+        run_hyperparameter_sweep(args.sweep, args.output_dir or "reports/sweeps")
         return 0
 
     # Load evaluation config from file if provided
@@ -749,6 +749,20 @@ def main() -> int:
 
     # Get controller-specific config from eval_config
     controller_config = eval_config.get(args.controller, {})
+
+    # Helper to resolve value: CLI (if set) > YAML > default
+    def resolve(cli_val, yaml_key, default):
+        if cli_val is not None:
+            return cli_val
+        return eval_config.get(yaml_key, default)
+
+    # Resolve evaluation parameters
+    num_episodes = resolve(args.episodes, "num_episodes", 10)
+    seed = resolve(args.seed, "seed", 42)
+    motion_type = resolve(args.motion_type, "target_motion_type", "circular")
+    episode_length = resolve(args.episode_length, "episode_length", 30.0)
+    target_radius = resolve(args.target_radius, "target_radius", 0.5)
+    output_dir = resolve(args.output_dir, "output_dir", "reports")
 
     # Load controller with config
     try:
@@ -763,22 +777,15 @@ def main() -> int:
 
     # Setup environment config
     env_config = EnvConfig()
-    # Use config file values if present, else CLI args
-    env_config.target.motion_type = eval_config.get(
-        "target_motion_type", args.motion_type
-    )
-    env_config.simulation.max_episode_time = eval_config.get(
-        "episode_length", args.episode_length
-    )
-    env_config.success_criteria.target_radius = eval_config.get(
-        "target_radius", args.target_radius
-    )
+    env_config.target.motion_type = motion_type
+    env_config.simulation.max_episode_time = episode_length
+    env_config.success_criteria.target_radius = target_radius
 
     # Setup success criteria
     criteria = SuccessCriteria(
         min_on_target_ratio=0.8,
-        min_episode_duration=eval_config.get("episode_length", args.episode_length),
-        target_radius=eval_config.get("target_radius", args.target_radius),
+        min_episode_duration=episode_length,
+        target_radius=target_radius,
     )
 
     # Create evaluator
@@ -786,13 +793,13 @@ def main() -> int:
         controller=controller,
         env_config=env_config,
         criteria=criteria,
-        output_dir=eval_config.get("output_dir", args.output_dir),
+        output_dir=output_dir,
     )
 
     # Run evaluation
     summary = evaluator.evaluate(
-        num_episodes=eval_config.get("num_episodes", args.episodes),
-        base_seed=eval_config.get("seed", args.seed),
+        num_episodes=num_episodes,
+        base_seed=seed,
         max_steps_per_episode=args.max_steps,
     )
 
