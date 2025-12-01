@@ -280,10 +280,10 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 41.25 KB  
-**LOC:** 878  
+**Size:** 56.92 KB  
+**LOC:** 1192  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 7  
+**Declarations:** 10  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -292,6 +292,9 @@ Total files: 20
   - class TestPIDController
   - class TestLQRController
   - class TestClassicalControllerIntegration
+  - function create_hover_observation
+  - function create_hover_env_config
+  - class TestHoverThrustIntegration
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 

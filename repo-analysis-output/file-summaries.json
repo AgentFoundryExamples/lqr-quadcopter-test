@@ -596,10 +596,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 42236,
-        "loc": 878,
+        "size_bytes": 58291,
+        "loc": 1192,
         "todo_count": 0,
-        "declaration_count": 7
+        "declaration_count": 10
       },
       "structure": {
         "declarations": [
@@ -609,7 +609,10 @@
           "class TestIntegration",
           "class TestPIDController",
           "class TestLQRController",
-          "class TestClassicalControllerIntegration"
+          "class TestClassicalControllerIntegration",
+          "function create_hover_observation",
+          "function create_hover_env_config",
+          "class TestHoverThrustIntegration"
         ]
       },
       "dependencies": {
