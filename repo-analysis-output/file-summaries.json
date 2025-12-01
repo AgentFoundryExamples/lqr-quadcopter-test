@@ -103,8 +103,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 26668,
-        "loc": 448,
+        "size_bytes": 26866,
+        "loc": 450,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -411,8 +411,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 26067,
-        "loc": 650,
+        "size_bytes": 26783,
+        "loc": 666,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -456,7 +456,7 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 46351,
+        "size_bytes": 46323,
         "loc": 938,
         "todo_count": 0,
         "declaration_count": 5
@@ -771,10 +771,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 26002,
-        "loc": 563,
+        "size_bytes": 31822,
+        "loc": 675,
         "todo_count": 0,
-        "declaration_count": 10
+        "declaration_count": 11
       },
       "structure": {
         "declarations": [
@@ -787,7 +787,8 @@
           "class TestIntegration",
           "class TestControllerSelectionEval",
           "class TestActionSchema",
-          "class TestControllerConfigPropagation"
+          "class TestControllerConfigPropagation",
+          "class TestRiccatiControllerSelection"
         ]
       },
       "dependencies": {
@@ -810,8 +811,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 41261,
-        "loc": 889,
+        "size_bytes": 43414,
+        "loc": 929,
         "todo_count": 0,
         "declaration_count": 11
       },

@@ -51,8 +51,8 @@ Total files: 24
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 26.04 KB  
-**LOC:** 448  
+**Size:** 26.24 KB  
+**LOC:** 450  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -200,8 +200,8 @@ Total files: 24
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 25.46 KB  
-**LOC:** 650  
+**Size:** 26.16 KB  
+**LOC:** 666  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -220,7 +220,7 @@ Total files: 24
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 45.26 KB  
+**Size:** 45.24 KB  
 **LOC:** 938  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
@@ -371,10 +371,10 @@ Total files: 24
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 25.39 KB  
-**LOC:** 563  
+**Size:** 31.08 KB  
+**LOC:** 675  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 10  
+**Declarations:** 11  
 **Top-level declarations:**
   - class TestMetrics
   - class TestEpisodeMetrics
@@ -386,6 +386,7 @@ Total files: 24
   - class TestControllerSelectionEval
   - class TestActionSchema
   - class TestControllerConfigPropagation
+  - ... and 1 more
 **External Dependencies:**
   - **Third-party:** `matplotlib.pyplot`, `numpy`, `pytest`
 
@@ -393,8 +394,8 @@ Total files: 24
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 40.29 KB  
-**LOC:** 889  
+**Size:** 42.40 KB  
+**LOC:** 929  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 11  
 **Top-level declarations:**
