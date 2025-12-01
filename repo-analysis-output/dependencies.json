@@ -66,6 +66,20 @@
       }
     },
     {
+      "id": "src/quadcopter_tracking/controllers/riccati_lqr.py",
+      "path": "src/quadcopter_tracking/controllers/riccati_lqr.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging"
+        ],
+        "third-party": [
+          "numpy",
+          "scipy.linalg.solve_discrete_are"
+        ]
+      }
+    },
+    {
       "id": "src/quadcopter_tracking/env/__init__.py",
       "path": "src/quadcopter_tracking/env/__init__.py",
       "type": "file",
@@ -377,6 +391,14 @@
       "target": "src/quadcopter_tracking/controllers/__init__.py"
     },
     {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/train.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/eval.py"
+    },
+    {
       "source": "tests/test_eval.py",
       "target": "src/quadcopter_tracking/controllers/__init__.py"
     },
@@ -441,6 +463,7 @@
       "matplotlib.pyplot",
       "numpy",
       "pytest",
+      "scipy.linalg.solve_discrete_are",
       "torch",
       "torch.nn",
       "torch.nn.functional",
@@ -448,6 +471,6 @@
       "yaml"
     ],
     "stdlib_count": 19,
-    "third-party_count": 10
+    "third-party_count": 11
   }
 }

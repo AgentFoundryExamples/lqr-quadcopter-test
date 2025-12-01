@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 20,
+  "total_files": 21,
   "files": [
     {
       "schema_version": "2.0",
@@ -63,8 +63,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 26313,
-        "loc": 435,
+        "size_bytes": 26480,
+        "loc": 438,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -152,6 +152,42 @@
             "numpy",
             "torch",
             "torch.nn"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/controllers/riccati_lqr.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 19840,
+        "loc": 407,
+        "todo_count": 0,
+        "declaration_count": 6
+      },
+      "structure": {
+        "declarations": [
+          "function _is_positive_semidefinite",
+          "function _is_positive_definite",
+          "function solve_dare",
+          "function build_linearized_system",
+          "function _validate_observation",
+          "class RiccatiLQRController"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "logging"
+          ],
+          "third-party": [
+            "numpy",
+            "scipy.linalg.solve_discrete_are"
           ]
         }
       }
@@ -288,8 +324,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 25917,
-        "loc": 647,
+        "size_bytes": 26067,
+        "loc": 650,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -333,8 +369,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 45844,
-        "loc": 931,
+        "size_bytes": 46351,
+        "loc": 938,
         "todo_count": 0,
         "declaration_count": 5
       },
@@ -604,10 +640,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 92956,
-        "loc": 1870,
+        "size_bytes": 116641,
+        "loc": 2326,
         "todo_count": 0,
-        "declaration_count": 12
+        "declaration_count": 16
       },
       "structure": {
         "declarations": [
@@ -622,7 +658,11 @@
           "function create_hover_env_config",
           "class TestHoverThrustIntegration",
           "class TestAxisSignConventions",
-          "class TestFeedforwardSupport"
+          "class TestFeedforwardSupport",
+          "class TestRiccatiLQRController",
+          "class TestRiccatiLQRValidation",
+          "class TestRiccatiLQRIntegration",
+          "class TestRiccatiLQRComparison"
         ]
       },
       "dependencies": {
@@ -683,8 +723,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 41045,
-        "loc": 885,
+        "size_bytes": 41261,
+        "loc": 889,
         "todo_count": 0,
         "declaration_count": 11
       },

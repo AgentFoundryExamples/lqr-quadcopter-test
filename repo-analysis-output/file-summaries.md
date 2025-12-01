@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 20
+Total files: 21
 
 ## scripts/generate_comparison_report.py
 **Language:** Python  
@@ -31,8 +31,8 @@ Total files: 20
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 25.70 KB  
-**LOC:** 435  
+**Size:** 25.86 KB  
+**LOC:** 438  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -74,6 +74,25 @@ Total files: 20
 **External Dependencies:**
   - **Stdlib:** `json`, `logging`, `pathlib.Path`, `typing.Literal`
   - **Third-party:** `numpy`, `torch`, `torch.nn`
+
+## src/quadcopter_tracking/controllers/riccati_lqr.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 19.38 KB  
+**LOC:** 407  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 6  
+**Top-level declarations:**
+  - function _is_positive_semidefinite
+  - function _is_positive_definite
+  - function solve_dare
+  - function build_linearized_system
+  - function _validate_observation
+  - class RiccatiLQRController
+**External Dependencies:**
+  - **Stdlib:** `logging`
+  - **Third-party:** `numpy`, `scipy.linalg.solve_discrete_are`
 
 ## src/quadcopter_tracking/env/__init__.py
 **Language:** Python  
@@ -139,8 +158,8 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 25.31 KB  
-**LOC:** 647  
+**Size:** 25.46 KB  
+**LOC:** 650  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -159,8 +178,8 @@ Total files: 20
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 44.77 KB  
-**LOC:** 931  
+**Size:** 45.26 KB  
+**LOC:** 938  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 5  
 **Top-level declarations:**
@@ -287,10 +306,10 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 90.78 KB  
-**LOC:** 1870  
+**Size:** 113.91 KB  
+**LOC:** 2326  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 12  
+**Declarations:** 16  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -302,7 +321,7 @@ Total files: 20
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
-  - ... and 2 more
+  - ... and 6 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 
@@ -332,8 +351,8 @@ Total files: 20
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 40.08 KB  
-**LOC:** 885  
+**Size:** 40.29 KB  
+**LOC:** 889  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 11  
 **Top-level declarations:**

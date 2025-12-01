@@ -84,6 +84,10 @@
             },
             {
               "type": "file",
+              "name": "eval_riccati_lqr_baseline.yaml"
+            },
+            {
+              "type": "file",
               "name": "eval_stationary_baseline.yaml"
             },
             {
@@ -193,6 +197,10 @@
                 {
                   "type": "file",
                   "name": "deep_tracking_policy.py"
+                },
+                {
+                  "type": "file",
+                  "name": "riccati_lqr.py"
                 }
               ]
             },

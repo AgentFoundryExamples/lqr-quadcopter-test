@@ -18,6 +18,7 @@
     ├── diagnostics_linear.yaml
     ├── diagnostics_stationary.yaml
     ├── eval_circular_baseline.yaml
+    ├── eval_riccati_lqr_baseline.yaml
     ├── eval_stationary_baseline.yaml
     ├── training_default.yaml
     ├── training_fast.yaml
@@ -42,7 +43,8 @@
     ├── controllers
       ├── __init__.py
       ├── base.py
-      └── deep_tracking_policy.py
+      ├── deep_tracking_policy.py
+      └── riccati_lqr.py
     ├── env
       ├── __init__.py
       ├── config.py
