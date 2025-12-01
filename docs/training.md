@@ -1513,26 +1513,30 @@ from scipy.linalg import solve_discrete_are
 
 def validate_riccati_inputs(q_pos, q_vel, r_controls, dt=0.01):
     """Validate Q and R matrices for DARE solver."""
+    # Numerical tolerances for validation
+    EIGENVALUE_TOLERANCE = -1e-10  # Allow tiny negative due to floating-point
+    CONDITION_NUMBER_THRESHOLD = 1e12  # Maximum acceptable condition number
+    
     # Build Q matrix
     Q = np.diag(np.concatenate([q_pos, q_vel]))
     R = np.diag(r_controls)
     
-    # Check positive semi-definite (Q)
+    # Check positive semi-definite (Q): all eigenvalues >= 0
     eigvals_Q = np.linalg.eigvalsh(Q)
-    if any(eigvals_Q < -1e-10):
+    if any(eigvals_Q < EIGENVALUE_TOLERANCE):
         print(f"WARNING: Q has negative eigenvalues: {eigvals_Q}")
         return False
     
-    # Check positive definite (R)
+    # Check positive definite (R): all eigenvalues > 0
     eigvals_R = np.linalg.eigvalsh(R)
     if any(eigvals_R <= 0):
         print(f"ERROR: R must be positive definite. Eigenvalues: {eigvals_R}")
         return False
     
-    # Check condition number
+    # Check condition number (ill-conditioned matrices cause solver issues)
     cond_Q = np.linalg.cond(Q)
     cond_R = np.linalg.cond(R)
-    if cond_Q > 1e12 or cond_R > 1e12:
+    if cond_Q > CONDITION_NUMBER_THRESHOLD or cond_R > CONDITION_NUMBER_THRESHOLD:
         print(f"WARNING: Ill-conditioned matrices. cond(Q)={cond_Q:.2e}, cond(R)={cond_R:.2e}")
     
     print("Matrices are valid for DARE solver")
@@ -1567,7 +1571,7 @@ python scripts/controller_autotune.py \
 
 ### Avoiding Stale Tuning Outputs
 
-> ⚠️ **Warning**: Tuning results are specific to the environment configuration. Using gains from a different mass, gravity, or timestep may cause instability.
+> ⚠️ **Warning**: Tuning results are specific to the environment configuration. Using gains from a different mass, gravity, or timestep may cause instability. See also: [docs/results.md](results.md#mixing-stale-tuning-outputs-with-new-environment-parameters) for validation steps.
 
 Best practices:
 1. Archive old results before changing environment: `mv reports/tuning reports/tuning_v1`

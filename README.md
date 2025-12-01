@@ -901,7 +901,7 @@ python -m quadcopter_tracking.train \
 
 **Stale Tuning Outputs**
 
-> ⚠️ **Warning**: Do not mix tuning results from different environment parameters (mass, gravity, dt). Gains optimized for one configuration may be unstable with different physics.
+> ⚠️ **Warning**: Do not mix tuning results from different environment parameters (mass, gravity, dt). Gains optimized for one configuration may be unstable with different physics. See [docs/results.md](docs/results.md#mixing-stale-tuning-outputs-with-new-environment-parameters) for detailed guidance.
 
 If you changed environment parameters:
 1. Delete or archive old tuning results: `mv reports/tuning reports/tuning_old`
