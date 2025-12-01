@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-01
+
+### Fixed
+
+- **Hover Thrust Feedforward**: PID and LQR controllers now correctly include hover thrust (`mass × gravity`) as a baseline feedforward term. At zero tracking error (quadcopter at target), controllers output the exact hover thrust required to maintain altitude (~9.81N for default 1kg mass).
+
+- **Sign Convention Verification**: Added comprehensive regression tests verifying controller output signs match environment dynamics:
+  - Positive X error → positive pitch_rate (produces +X velocity)
+  - Positive Y error → negative roll_rate (produces -Y velocity, per environment convention)
+
+- **Stationary Target Default**: Target motion type now defaults to `stationary` for predictable baseline evaluations. This ensures PID/LQR controllers achieve >80% on-target ratio out of the box.
+
+### Added
+
+- **Hover Thrust Integration Tests**: New `TestHoverThrustIntegration` test class with parametrized tests covering:
+  - PID/LQR hover thrust accuracy (within 0.5N tolerance)
+  - Mass/gravity scaling verification
+  - Zero-thrust regression guards
+  - Multi-step stability tests
+
+- **Axis Sign Convention Tests**: New `TestAxisSignConventions` test class verifying:
+  - Environment dynamics (pitch→X, roll→Y)
+  - Controller output sign conventions
+  - Convergence to stationary targets
+  - Initial acceleration direction toward target
+
+### Changed
+
+- **Documentation Updates**: README and docs/results.md now include:
+  - Hover test verification commands
+  - Expected success criteria (>80% on-target for stationary)
+  - Guidance for users with custom mass/gravity configurations
+
+### Migration from v0.2.0
+
+- **Action Required for Custom Configs**: If you have custom configurations with non-default mass or gravity values, ensure your controller initialization passes these values explicitly:
+  ```python
+  controller = PIDController(config={"mass": your_mass, "gravity": your_gravity})
+  controller = LQRController(config={"mass": your_mass, "gravity": your_gravity})
+  ```
+  Controllers now use these values to compute `hover_thrust = mass × gravity`.
+
+- **DeepTrackingPolicy Unchanged**: The neural network controller (`DeepTrackingPolicy`) was not modified in this release. It continues to learn thrust values from training data rather than using explicit hover feedforward.
+
+- **Verification**: Run hover tests to confirm correct behavior:
+  ```bash
+  python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+  ```
+
+[0.2.1]: https://github.com/AgentFoundryExamples/lqr-quadcopter-test/releases/tag/v0.2.1
+
 ## [0.2.0] - 2025-11-30
 
 ### Added

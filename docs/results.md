@@ -1,8 +1,8 @@
-# Evaluation Results Documentation (v0.2)
+# Evaluation Results Documentation (v0.2.1)
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
 
-> **v0.2 Update:** This version includes training diagnostics results, imitation learning mode findings, and updated comparison workflows. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
+> **v0.2.1 Update:** This version documents hover thrust feedforward fixes, stationary target defaults, and sign convention verification tests. PID and LQR controllers now achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
 
 ## Overview
 
@@ -13,6 +13,17 @@ The evaluation pipeline assesses controller performance against defined success 
 | Episode Duration | ≥ 30 seconds | Minimum time for valid evaluation |
 | On-Target Ratio | ≥ 80% | Fraction of time within target radius |
 | Target Radius | ≤ 0.5 meters | Distance threshold for "on-target" |
+
+### Expected Performance by Motion Type
+
+| Motion Type | Controller | Expected On-Target Ratio |
+|-------------|------------|-------------------------|
+| Stationary | PID/LQR | >80% (verified) |
+| Linear | PID/LQR | 70-90% |
+| Circular | PID/LQR | 70-90% |
+| Sinusoidal | PID/LQR | 60-80% |
+
+**Note:** Stationary target is now the default motion type. PID and LQR controllers are expected to achieve the 80% success threshold reliably on stationary targets.
 
 ## Running Evaluations
 
@@ -669,6 +680,8 @@ See [docs/training.md](training.md) for detailed configuration options.
 
 Integration tests verify that PID and LQR controllers output correct hover thrust when the quadcopter is at the target position with zero velocity.
 
+> **v0.2.1 Critical Fix:** Controllers now correctly include hover thrust feedforward (`hover_thrust = mass × gravity`). At zero tracking error, controllers output ~9.81N for default configuration, enabling stable hover and >80% on-target ratio for stationary targets.
+
 ### Running Hover Tests
 
 ```bash
@@ -681,6 +694,9 @@ python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration::test_lq
 
 # Run parametrized tests for various mass/gravity configurations
 python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v -k "parametrized"
+
+# Run axis sign convention tests
+python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 ```
 
 ### Test Coverage
@@ -692,6 +708,7 @@ python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v -k "p
 | Mass/Gravity Scaling | Various mass/gravity configurations | ±0.5N |
 | Regression Guards | Detect zero-thrust failures | >1.0N |
 | Multi-Step Stability | Thrust stability over time | ±0.5N |
+| Sign Conventions | Controller outputs match environment dynamics | Directional |
 
 ### Expected Hover Thrust
 
@@ -702,6 +719,22 @@ hover_thrust = mass × gravity
 ```
 
 Default configuration (mass=1.0kg, gravity=9.81m/s²) expects ~9.81N thrust at hover equilibrium.
+
+### Custom Mass/Gravity Configuration
+
+If using custom mass or gravity values, pass them explicitly to controller constructors:
+
+```python
+# For custom quadcopter with 1.5kg mass
+controller = PIDController(config={"mass": 1.5, "gravity": 9.81})
+# Expected hover thrust: 1.5 × 9.81 = 14.715N
+
+# For different planet/environment gravity
+controller = LQRController(config={"mass": 1.0, "gravity": 3.72})  # Mars gravity
+# Expected hover thrust: 1.0 × 3.72 = 3.72N
+```
+
+⚠️ **Important**: Controllers compute `hover_thrust = mass × gravity` internally. If your environment uses different physics parameters, ensure controller and environment configs match.
 
 ### Test Helper Functions
 
@@ -718,6 +751,21 @@ These helpers ensure consistent test setup across different hover verification t
 - **Fast**: Each test completes in <1s
 - **CI-Ready**: Suitable for continuous integration workflows
 - **Parameterized**: Tests cover multiple mass/gravity configurations
+
+## v0.2.1 Migration Notes
+
+### Upgrading from v0.2.0
+
+1. **Custom Mass/Gravity Users**: If you have custom configurations with non-default mass or gravity values, ensure your controller initialization passes these values explicitly. Controllers now use these values to compute hover thrust.
+
+2. **DeepTrackingPolicy Unchanged**: The neural network controller was not modified. It continues to learn thrust values from training data rather than using explicit hover feedforward.
+
+3. **Verification**: Run hover tests to confirm correct behavior:
+   ```bash
+   python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+   ```
+
+4. **Expected Results**: PID and LQR controllers should now achieve >80% on-target ratio for stationary targets with default configuration.
 
 ## v0.2 Migration Notes
 

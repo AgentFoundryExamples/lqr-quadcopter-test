@@ -1,6 +1,6 @@
 # Quadcopter Target Tracking Research
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -565,9 +565,15 @@ python -m quadcopter_tracking.train \
 
 See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for detailed low-resource guidance.
 
-## v0.2 Status and Known Limitations
+## v0.2.1 Status and Known Limitations
 
-**Release Date:** November 30, 2025
+**Release Date:** December 1, 2025
+
+**New in v0.2.1:**
+- ✅ Hover thrust feedforward properly documented and tested for PID/LQR
+- ✅ Stationary target as default motion type
+- ✅ Sign convention verification tests for controller/environment compatibility
+- ✅ Expected >80% on-target ratio for PID/LQR on stationary targets
 
 **New in v0.2:**
 - ✅ Training diagnostics system with step/epoch logging
@@ -577,7 +583,7 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 - ✅ Extended configuration presets
 
 **Implemented Features:**
-- ✅ PID and LQR classical controllers
+- ✅ PID and LQR classical controllers with hover feedforward
 - ✅ Deep learning training pipeline
 - ✅ Multiple training modes (tracking, imitation, reward-weighted)
 - ✅ Evaluation and comparison workflows
@@ -596,6 +602,11 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 - 🔲 True LQR with linearization
 - 🔲 Hardware-in-the-loop support
 - 🔲 Distributed training
+
+**Upgrading from v0.2.0:**
+- If using custom mass/gravity values, pass them explicitly to controller constructors
+- DeepTrackingPolicy is unchanged and continues to learn from training data
+- Run `python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v` to verify hover thrust
 
 **Upgrading from v0.1:**
 - No breaking changes; all v0.1 configurations and checkpoints remain compatible
