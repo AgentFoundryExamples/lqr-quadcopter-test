@@ -96,7 +96,31 @@ Controllers use these conventions to correctly map position errors to control ou
 - **+Y error** (target ahead in Y) → **-roll_rate** output
 - **+Z error** (target above) → **+thrust** adjustment
 
-These conventions are validated by regression tests in `tests/test_env_dynamics.py::TestAxisSignConventions`.
+These conventions are validated by regression tests in `tests/test_env_dynamics.py::TestAxisSignConventions` and `tests/test_env_dynamics.py::TestENUCoordinateFrame`.
+
+**ENU Frame Utilities:**
+
+The `quadcopter_tracking.utils.coordinate_frame` module provides constants, assertions, and helpers for ENU compliance:
+
+```python
+from quadcopter_tracking.utils import (
+    # Constants
+    AXIS_X, AXIS_Y, AXIS_Z,
+    GRAVITY_DIRECTION_ENU,  # [0, 0, -1]
+    PITCH_RATE_TO_X_VEL_SIGN,  # +1.0
+    ROLL_RATE_TO_Y_VEL_SIGN,   # -1.0
+    # Frame descriptor
+    ENU_FRAME,
+    get_current_frame,
+    # Assertions
+    assert_gravity_direction_enu,
+    assert_control_signs_enu,
+    assert_z_up,
+    # Validation
+    validate_observation_frame,
+    compute_position_error_enu,
+)
+```
 
 ### Observation Processing
 

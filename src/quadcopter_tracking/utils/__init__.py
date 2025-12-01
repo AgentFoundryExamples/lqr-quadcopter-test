@@ -7,11 +7,19 @@ This package provides shared utilities for the quadcopter tracking project:
 - Plotting utilities for visualization
 - Loss functions for training
 - Common math/helper functions
+- ENU coordinate frame utilities and assertions
+
+Coordinate Frame Convention (ENU):
+    - X-axis: East (positive direction)
+    - Y-axis: North (positive direction)
+    - Z-axis: Up (positive direction)
+    - Gravity acts in -Z direction
 
 Design Philosophy:
 - Utilities are stateless where possible
 - Configuration supports both file-based and environment variable sources
 - Logging captures enough data for post-hoc analysis
+- Single source of truth for coordinate frame conventions
 """
 
 import datetime
@@ -24,6 +32,32 @@ import numpy as np
 import yaml
 from dotenv import load_dotenv
 
+from .coordinate_frame import (
+    AXIS_X,
+    AXIS_Y,
+    AXIS_Z,
+    # Validation tolerance constants
+    DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD,
+    DIRECTION_DOT_PRODUCT_TOLERANCE,
+    ENU_FRAME,
+    GRAVITY_DIRECTION_ENU,
+    NED_FRAME,
+    PITCH_RATE_TO_X_VEL_SIGN,
+    ROLL_RATE_TO_Y_VEL_SIGN,
+    THRUST_DIRECTION_BODY,
+    THRUST_TO_Z_ACCEL_SIGN,
+    ZERO_MAGNITUDE_THRESHOLD,
+    CoordinateFrame,
+    ENUFrameError,
+    assert_control_signs_enu,
+    assert_gravity_direction_enu,
+    assert_thrust_direction_enu,
+    assert_z_up,
+    compute_expected_hover_thrust,
+    compute_position_error_enu,
+    get_current_frame,
+    validate_observation_frame,
+)
 from .diagnostics import (
     Diagnostics,
     DiagnosticsConfig,
@@ -84,6 +118,31 @@ __all__ = [
     "compute_gradient_stats",
     "compute_observation_stats",
     "compute_action_stats",
+    # Coordinate frame (ENU)
+    "AXIS_X",
+    "AXIS_Y",
+    "AXIS_Z",
+    "GRAVITY_DIRECTION_ENU",
+    "THRUST_DIRECTION_BODY",
+    "PITCH_RATE_TO_X_VEL_SIGN",
+    "ROLL_RATE_TO_Y_VEL_SIGN",
+    "THRUST_TO_Z_ACCEL_SIGN",
+    # Validation tolerance constants
+    "DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD",
+    "DIRECTION_DOT_PRODUCT_TOLERANCE",
+    "ZERO_MAGNITUDE_THRESHOLD",
+    "CoordinateFrame",
+    "ENU_FRAME",
+    "NED_FRAME",
+    "get_current_frame",
+    "ENUFrameError",
+    "assert_gravity_direction_enu",
+    "assert_thrust_direction_enu",
+    "assert_control_signs_enu",
+    "assert_z_up",
+    "validate_observation_frame",
+    "compute_expected_hover_thrust",
+    "compute_position_error_enu",
 ]
 
 logger = logging.getLogger(__name__)
