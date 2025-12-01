@@ -391,7 +391,12 @@ class Trainer:
         return self.config.training_mode in ("imitation", "reward_weighted")
 
     def _create_controller(self) -> BaseController:
-        """Create controller based on config type."""
+        """Create controller based on config type.
+
+        For classical controllers (PID, LQR), the controller_config is read from
+        the full_config dictionary under the controller type key (e.g., 'pid', 'lqr').
+        This allows YAML configs to specify controller-specific gains.
+        """
         config = self.config
 
         if config.controller == "deep":
@@ -407,9 +412,13 @@ class Trainer:
             }
             return DeepTrackingPolicy(config=controller_config, device=config.device)
         elif config.controller == "pid":
-            return PIDController(config={})
+            # Read PID gains from full_config['pid'] if available
+            controller_config = self.full_config.get("pid", {})
+            return PIDController(config=controller_config)
         elif config.controller == "lqr":
-            return LQRController(config={})
+            # Read LQR weights from full_config['lqr'] if available
+            controller_config = self.full_config.get("lqr", {})
+            return LQRController(config=controller_config)
         else:
             raise ValueError(f"Unknown controller type: {config.controller}")
 
@@ -426,9 +435,7 @@ class Trainer:
         elif supervisor_type == "lqr":
             return LQRController(config=supervisor_config)
         else:
-            raise ValueError(
-                f"Unknown supervisor controller type: {supervisor_type}"
-            )
+            raise ValueError(f"Unknown supervisor controller type: {supervisor_type}")
 
     def _warn_incompatible_options(self) -> None:
         """Warn about options that don't apply to classical controllers."""

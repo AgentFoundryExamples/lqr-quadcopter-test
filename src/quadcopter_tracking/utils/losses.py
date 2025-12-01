@@ -84,18 +84,15 @@ class TrackingLoss(nn.Module):
             return torch.eye(dim, dtype=torch.float32, device=self.device) * weight
         elif isinstance(weight, np.ndarray):
             if weight.shape == ():
-                return (
-                    torch.eye(dim, dtype=torch.float32, device=self.device)
-                    * float(weight)
+                return torch.eye(dim, dtype=torch.float32, device=self.device) * float(
+                    weight
                 )
             elif weight.shape == (dim,):
                 return torch.diag(
                     torch.tensor(weight, dtype=torch.float32, device=self.device)
                 )
             elif weight.shape == (dim, dim):
-                return torch.tensor(
-                    weight, dtype=torch.float32, device=self.device
-                )
+                return torch.tensor(weight, dtype=torch.float32, device=self.device)
             else:
                 raise ValueError(
                     f"Weight shape {weight.shape} incompatible with dim {dim}"

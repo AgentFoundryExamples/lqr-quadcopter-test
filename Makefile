@@ -97,22 +97,23 @@ eval-lqr:
 # WORKFLOW 1: Baseline PID/LQR Evaluation
 # =============================================================================
 # Evaluate classical controllers on predefined baseline configurations
+# These targets use YAML configs to specify documented controller gains
 
 eval-baseline-stationary:
 	@echo "=== Evaluating PID on stationary target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller pid --motion-type stationary --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_pid
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_pid
 	@echo ""
 	@echo "=== Evaluating LQR on stationary target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type stationary --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_lqr
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_lqr
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_stationary_*/"
 
 eval-baseline-circular:
 	@echo "=== Evaluating PID on circular target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller pid --motion-type circular --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_pid
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_pid
 	@echo ""
 	@echo "=== Evaluating LQR on circular target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type circular --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_lqr
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_lqr
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_circular_*/"
 

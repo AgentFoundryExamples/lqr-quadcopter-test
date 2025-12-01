@@ -780,6 +780,55 @@ class TestControllerSelection:
         for entry in trainer.experiment_log:
             assert entry["controller"] == "pid"
 
+    def test_pid_receives_config_from_yaml(self, base_config, tmp_path):
+        """Test that PID controller receives gains from full_config."""
+        base_config["controller"] = "pid"
+        base_config["pid"] = {
+            "kp_pos": [0.02, 0.02, 5.0],
+            "ki_pos": [0.0, 0.0, 0.0],
+            "kd_pos": [0.08, 0.08, 2.5],
+        }
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Verify PID controller received custom gains
+        np.testing.assert_array_almost_equal(
+            trainer.controller.kp_pos, [0.02, 0.02, 5.0]
+        )
+        np.testing.assert_array_almost_equal(
+            trainer.controller.kd_pos, [0.08, 0.08, 2.5]
+        )
+
+    def test_lqr_receives_config_from_yaml(self, base_config, tmp_path):
+        """Test that LQR controller receives weights from full_config."""
+        base_config["controller"] = "lqr"
+        base_config["lqr"] = {
+            "q_pos": [0.001, 0.001, 20.0],
+            "q_vel": [0.01, 0.01, 5.0],
+            "r_thrust": 2.0,
+            "r_rate": 0.5,
+        }
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Verify LQR controller was created with a K matrix
+        assert trainer.controller.K is not None
+        assert trainer.controller.K.shape == (4, 6)
+
+    def test_classical_controller_uses_defaults_without_yaml_config(
+        self, base_config, tmp_path
+    ):
+        """Test that controllers use defaults when no YAML config provided."""
+        base_config["controller"] = "pid"
+        # No 'pid' section in config
+        config = TrainingConfig.from_dict(base_config)
+        trainer = Trainer(config)
+
+        # Verify default gains were used
+        np.testing.assert_array_almost_equal(
+            trainer.controller.kp_pos, [0.01, 0.01, 4.0]
+        )
+
 
 class TestIntegration:
     """Integration tests for the complete training pipeline."""

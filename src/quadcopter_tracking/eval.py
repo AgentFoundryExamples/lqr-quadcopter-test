@@ -207,9 +207,7 @@ class Evaluator:
             self.episode_info_list.append(info)
 
             # Compute metrics for this episode
-            metrics = compute_episode_metrics(
-                episode_data, self.criteria, info
-            )
+            metrics = compute_episode_metrics(episode_data, self.criteria, info)
             episode_metrics_list.append(metrics)
 
             if verbose:
@@ -565,14 +563,16 @@ def run_hyperparameter_sweep(
                 verbose=False,
             )
 
-            results.append({
-                "name": config.get("name", f"config_{i}"),
-                "config": config,
-                "mean_on_target_ratio": summary.mean_on_target_ratio,
-                "success_rate": summary.success_rate,
-                "mean_tracking_error": summary.mean_tracking_error,
-                "meets_criteria": summary.meets_criteria,
-            })
+            results.append(
+                {
+                    "name": config.get("name", f"config_{i}"),
+                    "config": config,
+                    "mean_on_target_ratio": summary.mean_on_target_ratio,
+                    "success_rate": summary.success_rate,
+                    "mean_tracking_error": summary.mean_tracking_error,
+                    "meets_criteria": summary.meets_criteria,
+                }
+            )
 
             logger.info(
                 "  Result: on-target=%.1f%%, success=%.1f%%",
@@ -582,11 +582,13 @@ def run_hyperparameter_sweep(
 
         except Exception as e:
             logger.error("Configuration %s failed: %s", config.get("name"), e)
-            results.append({
-                "name": config.get("name", f"config_{i}"),
-                "config": config,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "name": config.get("name", f"config_{i}"),
+                    "config": config,
+                    "error": str(e),
+                }
+            )
 
     # Rank results by on-target ratio
     valid_results = [r for r in results if "error" not in r]
@@ -618,6 +620,13 @@ def parse_args() -> argparse.Namespace:
         description="Evaluate quadcopter tracking controllers"
     )
 
+    # Config file
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to YAML/JSON configuration file for controller-specific settings",
+    )
+
     # Controller options
     parser.add_argument(
         "--controller",
@@ -636,14 +645,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--episodes",
         type=int,
-        default=10,
-        help="Number of evaluation episodes",
+        default=None,  # None allows detecting explicit CLI usage
+        help="Number of evaluation episodes (default: 10)",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
-        help="Base random seed",
+        default=None,
+        help="Base random seed (default: 42)",
     )
     parser.add_argument(
         "--max-steps",
@@ -655,29 +664,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--motion-type",
         type=str,
-        default="circular",
+        default=None,
         choices=["linear", "circular", "sinusoidal", "figure8", "stationary"],
-        help="Target motion type",
+        help="Target motion type (default: circular)",
     )
     parser.add_argument(
         "--episode-length",
         type=float,
-        default=30.0,
-        help="Episode duration in seconds",
+        default=None,
+        help="Episode duration in seconds (default: 30.0)",
     )
     parser.add_argument(
         "--target-radius",
         type=float,
-        default=0.5,
-        help="On-target radius threshold in meters",
+        default=None,
+        help="On-target radius threshold in meters (default: 0.5)",
     )
 
     # Output options
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="reports",
-        help="Output directory for reports and plots",
+        default=None,
+        help="Output directory for reports and plots (default: reports)",
     )
     parser.add_argument(
         "--no-plots",
@@ -695,20 +704,75 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _load_eval_config(config_path: str | None) -> dict:
+    """Load evaluation configuration from file.
+
+    Args:
+        config_path: Path to YAML/JSON configuration file.
+
+    Returns:
+        Configuration dictionary (empty if no file specified).
+    """
+    if config_path is None:
+        return {}
+
+    from pathlib import Path
+
+    path = Path(config_path)
+    if not path.exists():
+        logger.warning("Config file not found: %s, using defaults", config_path)
+        return {}
+
+    with open(path) as f:
+        if path.suffix in (".yaml", ".yml"):
+            return yaml.safe_load(f) or {}
+        elif path.suffix == ".json":
+            import json
+
+            return json.load(f)
+        else:
+            logger.warning("Unsupported config format: %s", path.suffix)
+            return {}
+
+
 def main() -> int:
     """Main entry point."""
     args = parse_args()
 
     # Run sweep if specified
     if args.sweep:
-        run_hyperparameter_sweep(args.sweep, args.output_dir)
+        run_hyperparameter_sweep(args.sweep, args.output_dir or "reports/sweeps")
         return 0
 
-    # Load controller
+    # Load evaluation config from file if provided
+    eval_config = _load_eval_config(args.config)
+
+    # Get controller-specific config from eval_config
+    controller_config = eval_config.get(args.controller, {})
+
+    # Helper to resolve value: CLI (if set) > YAML > default
+    def resolve(cli_val, yaml_key, default, is_bool_flag=False):
+        if is_bool_flag:
+            if cli_val is True:  # CLI flag is present
+                return cli_val
+        elif cli_val is not None:  # CLI argument was provided
+            return cli_val
+        return eval_config.get(yaml_key, default)
+
+    # Resolve evaluation parameters
+    num_episodes = resolve(args.episodes, "num_episodes", 10)
+    seed = resolve(args.seed, "seed", 42)
+    motion_type = resolve(args.motion_type, "target_motion_type", "circular")
+    episode_length = resolve(args.episode_length, "episode_length", 30.0)
+    target_radius = resolve(args.target_radius, "target_radius", 0.5)
+    output_dir = resolve(args.output_dir, "output_dir", "reports")
+
+    # Load controller with config
     try:
         controller = load_controller(
             controller_type=args.controller,
             checkpoint_path=args.checkpoint,
+            config=controller_config,
         )
     except Exception as e:
         logger.error("Failed to load controller: %s", e)
@@ -716,15 +780,15 @@ def main() -> int:
 
     # Setup environment config
     env_config = EnvConfig()
-    env_config.target.motion_type = args.motion_type
-    env_config.simulation.max_episode_time = args.episode_length
-    env_config.success_criteria.target_radius = args.target_radius
+    env_config.target.motion_type = motion_type
+    env_config.simulation.max_episode_time = episode_length
+    env_config.success_criteria.target_radius = target_radius
 
     # Setup success criteria
     criteria = SuccessCriteria(
         min_on_target_ratio=0.8,
-        min_episode_duration=args.episode_length,
-        target_radius=args.target_radius,
+        min_episode_duration=episode_length,
+        target_radius=target_radius,
     )
 
     # Create evaluator
@@ -732,21 +796,24 @@ def main() -> int:
         controller=controller,
         env_config=env_config,
         criteria=criteria,
-        output_dir=args.output_dir,
+        output_dir=output_dir,
     )
 
     # Run evaluation
     summary = evaluator.evaluate(
-        num_episodes=args.episodes,
-        base_seed=args.seed,
+        num_episodes=num_episodes,
+        base_seed=seed,
         max_steps_per_episode=args.max_steps,
     )
 
     # Save reports
     evaluator.save_report(summary)
 
-    # Generate plots
-    if not args.no_plots and evaluator.episode_data_list:
+    # Resolve whether to generate plots, with CLI taking precedence.
+    no_plots = resolve(args.no_plots, "no_plots", False, is_bool_flag=True)
+    generate_plots = not no_plots
+
+    if generate_plots and evaluator.episode_data_list:
         evaluator.generate_all_plots(summary)
 
     # Exit code based on success criteria
@@ -755,8 +822,7 @@ def main() -> int:
         return 0
     else:
         logger.warning(
-            "FAILED: Evaluation does not meet criteria "
-            "(%.1f%% < 80%% on-target)",
+            "FAILED: Evaluation does not meet criteria (%.1f%% < 80%% on-target)",
             summary.mean_on_target_ratio * 100,
         )
         return 1

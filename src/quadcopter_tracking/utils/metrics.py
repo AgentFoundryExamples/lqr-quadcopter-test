@@ -162,9 +162,7 @@ def compute_tracking_error(
     return np.linalg.norm(target_positions - quad_positions, axis=1)
 
 
-def compute_on_target_ratio(
-    tracking_errors: np.ndarray, target_radius: float
-) -> float:
+def compute_on_target_ratio(tracking_errors: np.ndarray, target_radius: float) -> float:
     """
     Compute fraction of time within target radius.
 

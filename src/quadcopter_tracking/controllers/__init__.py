@@ -10,15 +10,34 @@ Controller Types:
 - PID: Proportional-Integral-Derivative control
 - Neural: ML-based deep learning controllers
 
+Action Schema:
+    All controllers must return an action dictionary with the following keys:
+    - thrust: Total thrust in Newtons [0, max_thrust], default max: 20.0
+    - roll_rate: Desired roll rate in rad/s [-max_rate, max_rate], default max: 3.0
+    - pitch_rate: Desired pitch rate in rad/s [-max_rate, max_rate], default max: 3.0
+    - yaw_rate: Desired yaw rate in rad/s [-max_rate, max_rate], default max: 3.0
+
+Sign Conventions (ENU coordinate system):
+    - +pitch_rate → +X velocity (pitching nose up accelerates forward/east)
+    - +roll_rate → -Y velocity (rolling right accelerates left/south)
+    - +thrust → +Z acceleration (upward force)
+
 Design Philosophy:
 - Controllers are stateless transformations where possible
 - Clear interface between observation input and action output
 - Modular design for easy comparison and benchmarking
+- Consistent action schema across all controller types
 """
 
 import numpy as np
 
-from .base import BaseController
+from .base import (
+    ACTION_KEYS,
+    DEFAULT_ACTION_LIMITS,
+    ActionLimits,
+    BaseController,
+    validate_action,
+)
 from .deep_tracking_policy import DeepTrackingPolicy, PolicyNetwork
 
 __all__ = [
@@ -27,6 +46,10 @@ __all__ = [
     "PIDController",
     "DeepTrackingPolicy",
     "PolicyNetwork",
+    "ACTION_KEYS",
+    "ActionLimits",
+    "DEFAULT_ACTION_LIMITS",
+    "validate_action",
 ]
 
 
@@ -308,9 +331,7 @@ class LQRController(BaseController):
         if "K" in config and config["K"] is not None:
             self.K = np.array(config["K"])
             if self.K.shape != (4, 6):
-                raise ValueError(
-                    f"K matrix must have shape (4, 6), got {self.K.shape}"
-                )
+                raise ValueError(f"K matrix must have shape (4, 6), got {self.K.shape}")
         else:
             # Compute feedback gains from Q and R weights
             self.K = self._compute_gains(config)
