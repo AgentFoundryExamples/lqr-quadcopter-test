@@ -6,16 +6,16 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 21
-- **Intra-repo dependencies**: 30
-- **External stdlib dependencies**: 19
+- **Total files**: 24
+- **Intra-repo dependencies**: 36
+- **External stdlib dependencies**: 21
 - **External third-party dependencies**: 11
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 19 unique modules
+Total: 21 unique modules
 
 - `argparse`
 - `collections.abc.Callable`
@@ -25,17 +25,19 @@ Total: 19 unique modules
 - `datetime`
 - `datetime.datetime`
 - `datetime.timezone`
+- `itertools.product`
 - `json`
 - `logging`
 - `math`
 - `os`
 - `pathlib.Path`
+- `signal`
 - `sys`
 - `tempfile`
 - `typing.Any`
 - `typing.Literal`
 - `typing.Protocol`
-- `unittest.mock`
+- ... and 1 more (see JSON for full list)
 
 ### Third-Party Packages
 
@@ -55,16 +57,16 @@ Total: 11 unique packages
 
 ## Most Depended Upon Files (Intra-Repo)
 
-- `src/quadcopter_tracking/controllers/__init__.py` (6 dependents)
-- `src/quadcopter_tracking/env/__init__.py` (6 dependents)
-- `src/quadcopter_tracking/utils/metrics.py` (3 dependents)
+- `src/quadcopter_tracking/controllers/__init__.py` (7 dependents)
+- `src/quadcopter_tracking/env/__init__.py` (7 dependents)
+- `src/quadcopter_tracking/utils/metrics.py` (4 dependents)
+- `src/quadcopter_tracking/controllers/tuning.py` (3 dependents)
 - `src/quadcopter_tracking/utils/diagnostics.py` (3 dependents)
 - `src/quadcopter_tracking/utils/losses.py` (3 dependents)
 - `src/quadcopter_tracking/utils/__init__.py` (2 dependents)
 - `src/quadcopter_tracking/train.py` (2 dependents)
 - `src/quadcopter_tracking/eval.py` (2 dependents)
 - `src/quadcopter_tracking/controllers/base.py` (1 dependents)
-- `src/quadcopter_tracking/env/config.py` (1 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
@@ -73,8 +75,8 @@ Total: 11 unique packages
 - `tests/test_env_dynamics.py` (4 dependencies)
 - `tests/test_eval.py` (4 dependencies)
 - `src/quadcopter_tracking/__init__.py` (3 dependencies)
+- `src/quadcopter_tracking/controllers/tuning.py` (3 dependencies)
 - `src/quadcopter_tracking/eval.py` (3 dependencies)
 - `src/quadcopter_tracking/utils/__init__.py` (3 dependencies)
+- `src/quadcopter_tracking/controllers/__init__.py` (2 dependencies)
 - `src/quadcopter_tracking/env/__init__.py` (2 dependencies)
-- `src/quadcopter_tracking/controllers/__init__.py` (1 dependencies)
-- `tests/test_config.py` (1 dependencies)

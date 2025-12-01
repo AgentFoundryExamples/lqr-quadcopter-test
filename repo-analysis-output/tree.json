@@ -105,6 +105,10 @@
             {
               "type": "file",
               "name": "training_large.yaml"
+            },
+            {
+              "type": "file",
+              "name": "tuning_pid.yaml"
             }
           ]
         }
@@ -170,6 +174,10 @@
       "children": [
         {
           "type": "file",
+          "name": "controller_autotune.py"
+        },
+        {
+          "type": "file",
           "name": "generate_comparison_report.py"
         }
       ]
@@ -201,6 +209,10 @@
                 {
                   "type": "file",
                   "name": "riccati_lqr.py"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning.py"
                 }
               ]
             },
@@ -287,6 +299,10 @@
         {
           "type": "file",
           "name": "test_training_loop.py"
+        },
+        {
+          "type": "file",
+          "name": "test_tuning.py"
         }
       ]
     },

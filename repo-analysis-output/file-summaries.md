@@ -4,7 +4,27 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 21
+Total files: 24
+
+## scripts/controller_autotune.py
+**Language:** Python  
+**Role:** script  
+**Role Justification:** located in 'scripts' directory  
+**Size:** 14.11 KB  
+**LOC:** 373  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 7  
+**Top-level declarations:**
+  - function parse_vector_arg
+  - function parse_args
+  - function build_search_space
+  - function get_default_search_space
+  - function _validate_config_path
+  - function load_config_file
+  - function main
+**External Dependencies:**
+  - **Stdlib:** `argparse`, `json`, `logging`, `pathlib.Path`, `sys`
+  - **Third-party:** `yaml`
 
 ## scripts/generate_comparison_report.py
 **Language:** Python  
@@ -31,8 +51,8 @@ Total files: 21
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 25.86 KB  
-**LOC:** 438  
+**Size:** 26.04 KB  
+**LOC:** 448  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -93,6 +113,28 @@ Total files: 21
 **External Dependencies:**
   - **Stdlib:** `logging`
   - **Third-party:** `numpy`, `scipy.linalg.solve_discrete_are`
+
+## src/quadcopter_tracking/controllers/tuning.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 35.37 KB  
+**LOC:** 796  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 8  
+**Top-level declarations:**
+  - function _validate_path
+  - function _validate_output_dir
+  - function _get_pid_controller
+  - function _get_lqr_controller
+  - class GainSearchSpace
+  - class TuningConfig
+  - class TuningResult
+  - class ControllerTuner
+**External Dependencies:**
+  - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `datetime.datetime`, `datetime.timezone`, `itertools.product`
+    _(and 6 more)_
+  - **Third-party:** `numpy`
 
 ## src/quadcopter_tracking/env/__init__.py
 **Language:** Python  
@@ -370,3 +412,21 @@ Total files: 21
 **External Dependencies:**
   - **Stdlib:** `pathlib.Path`, `tempfile`
   - **Third-party:** `numpy`, `pytest`, `torch`
+
+## tests/test_tuning.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Size:** 20.89 KB  
+**LOC:** 475  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 5  
+**Top-level declarations:**
+  - class TestGainSearchSpace
+  - class TestTuningConfig
+  - class TestTuningResult
+  - class TestControllerTuner
+  - class TestTuningIntegration
+**External Dependencies:**
+  - **Stdlib:** `json`
+  - **Third-party:** `pytest`

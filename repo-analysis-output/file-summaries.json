@@ -1,7 +1,47 @@
 {
   "schema_version": "2.0",
-  "total_files": 21,
+  "total_files": 24,
   "files": [
+    {
+      "schema_version": "2.0",
+      "path": "scripts/controller_autotune.py",
+      "language": "Python",
+      "role": "script",
+      "role_justification": "located in 'scripts' directory",
+      "metrics": {
+        "size_bytes": 14444,
+        "loc": 373,
+        "todo_count": 0,
+        "declaration_count": 7
+      },
+      "structure": {
+        "declarations": [
+          "function parse_vector_arg",
+          "function parse_args",
+          "function build_search_space",
+          "function get_default_search_space",
+          "function _validate_config_path",
+          "function load_config_file",
+          "function main"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "argparse",
+            "json",
+            "logging",
+            "pathlib.Path",
+            "sys"
+          ],
+          "third-party": [
+            "yaml"
+          ]
+        }
+      }
+    },
     {
       "schema_version": "2.0",
       "path": "scripts/generate_comparison_report.py",
@@ -63,8 +103,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 26480,
-        "loc": 438,
+        "size_bytes": 26668,
+        "loc": 448,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -188,6 +228,53 @@
           "third-party": [
             "numpy",
             "scipy.linalg.solve_discrete_are"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/quadcopter_tracking/controllers/tuning.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 36215,
+        "loc": 796,
+        "todo_count": 0,
+        "declaration_count": 8
+      },
+      "structure": {
+        "declarations": [
+          "function _validate_path",
+          "function _validate_output_dir",
+          "function _get_pid_controller",
+          "function _get_lqr_controller",
+          "class GainSearchSpace",
+          "class TuningConfig",
+          "class TuningResult",
+          "class ControllerTuner"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "dataclasses.dataclass",
+            "dataclasses.field",
+            "datetime.datetime",
+            "datetime.timezone",
+            "itertools.product",
+            "json",
+            "logging",
+            "os",
+            "pathlib.Path",
+            "signal",
+            "typing.Any"
+          ],
+          "third-party": [
+            "numpy"
           ]
         }
       }
@@ -755,6 +842,40 @@
             "numpy",
             "pytest",
             "torch"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_tuning.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "metrics": {
+        "size_bytes": 21388,
+        "loc": 475,
+        "todo_count": 0,
+        "declaration_count": 5
+      },
+      "structure": {
+        "declarations": [
+          "class TestGainSearchSpace",
+          "class TestTuningConfig",
+          "class TestTuningResult",
+          "class TestControllerTuner",
+          "class TestTuningIntegration"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "json"
+          ],
+          "third-party": [
+            "pytest"
           ]
         }
       }

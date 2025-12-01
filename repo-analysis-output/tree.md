@@ -23,7 +23,8 @@
     ├── training_default.yaml
     ├── training_fast.yaml
     ├── training_imitation.yaml
-    └── training_large.yaml
+    ├── training_large.yaml
+    └── tuning_pid.yaml
 ├── repo-analysis-output
   ├── dependencies.json
   ├── dependencies.md
@@ -37,6 +38,7 @@
     └── .gitkeep
   └── .gitkeep
 ├── scripts
+  ├── controller_autotune.py
   └── generate_comparison_report.py
 ├── src
   └── quadcopter_tracking
@@ -44,7 +46,8 @@
       ├── __init__.py
       ├── base.py
       ├── deep_tracking_policy.py
-      └── riccati_lqr.py
+      ├── riccati_lqr.py
+      └── tuning.py
     ├── env
       ├── __init__.py
       ├── config.py
@@ -63,7 +66,8 @@
   ├── test_config.py
   ├── test_env_dynamics.py
   ├── test_eval.py
-  └── test_training_loop.py
+  ├── test_training_loop.py
+  └── test_tuning.py
 ├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md

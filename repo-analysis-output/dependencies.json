@@ -1,6 +1,23 @@
 {
   "nodes": [
     {
+      "id": "scripts/controller_autotune.py",
+      "path": "scripts/controller_autotune.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "argparse",
+          "json",
+          "logging",
+          "pathlib.Path",
+          "sys"
+        ],
+        "third-party": [
+          "yaml"
+        ]
+      }
+    },
+    {
       "id": "scripts/generate_comparison_report.py",
       "path": "scripts/generate_comparison_report.py",
       "type": "file",
@@ -76,6 +93,29 @@
         "third-party": [
           "numpy",
           "scipy.linalg.solve_discrete_are"
+        ]
+      }
+    },
+    {
+      "id": "src/quadcopter_tracking/controllers/tuning.py",
+      "path": "src/quadcopter_tracking/controllers/tuning.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "dataclasses.dataclass",
+          "dataclasses.field",
+          "datetime.datetime",
+          "datetime.timezone",
+          "itertools.product",
+          "json",
+          "logging",
+          "os",
+          "pathlib.Path",
+          "signal",
+          "typing.Any"
+        ],
+        "third-party": [
+          "numpy"
         ]
       }
     },
@@ -311,9 +351,26 @@
           "torch"
         ]
       }
+    },
+    {
+      "id": "tests/test_tuning.py",
+      "path": "tests/test_tuning.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json"
+        ],
+        "third-party": [
+          "pytest"
+        ]
+      }
     }
   ],
   "edges": [
+    {
+      "source": "scripts/controller_autotune.py",
+      "target": "src/quadcopter_tracking/controllers/tuning.py"
+    },
     {
       "source": "src/quadcopter_tracking/__init__.py",
       "target": "src/quadcopter_tracking/controllers/__init__.py"
@@ -329,6 +386,22 @@
     {
       "source": "src/quadcopter_tracking/controllers/__init__.py",
       "target": "src/quadcopter_tracking/controllers/base.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/controllers/__init__.py",
+      "target": "src/quadcopter_tracking/controllers/tuning.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/controllers/tuning.py",
+      "target": "src/quadcopter_tracking/env/__init__.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/controllers/tuning.py",
+      "target": "src/quadcopter_tracking/utils/metrics.py"
+    },
+    {
+      "source": "src/quadcopter_tracking/controllers/tuning.py",
+      "target": "src/quadcopter_tracking/controllers/__init__.py"
     },
     {
       "source": "src/quadcopter_tracking/env/__init__.py",
@@ -433,6 +506,10 @@
     {
       "source": "tests/test_training_loop.py",
       "target": "src/quadcopter_tracking/utils/diagnostics.py"
+    },
+    {
+      "source": "tests/test_tuning.py",
+      "target": "src/quadcopter_tracking/controllers/tuning.py"
     }
   ],
   "external_dependencies_summary": {
@@ -445,11 +522,13 @@
       "datetime",
       "datetime.datetime",
       "datetime.timezone",
+      "itertools.product",
       "json",
       "logging",
       "math",
       "os",
       "pathlib.Path",
+      "signal",
       "sys",
       "tempfile",
       "typing.Any",
@@ -470,7 +549,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 19,
+    "stdlib_count": 21,
     "third-party_count": 11
   }
 }
