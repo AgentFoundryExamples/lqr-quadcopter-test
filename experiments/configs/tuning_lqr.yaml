@@ -1,0 +1,118 @@
+# LQR Controller Auto-Tuning Configuration
+# This file demonstrates the YAML configuration format for tuning the heuristic
+# LQR controller's cost weights using random or grid search.
+#
+# The LQR controller computes feedback gains using heuristic mapping from Q/R
+# cost weights. For mathematically optimal gains via DARE, see tuning_riccati.yaml.
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_lqr.yaml
+#
+# Quick CLI Examples:
+#   # Random search with defaults
+#   python scripts/controller_autotune.py --controller lqr --max-iterations 30
+#
+#   # Custom Q weight ranges
+#   python scripts/controller_autotune.py --controller lqr \
+#       --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0 \
+#       --q-vel-range 0.001,0.001,2.0 0.01,0.01,8.0
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+# Options: 'pid', 'lqr', 'riccati_lqr'
+controller_type: lqr
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+# Search strategy: 'random' or 'grid'
+strategy: random
+
+# Maximum number of configurations to evaluate
+max_iterations: 30
+
+# Points per dimension for grid search (ignored for random)
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE
+# =============================================================================
+# Define min and max values for each parameter to tune.
+# For LQR, the key parameters are:
+#   - q_pos: Position cost weights [x, y, z] (Q matrix diagonal elements)
+#   - q_vel: Velocity cost weights [vx, vy, vz] (Q matrix diagonal elements)
+#   - r_thrust: Thrust control cost (R matrix, single value)
+#   - r_rate: Rate control cost (R matrix, single value)
+#
+# Cost function: J = integral(x'Qx + u'Ru) dt
+# Higher Q values -> more aggressive tracking (tighter error minimization)
+# Higher R values -> smoother control (less actuator effort)
+#
+# NOTE: XY position/velocity costs should be small to prevent actuator
+# saturation. The meter→rad/s mapping means large position errors would
+# produce aggressive roll/pitch rates. Keep q_pos[xy] < 0.001.
+
+search_space:
+  # Position cost weights range [x, y, z]
+  # Default range captures validated baseline around [0.0001, 0.0001, 16.0]
+  q_pos_range:
+    - [0.00005, 0.00005, 10.0]   # min: [x, y, z]
+    - [0.0005, 0.0005, 25.0]     # max: [x, y, z]
+
+  # Velocity cost weights range [vx, vy, vz]
+  # Default range captures validated baseline around [0.0036, 0.0036, 4.0]
+  q_vel_range:
+    - [0.001, 0.001, 2.0]        # min: [vx, vy, vz]
+    - [0.01, 0.01, 8.0]          # max: [vx, vy, vz]
+
+  # Thrust control cost range (typically fixed)
+  # r_thrust_range:
+  #   - 0.5                        # min
+  #   - 2.0                        # max
+
+  # Rate control cost range (typically fixed)
+  # r_rate_range:
+  #   - 0.5                        # min
+  #   - 2.0                        # max
+
+# =============================================================================
+# EVALUATION SETTINGS
+# =============================================================================
+
+# Number of episodes to evaluate each configuration
+evaluation_episodes: 5
+
+# Maximum steps per evaluation episode
+evaluation_horizon: 3000
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target motion type for evaluation
+# Options: stationary, linear, circular, sinusoidal, figure8
+target_motion_type: stationary
+
+# On-target radius in meters
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+
+# Random seed for deterministic results
+seed: 42
+
+# Enable feedforward gain tuning (optional for LQR)
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+# Output directory for tuning results
+# Can be overridden with TUNING_OUTPUT_DIR environment variable
+output_dir: reports/tuning
+
+# Path to previous results to resume from (optional)
+# resume_from: reports/tuning/tuning_lqr_20240101_120000_results.json

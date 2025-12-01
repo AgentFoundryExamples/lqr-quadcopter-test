@@ -1,0 +1,138 @@
+# Baseline evaluation configuration for LINEAR motion tracking
+# Use this config to evaluate PID/LQR/Riccati-LQR controller performance on
+# linear (constant velocity) target motion.
+#
+# Linear motion is more challenging than stationary targets because the
+# controller must continuously track a moving reference.
+#
+# Usage:
+#   # Evaluate PID baseline on linear motion
+#   python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_linear_baseline.yaml
+#
+#   # Evaluate LQR baseline on linear motion
+#   python -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_linear_baseline.yaml
+#
+#   # Evaluate Riccati-LQR baseline on linear motion
+#   python -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/eval_linear_baseline.yaml
+#
+# Expected performance (classical controllers):
+#   - On-target ratio: 70-90% for PID/LQR
+#   - Mean tracking error: <0.6m
+#   - Success rate: >70%
+#
+# For tuned controllers, expect better performance. Use tuning configs first:
+#   make tune-pid-linear      # Find optimal PID gains
+#   make tune-lqr-linear      # Find optimal LQR weights
+#   make tune-riccati-linear  # Find optimal Riccati-LQR weights
+
+# =============================================================================
+# Shared Cost Weights (YAML Anchors)
+# =============================================================================
+# These anchors define shared Q weights used by both LQR and Riccati-LQR.
+# Validated baselines with low XY costs to prevent actuator saturation.
+
+shared_q_pos: &shared_q_pos [0.0001, 0.0001, 16.0]  # Low XY position cost
+shared_q_vel: &shared_q_vel [0.0036, 0.0036, 4.0]   # Velocity cost for damping
+
+# Shared feedforward config (disabled by default)
+shared_feedforward_disabled: &ff_disabled
+  feedforward_enabled: false
+  ff_velocity_gain: [0.0, 0.0, 0.0]
+  ff_acceleration_gain: [0.0, 0.0, 0.0]
+
+# =============================================================================
+# Evaluation Parameters
+# =============================================================================
+num_episodes: 10
+seed: 42
+
+# =============================================================================
+# Environment Configuration - Linear Motion Target
+# =============================================================================
+# Target motion type: linear means constant velocity in a random direction
+target_motion_type: linear
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target radius threshold (meters)
+target_radius: 0.5
+
+# =============================================================================
+# Target Motion Parameters
+# =============================================================================
+# Linear motion uses a constant velocity vector set at episode start.
+# The target travels in a random direction with the configured speed.
+# Adjust target_speed to make tracking easier or harder.
+
+# Target speed along the linear path (m/s)
+# Higher speed = more challenging tracking
+target_speed: 1.0
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: reports/baseline_linear
+generate_plots: true
+
+# =============================================================================
+# Classical Controller Configuration
+# =============================================================================
+# Validated baseline gains for tracking linear motion targets.
+# XY gains are small (meter→rad/s mapping) to prevent actuator saturation.
+# These gains provide stable tracking across most linear motion scenarios.
+#
+# NOTE: For optimal performance, use tuned gains from:
+#   make tune-pid-linear      # Writes to reports/tuning/
+#   make tune-lqr-linear      # Writes to reports/tuning/
+#   make tune-riccati-linear  # Writes to reports/tuning/
+
+# PID Controller - validated baseline gains for linear tracking
+pid:
+  kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/s mapping)
+  ki_pos: [0.0, 0.0, 0.0]      # Zero integral to avoid wind-up
+  kd_pos: [0.06, 0.06, 2.0]    # Low XY damping
+  integral_limit: 0.0           # Disabled by default
+  <<: *ff_disabled
+
+# LQR Controller - validated baseline weights for dynamic tracking
+lqr:
+  q_pos: *shared_q_pos
+  q_vel: *shared_q_vel
+  r_thrust: 1.0                   # Thrust control cost
+  r_rate: 1.0                     # Rate control cost
+  <<: *ff_disabled
+
+# Riccati-LQR Controller - DARE-solved optimal gains
+riccati_lqr:
+  dt: 0.01
+  mass: 1.0
+  gravity: 9.81
+  q_pos: *shared_q_pos
+  q_vel: *shared_q_vel
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+  max_thrust: 20.0
+  min_thrust: 0.0
+  max_rate: 3.0
+  fallback_on_failure: true
+
+# =============================================================================
+# Workflow: Tune → Train → Evaluate
+# =============================================================================
+# This config is Step 3 in the recommended workflow:
+#
+# Step 1: TUNE - Find optimal gains for linear motion
+#   make tune-pid-linear
+#   # or: make tune-lqr-linear
+#   # or: make tune-riccati-linear
+#
+# Step 2: TRAIN - Use tuned controller as supervisor for deep learning
+#   # Copy best gains from reports/tuning/*_best_config.json to
+#   # experiments/configs/training_imitation.yaml
+#   # Then run:
+#   python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+#
+# Step 3: EVALUATE - Assess performance on linear motion
+#   python -m quadcopter_tracking.eval --controller deep \
+#       --checkpoint checkpoints/imitation/train_*_best.pt \
+#       --config experiments/configs/eval_linear_baseline.yaml

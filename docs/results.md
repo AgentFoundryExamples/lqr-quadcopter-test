@@ -477,6 +477,137 @@ Ensure plot assets are generated correctly:
 ls -la reports/plots/*.png
 ```
 
+## Tune → Train → Evaluate Workflow
+
+This section describes the complete pipeline for optimizing controller performance on moving targets.
+
+### Overview
+
+The workflow chains three stages:
+1. **Tune**: Find optimal controller gains for a specific motion pattern
+2. **Train**: Use tuned controller as supervisor for imitation learning
+3. **Evaluate**: Assess the trained policy on the target motion
+
+### Step 1: Tune Controller Gains
+
+Use the auto-tuning framework to find optimal gains for your target motion:
+
+```bash
+# Tune PID for linear motion
+make tune-pid-linear TUNING_ITERATIONS=50
+
+# Tune LQR for linear motion  
+make tune-lqr-linear TUNING_ITERATIONS=30
+
+# Tune Riccati-LQR for linear motion (optimal DARE-solved gains)
+make tune-riccati-linear TUNING_ITERATIONS=30
+```
+
+**Configuration files:**
+- `experiments/configs/tuning_pid_linear.yaml` - PID tuning for linear motion
+- `experiments/configs/tuning_lqr_linear.yaml` - LQR tuning for linear motion
+- `experiments/configs/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
+
+For other motion patterns (circular, sinusoidal, figure8):
+1. Copy the appropriate `tuning_*_linear.yaml` config
+2. Change `target_motion_type` to your desired pattern
+3. Run with `--config path/to/your/config.yaml`
+
+### Step 2: Apply Tuned Gains to Training
+
+After tuning completes, the best configuration is saved to `reports/tuning/`:
+
+```bash
+# View the best configuration
+cat reports/tuning/tuning_pid_*_best_config.json
+```
+
+Copy the best gains to your training configuration:
+
+1. Open `experiments/configs/training_imitation.yaml`
+2. Update the `pid`, `lqr`, or `riccati_lqr` section with tuned values
+3. Set `supervisor_controller` to match your tuned controller type
+4. Set `target_motion_type: linear` (or your target motion)
+
+Example for tuned PID gains:
+```yaml
+# In training_imitation.yaml
+supervisor_controller: pid
+
+pid:
+  kp_pos: [0.015, 0.015, 4.5]  # Copy from best_config.json
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.08, 0.08, 2.2]
+  integral_limit: 0.0
+
+target_motion_type: linear  # Match tuning motion type
+```
+
+### Step 3: Train with Imitation Learning
+
+Train a deep controller using the tuned classical controller as supervisor:
+
+```bash
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_imitation.yaml
+```
+
+The deep controller learns to mimic the tuned supervisor's behavior.
+
+### Step 4: Evaluate Trained Policy
+
+Evaluate the trained policy on the same motion type used for tuning:
+
+```bash
+# Using Makefile target
+make eval-baseline-linear EPISODES=10
+
+# Or with specific checkpoint
+python -m quadcopter_tracking.eval \
+    --controller deep \
+    --checkpoint checkpoints/imitation/train_*_best.pt \
+    --config experiments/configs/eval_linear_baseline.yaml
+```
+
+### Complete Example
+
+```bash
+# Full pipeline for linear motion
+make tune-pid-linear TUNING_ITERATIONS=50
+
+# Review and copy best gains to training_imitation.yaml
+cat reports/tuning/tuning_pid_*_best_config.json
+
+# Train (after updating training_imitation.yaml)
+python -m quadcopter_tracking.train \
+    --config experiments/configs/training_imitation.yaml
+
+# Evaluate
+make eval-baseline-linear EPISODES=20
+```
+
+### Resource-Limited Machines
+
+For machines with limited compute:
+
+```bash
+# Reduce tuning iterations
+make tune-pid-linear TUNING_ITERATIONS=20
+
+# Or edit config files to reduce:
+# - evaluation_episodes: 3     (fewer episodes per config)
+# - evaluation_horizon: 1500   (shorter episodes)
+# - episode_length: 15.0       (shorter duration)
+```
+
+### Tips for Best Results
+
+1. **Start with stationary targets** to establish baseline gains, then tune for motion
+2. **Use Riccati-LQR as supervisor** for optimal imitation learning signal
+3. **Match motion types** between tuning, training, and evaluation
+4. **Monitor imitation loss** during training - it should decrease steadily
+5. **Compare against baselines** using `make compare-controllers`
+
 ## Release Validation
 
 When preparing a release, run a full evaluation to document achieved metrics and regenerate baseline plots:
@@ -492,11 +623,17 @@ make eval-baseline-stationary EPISODES=50
 # Regenerate circular target baseline metrics
 make eval-baseline-circular EPISODES=50
 
+# Regenerate linear target baseline metrics
+make eval-baseline-linear EPISODES=50
+
 # Results are saved to:
 # - reports/baseline_stationary_pid/
 # - reports/baseline_stationary_lqr/
 # - reports/baseline_circular_pid/
 # - reports/baseline_circular_lqr/
+# - reports/baseline_linear_pid/
+# - reports/baseline_linear_lqr/
+# - reports/baseline_linear_riccati/
 ```
 
 ### Step 2: Run Controller Comparison

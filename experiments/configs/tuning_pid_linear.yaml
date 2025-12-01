@@ -1,0 +1,96 @@
+# PID Controller Auto-Tuning Configuration for LINEAR Motion Targets
+# This file configures auto-tuning for a linear (constant velocity) target.
+#
+# Linear motion is more challenging than stationary targets because the
+# controller must track a moving reference. This configuration searches for
+# gains that minimize tracking error while maintaining stability.
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_pid_linear.yaml
+#
+# Or use Makefile target:
+#   make tune-pid-linear
+#
+# Workflow:
+#   1. Run this tuning config to find optimal PID gains for linear motion
+#   2. Copy best gains to training_imitation.yaml or training_default.yaml
+#   3. Train deep controller using imitation mode with tuned PID as supervisor
+#   4. Evaluate trained model with eval_linear_baseline.yaml
+#
+# For other motion patterns, copy this file and change:
+#   - target_motion_type: circular, sinusoidal, figure8
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+controller_type: pid
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+strategy: random
+max_iterations: 50
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE - Optimized for Linear Motion
+# =============================================================================
+# Linear motion requires slightly different gain ranges than stationary targets.
+# Velocity feedforward may help reduce phase lag behind the target.
+
+search_space:
+  # PID proportional gains range
+  # Slightly wider range for XY to handle tracking error during motion
+  kp_pos_range:
+    - [0.005, 0.005, 2.0]   # min: [x, y, z]
+    - [0.05, 0.05, 6.0]     # max: [x, y, z]
+
+  # PID derivative gains range
+  # Higher damping may help with motion tracking stability
+  kd_pos_range:
+    - [0.02, 0.02, 1.0]     # min: [x, y, z]
+    - [0.15, 0.15, 3.0]     # max: [x, y, z]
+
+  # PID integral gains (optional, often left at zero)
+  # Enable if you need bias rejection during motion
+  # ki_pos_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.01, 0.01, 0.01]
+
+  # Feedforward velocity gains (recommended for linear motion)
+  # Enable by uncommenting and setting feedforward_enabled: true
+  # ff_velocity_gain_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.2, 0.2, 0.1]
+
+# =============================================================================
+# EVALUATION SETTINGS - Linear Motion
+# =============================================================================
+evaluation_episodes: 5
+evaluation_horizon: 3000
+episode_length: 30.0
+
+# Linear target motion - constant velocity in random direction
+target_motion_type: linear
+
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+seed: 42
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+output_dir: reports/tuning
+
+# =============================================================================
+# RESOURCE-LIMITED MACHINES
+# =============================================================================
+# If running on limited resources, reduce:
+#   - max_iterations: 20          (fewer configurations to test)
+#   - evaluation_episodes: 3      (faster per-config evaluation)
+#   - evaluation_horizon: 1500    (shorter episodes)
+#   - episode_length: 15.0        (shorter episode duration)
