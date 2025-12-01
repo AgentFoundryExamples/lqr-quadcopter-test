@@ -215,19 +215,30 @@ def build_linearized_system(
 
     # Continuous-time B matrix
     # Maps control inputs to state derivatives
+    #
+    # For the quadcopter dynamics around hover:
+    # - vx_dot = g * pitch (pitch angle)
+    # - vy_dot = -g * roll (roll angle)
+    # - vz_dot = thrust_delta / mass
+    #
+    # Since we control roll_rate and pitch_rate (not angles directly), we use
+    # a simplified model assuming the inner attitude loop is fast enough that
+    # the effective relationship is:
+    # - vx_dot ≈ g * pitch_rate (treating pitch_rate as proxy for pitch angle)
+    # - vy_dot ≈ -g * roll_rate (treating roll_rate as proxy for roll angle)
+    #
     B_c = np.zeros((n, m))
     # thrust_delta affects vz_dot: vz_dot = thrust_delta / mass
     B_c[5, 0] = 1.0 / mass
-    # roll_rate affects vy_dot: vy_dot = -gravity * roll ≈ -gravity * roll_rate * dt
-    # But for the B matrix, we model the direct effect on velocity
-    # Roll rate integrated gives roll angle, which produces -Y acceleration
-    B_c[4, 1] = -gravity * dt  # roll_rate -> vy (via roll angle)
-    # pitch_rate affects vx_dot: vx_dot = gravity * pitch ≈ gravity * pitch_rate * dt
-    B_c[3, 2] = gravity * dt  # pitch_rate -> vx (via pitch angle)
+    # roll_rate affects vy_dot: vy_dot = -gravity * (roll_rate as proxy)
+    B_c[4, 1] = -gravity
+    # pitch_rate affects vx_dot: vx_dot = gravity * (pitch_rate as proxy)
+    B_c[3, 2] = gravity
     # yaw_rate doesn't affect position/velocity in this linearization
-    # B_c[*, 3] = 0 (already zero)
 
-    # Discrete-time approximation: A_d = I + A_c * dt, B_d = B_c * dt
+    # Discrete-time approximation using Euler method:
+    # A_d = I + A_c * dt
+    # B_d = B_c * dt
     A = np.eye(n) + A_c * dt
     B = B_c * dt
 
