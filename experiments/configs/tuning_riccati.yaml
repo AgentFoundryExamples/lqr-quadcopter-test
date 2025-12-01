@@ -35,7 +35,8 @@ controller_type: riccati_lqr
 strategy: random
 
 # Maximum number of configurations to evaluate
-# NOTE: Riccati solvers can be slow; start with fewer iterations
+# NOTE: Each evaluation requires solving DARE (O(n³) matrix operations),
+# which is slightly slower than heuristic LQR. Start with fewer iterations.
 max_iterations: 30
 
 # Points per dimension for grid search (ignored for random)
