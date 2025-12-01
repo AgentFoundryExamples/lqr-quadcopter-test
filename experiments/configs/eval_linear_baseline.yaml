@@ -26,6 +26,21 @@
 #   make tune-riccati-linear  # Find optimal Riccati-LQR weights
 
 # =============================================================================
+# Shared Cost Weights (YAML Anchors)
+# =============================================================================
+# These anchors define shared Q weights used by both LQR and Riccati-LQR.
+# Validated baselines with low XY costs to prevent actuator saturation.
+
+shared_q_pos: &q_pos [0.0001, 0.0001, 16.0]  # Low XY position cost
+shared_q_vel: &q_vel [0.0036, 0.0036, 4.0]   # Velocity cost for damping
+
+# Shared feedforward config (disabled by default)
+shared_feedforward_disabled: &ff_disabled
+  feedforward_enabled: false
+  ff_velocity_gain: [0.0, 0.0, 0.0]
+  ff_acceleration_gain: [0.0, 0.0, 0.0]
+
+# =============================================================================
 # Evaluation Parameters
 # =============================================================================
 num_episodes: 10
@@ -78,29 +93,23 @@ pid:
   ki_pos: [0.0, 0.0, 0.0]      # Zero integral to avoid wind-up
   kd_pos: [0.06, 0.06, 2.0]    # Low XY damping
   integral_limit: 0.0           # Disabled by default
-  # Enable feedforward for better linear motion tracking (optional)
-  feedforward_enabled: false
-  ff_velocity_gain: [0.0, 0.0, 0.0]
-  ff_acceleration_gain: [0.0, 0.0, 0.0]
+  <<: *ff_disabled
 
 # LQR Controller - validated baseline weights for dynamic tracking
 lqr:
-  q_pos: [0.0001, 0.0001, 16.0]  # Low XY position cost
-  q_vel: [0.0036, 0.0036, 4.0]   # Velocity cost for damping
+  q_pos: *q_pos
+  q_vel: *q_vel
   r_thrust: 1.0                   # Thrust control cost
   r_rate: 1.0                     # Rate control cost
-  # Enable feedforward for better linear motion tracking (optional)
-  feedforward_enabled: false
-  ff_velocity_gain: [0.0, 0.0, 0.0]
-  ff_acceleration_gain: [0.0, 0.0, 0.0]
+  <<: *ff_disabled
 
 # Riccati-LQR Controller - DARE-solved optimal gains
 riccati_lqr:
   dt: 0.01
   mass: 1.0
   gravity: 9.81
-  q_pos: [0.0001, 0.0001, 16.0]
-  q_vel: [0.0036, 0.0036, 4.0]
+  q_pos: *q_pos
+  q_vel: *q_vel
   r_controls: [1.0, 1.0, 1.0, 1.0]
   max_thrust: 20.0
   min_thrust: 0.0
