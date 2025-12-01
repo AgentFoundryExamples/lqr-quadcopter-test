@@ -41,6 +41,12 @@ from .base import (
 )
 from .deep_tracking_policy import DeepTrackingPolicy, PolicyNetwork
 from .riccati_lqr import RiccatiLQRController
+from .tuning import (
+    ControllerTuner,
+    GainSearchSpace,
+    TuningConfig,
+    TuningResult,
+)
 
 __all__ = [
     "BaseController",
@@ -53,6 +59,10 @@ __all__ = [
     "ActionLimits",
     "DEFAULT_ACTION_LIMITS",
     "validate_action",
+    "ControllerTuner",
+    "GainSearchSpace",
+    "TuningConfig",
+    "TuningResult",
 ]
 
 

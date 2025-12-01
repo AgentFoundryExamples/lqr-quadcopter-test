@@ -407,6 +407,51 @@ print(f"On-target ratio: {info['on_target_ratio']:.1%}")
 
 See [docs/training.md](docs/training.md) for complete training documentation.
 
+## Controller Auto-Tuning
+
+The auto-tuning feature provides automated PID and LQR gain optimization by
+searching through parameter space to find configurations that minimize tracking
+error.
+
+### Quick Start
+
+```bash
+# Basic PID auto-tuning with sensible defaults
+python scripts/controller_autotune.py --controller pid --max-iterations 50
+
+# Grid search with 3 points per dimension
+python scripts/controller_autotune.py --controller pid --strategy grid
+
+# LQR auto-tuning
+python scripts/controller_autotune.py --controller lqr --max-iterations 30
+```
+
+### Custom Search Ranges
+
+```bash
+python scripts/controller_autotune.py --controller pid \
+    --kp-range 0.005,0.005,2.0 0.05,0.05,6.0 \
+    --kd-range 0.02,0.02,1.0 0.15,0.15,3.0
+```
+
+### Features
+
+- **Grid and random search strategies**
+- **Deterministic seeding** for reproducible results
+- **Graceful interruption** with partial results saved
+- **Resume capability** from previous runs
+- **Feedforward gain tuning** (optional)
+- **Configurable via environment variable** (`TUNING_OUTPUT_DIR`)
+
+### Output
+
+Tuning results are saved to `reports/tuning/` by default:
+- `tuning_pid_*_results.json` - Full results with all configurations
+- `tuning_pid_*_best_config.json` - Best configuration for easy loading
+
+See [docs/training.md](docs/training.md#pid-auto-tuning) for complete
+auto-tuning documentation.
+
 ## Evaluating Controllers
 
 The evaluation pipeline assesses controller performance against success criteria.

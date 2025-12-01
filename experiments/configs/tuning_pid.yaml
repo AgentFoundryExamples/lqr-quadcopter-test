@@ -1,0 +1,86 @@
+# PID Controller Auto-Tuning Configuration
+# This file demonstrates the YAML configuration format for the auto-tuner.
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_pid.yaml
+
+# Controller type to tune: 'pid' or 'lqr'
+controller_type: pid
+
+# Search strategy: 'random' or 'grid'
+strategy: random
+
+# Maximum number of configurations to evaluate
+max_iterations: 50
+
+# Points per dimension for grid search (ignored for random)
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE
+# =============================================================================
+# Define min and max values for each parameter to tune.
+# Each vector parameter is [x, y, z] for the three axes.
+# Omit parameters to exclude them from the search.
+
+search_space:
+  # PID proportional gains range
+  kp_pos_range:
+    - [0.005, 0.005, 2.0]   # min: [x, y, z]
+    - [0.05, 0.05, 6.0]     # max: [x, y, z]
+
+  # PID derivative gains range
+  kd_pos_range:
+    - [0.02, 0.02, 1.0]     # min: [x, y, z]
+    - [0.15, 0.15, 3.0]     # max: [x, y, z]
+
+  # PID integral gains range (optional, often left at zero)
+  # ki_pos_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.01, 0.01, 0.01]
+
+  # Feedforward velocity gains (optional, requires feedforward_enabled: true)
+  # ff_velocity_gain_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.2, 0.2, 0.1]
+
+# =============================================================================
+# EVALUATION SETTINGS
+# =============================================================================
+
+# Number of episodes to evaluate each configuration
+evaluation_episodes: 5
+
+# Maximum steps per evaluation episode
+evaluation_horizon: 3000
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target motion type for evaluation
+# Options: stationary, linear, circular, sinusoidal, figure8
+target_motion_type: stationary
+
+# On-target radius in meters
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+
+# Random seed for deterministic results
+seed: 42
+
+# Enable feedforward gain tuning
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+# Output directory for tuning results
+# Can be overridden with TUNING_OUTPUT_DIR environment variable
+output_dir: reports/tuning
+
+# Path to previous results to resume from (optional)
+# resume_from: reports/tuning/tuning_pid_20240101_120000_results.json
