@@ -1918,14 +1918,16 @@ class TestAxisSignConventions:
         env = QuadcopterEnv(config=config)
         env.reset(seed=42)
 
-        # Position quadcopter at origin, target at (2, 2, 1)
-        state = np.zeros(12)
-        state[2] = 1.0  # Z position
-        env.set_state_vector(state)
-
-        # Update target position
+        # Get the target position
         target_state = env.target.get_state(0.0)
         target_pos = target_state["position"]
+
+        # Position quadcopter away from target to create meaningful error
+        state = np.zeros(12)
+        state[0] = target_pos[0] - 2.0  # 2m behind in X
+        state[1] = target_pos[1] - 2.0  # 2m behind in Y
+        state[2] = target_pos[2]  # Same Z height
+        env.set_state_vector(state)
 
         controller = PIDController(config={
             "mass": config.quadcopter.mass,
@@ -1959,6 +1961,11 @@ class TestAxisSignConventions:
                 f"Velocity XY = {vel_xy}, direction to target = {to_target_xy}. "
                 "This indicates sign convention issues."
             )
+        else:
+            pytest.fail(
+                f"PID failed to produce significant velocity towards target. "
+                f"Velocity magnitude was {vel_mag:.4f}, expecting > 0.1."
+            )
 
     def test_lqr_initial_acceleration_direction(self):
         """Verify LQR initial acceleration is toward target, not away."""
@@ -1971,14 +1978,16 @@ class TestAxisSignConventions:
         env = QuadcopterEnv(config=config)
         env.reset(seed=42)
 
-        # Position quadcopter at origin, target at (2, 2, 1)
-        state = np.zeros(12)
-        state[2] = 1.0  # Z position
-        env.set_state_vector(state)
-
-        # Update target position
+        # Get the target position
         target_state = env.target.get_state(0.0)
         target_pos = target_state["position"]
+
+        # Position quadcopter away from target to create meaningful error
+        state = np.zeros(12)
+        state[0] = target_pos[0] - 2.0  # 2m behind in X
+        state[1] = target_pos[1] - 2.0  # 2m behind in Y
+        state[2] = target_pos[2]  # Same Z height
+        env.set_state_vector(state)
 
         controller = LQRController(config={
             "mass": config.quadcopter.mass,
@@ -2011,4 +2020,9 @@ class TestAxisSignConventions:
                 f"LQR produces motion AWAY from target. "
                 f"Velocity XY = {vel_xy}, direction to target = {to_target_xy}. "
                 "This indicates sign convention issues."
+            )
+        else:
+            pytest.fail(
+                f"LQR failed to produce significant velocity towards target. "
+                f"Velocity magnitude was {vel_mag:.4f}, expecting > 0.1."
             )
