@@ -855,7 +855,12 @@ class TestRiccatiControllerSelection:
         assert not controller.is_using_fallback()
 
     def test_riccati_invalid_q_matrix_raises_validation_error(self):
-        """Test that invalid Q matrix produces validation error."""
+        """Test that invalid Q matrix produces validation error.
+
+        Note: Riccati controller supports both full matrix (Q/R keys) and
+        array format (q_pos/q_vel/r_controls). This test uses full matrix
+        format to test matrix validation.
+        """
         # Negative weights would make Q not positive semi-definite
         config = {
             "Q": [
@@ -872,7 +877,12 @@ class TestRiccatiControllerSelection:
             load_controller("riccati_lqr", config=config)
 
     def test_riccati_with_fallback_handles_solver_failure(self):
-        """Test that fallback is used when DARE solver fails."""
+        """Test that fallback is used when DARE solver fails.
+
+        Note: Riccati controller supports both full matrix (R key) and
+        array format (r_controls). This test uses full matrix format to
+        test fallback behavior with invalid matrices.
+        """
         # Invalid R matrix (not positive definite) but with fallback enabled
         config = {
             "R": [
