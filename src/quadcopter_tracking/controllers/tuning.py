@@ -679,6 +679,16 @@ class ControllerTuner:
                 else:
                     grids.append(list(np.linspace(lo, hi, n)))
 
+            # Safeguard against combinatorial explosion for high-dimensional vectors
+            num_combinations = np.prod([len(g) for g in grids])
+            if num_combinations > 1024:  # A reasonable limit
+                logger.warning(
+                    "Grid search for a vector parameter would generate "
+                    "%d combinations, which may be excessive. Consider "
+                    "reducing grid_points_per_dim or using random search.",
+                    num_combinations,
+                )
+
             # Cartesian product of axis grids
             return [list(combo) for combo in product(*grids)]
 
