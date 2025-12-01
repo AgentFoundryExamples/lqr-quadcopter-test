@@ -596,8 +596,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 34789,
-        "loc": 737,
+        "size_bytes": 42236,
+        "loc": 878,
         "todo_count": 0,
         "declaration_count": 7
       },
