@@ -86,28 +86,33 @@ lr_reduction_factor: 0.5
 # Classical Controller Configuration (PID and LQR)
 # =============================================================================
 # These settings are used when evaluating PID or LQR controllers.
-# Gains are tuned for circular motion tracking at moderate speeds.
+# Validated baseline gains with low XY proportional gains to prevent actuator
+# saturation (meter→rad/sec mapping). Integral term disabled by default.
 
 # PID Controller Gains
-# Tuned for smooth tracking of circular motion with 0.5m target radius
+# Tuned for stable tracking across stationary, linear, and circular scenarios.
+# XY gains are intentionally small because position errors (in meters) are
+# mapped to angular rates (in rad/s). A 1-meter XY error with kp=0.01 produces
+# only 0.01 rad/s of pitch/roll rate, preventing saturation while converging.
 pid:
-  # Position proportional gains [x, y, z] - higher for tighter tracking
-  kp_pos: [2.0, 2.0, 4.0]
-  # Position integral gains [x, y, z] - eliminates steady-state error
-  ki_pos: [0.1, 0.1, 0.2]
-  # Position derivative gains [x, y, z] - provides damping
-  kd_pos: [1.5, 1.5, 2.0]
-  # Integral windup limit - prevents runaway during large errors
-  integral_limit: 5.0
+  # Position proportional gains [x, y, z] - low XY for meter→rad/s mapping
+  kp_pos: [0.01, 0.01, 4.0]
+  # Position integral gains [x, y, z] - zero to avoid wind-up
+  ki_pos: [0.0, 0.0, 0.0]
+  # Position derivative gains [x, y, z] - low XY damping
+  kd_pos: [0.06, 0.06, 2.0]
+  # Integral windup limit - disabled by default
+  integral_limit: 0.0
 
 # LQR Controller Gains
-# Tuned for optimal tracking with balanced position/velocity response
+# Cost weights scaled to produce feedback gains consistent with PID baseline.
+# Low XY position costs prevent saturation due to meter→rad/s mapping.
 lqr:
-  # Position state cost weights [x, y, z] - higher = tighter tracking
-  q_pos: [10.0, 10.0, 20.0]
-  # Velocity state cost weights [vx, vy, vz] - higher = more damping
-  q_vel: [5.0, 5.0, 10.0]
-  # Thrust control cost - lower = more aggressive thrust changes
-  r_thrust: 0.1
-  # Angular rate control cost - lower = more aggressive maneuvers
+  # Position state cost weights [x, y, z] - low XY costs
+  q_pos: [0.0001, 0.0001, 16.0]
+  # Velocity state cost weights [vx, vy, vz] - provides damping
+  q_vel: [0.0036, 0.0036, 4.0]
+  # Thrust control cost
+  r_thrust: 1.0
+  # Angular rate control cost
   r_rate: 1.0

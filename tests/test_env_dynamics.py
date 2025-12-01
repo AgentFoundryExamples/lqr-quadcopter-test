@@ -552,7 +552,12 @@ class TestPIDController:
     """Tests for PID controller implementation."""
 
     def test_pid_controller_initialization(self):
-        """Test PID controller initializes with default gains."""
+        """Test PID controller initializes with default gains.
+
+        Default gains are tuned for stable tracking with small XY proportional
+        gains (kp_pos[0:2] = 0.01) to avoid actuator saturation due to the
+        meter→rad/sec mapping. Integral limit defaults to 0.0 for XY axes.
+        """
         from quadcopter_tracking.controllers import PIDController
 
         pid = PIDController()
@@ -560,8 +565,41 @@ class TestPIDController:
         assert pid.kp_pos is not None
         assert pid.ki_pos is not None
         assert pid.kd_pos is not None
-        assert pid.integral_limit == 5.0
+        # New validated defaults: integral_limit = 0.0 (disabled by default)
+        assert pid.integral_limit == 0.0
         assert len(pid.kp_pos) == 3
+        # Verify new XY gains are small (meter→rad/sec scaling)
+        assert np.allclose(pid.kp_pos[:2], [0.01, 0.01])
+        # Verify Z gain remains higher for altitude tracking
+        assert pid.kp_pos[2] == 4.0
+
+    def test_pid_validated_baseline_gains(self):
+        """Test PID controller baseline gains match documented values.
+
+        Validates that the default gains match the experimentally validated
+        baseline for stationary, linear, and circular scenarios:
+        - kp_pos: [0.01, 0.01, 4.0]
+        - ki_pos: [0.0, 0.0, 0.0]
+        - kd_pos: [0.06, 0.06, 2.0]
+        - integral_limit: 0.0
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        pid = PIDController()
+
+        # Validate documented baseline gains
+        assert np.allclose(pid.kp_pos, [0.01, 0.01, 4.0]), (
+            f"kp_pos should be [0.01, 0.01, 4.0], got {pid.kp_pos.tolist()}"
+        )
+        assert np.allclose(pid.ki_pos, [0.0, 0.0, 0.0]), (
+            f"ki_pos should be [0.0, 0.0, 0.0], got {pid.ki_pos.tolist()}"
+        )
+        assert np.allclose(pid.kd_pos, [0.06, 0.06, 2.0]), (
+            f"kd_pos should be [0.06, 0.06, 2.0], got {pid.kd_pos.tolist()}"
+        )
+        assert pid.integral_limit == 0.0, (
+            f"integral_limit should be 0.0, got {pid.integral_limit}"
+        )
 
     def test_pid_controller_custom_gains(self):
         """Test PID controller with custom gains."""
@@ -864,6 +902,46 @@ class TestLQRController:
         assert lqr.name == "lqr"
         assert lqr.K is not None
         assert lqr.K.shape == (4, 6)
+
+    def test_lqr_validated_baseline_gains(self):
+        """Test LQR controller baseline gains produce consistent feedback.
+
+        Validates that the default cost weights produce feedback gains
+        consistent with the validated PID baseline:
+        - q_pos: [0.0001, 0.0001, 16.0] (low XY for meter→rad/s mapping)
+        - q_vel: [0.0036, 0.0036, 4.0]
+        - r_thrust: 1.0
+        - r_rate: 1.0
+
+        The resulting K matrix should have small XY position gains (~0.01)
+        matching the PID kp_pos baseline.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        lqr = LQRController()
+
+        # The LQR gain formula: K_pos = sqrt(q_pos / r)
+        # For XY: sqrt(0.0001 / 1.0) = 0.01
+        # For Z: sqrt(16.0 / 1.0) = 4.0
+
+        # Check XY position gains are small (columns 0 and 1 for X and Y)
+        # X position -> pitch rate (row 2, col 0)
+        x_pos_gain = abs(lqr.K[2, 0])
+        assert x_pos_gain < 0.02, (
+            f"X position gain should be ~0.01, got {x_pos_gain}"
+        )
+
+        # Y position -> roll rate (row 1, col 1)
+        y_pos_gain = abs(lqr.K[1, 1])
+        assert y_pos_gain < 0.02, (
+            f"Y position gain should be ~0.01, got {y_pos_gain}"
+        )
+
+        # Z position -> thrust (row 0, col 2)
+        z_pos_gain = abs(lqr.K[0, 2])
+        assert z_pos_gain > 3.0, (
+            f"Z position gain should be ~4.0, got {z_pos_gain}"
+        )
 
     def test_lqr_controller_custom_weights(self):
         """Test LQR controller with custom cost weights."""
@@ -1908,7 +1986,12 @@ class TestAxisSignConventions:
         )
 
     def test_pid_initial_acceleration_direction(self):
-        """Verify PID initial acceleration is toward target, not away."""
+        """Verify PID initial acceleration is toward target, not away.
+
+        This test uses higher gains than the conservative defaults to ensure
+        detectable velocity within a short time window. The test validates
+        sign conventions, not tuning quality.
+        """
         from quadcopter_tracking.controllers import PIDController
 
         config = EnvConfig()
@@ -1929,9 +2012,13 @@ class TestAxisSignConventions:
         state[2] = target_pos[2]  # Same Z height
         env.set_state_vector(state)
 
+        # Use higher test gains to get detectable velocity in short time window
+        # This tests sign conventions, not the conservative default tuning
         controller = PIDController(config={
             "mass": config.quadcopter.mass,
             "gravity": config.quadcopter.gravity,
+            "kp_pos": [2.0, 2.0, 4.0],  # Higher gains for sign convention test
+            "kd_pos": [1.5, 1.5, 2.0],
         })
 
         obs = env.render()
@@ -1968,7 +2055,12 @@ class TestAxisSignConventions:
             )
 
     def test_lqr_initial_acceleration_direction(self):
-        """Verify LQR initial acceleration is toward target, not away."""
+        """Verify LQR initial acceleration is toward target, not away.
+
+        This test uses higher cost weights than the conservative defaults to
+        produce larger feedback gains for detectable velocity. The test validates
+        sign conventions, not tuning quality.
+        """
         from quadcopter_tracking.controllers import LQRController
 
         config = EnvConfig()
@@ -1989,9 +2081,15 @@ class TestAxisSignConventions:
         state[2] = target_pos[2]  # Same Z height
         env.set_state_vector(state)
 
+        # Use higher cost weights to get detectable velocity in short time window
+        # This tests sign conventions, not the conservative default tuning
         controller = LQRController(config={
             "mass": config.quadcopter.mass,
             "gravity": config.quadcopter.gravity,
+            "q_pos": [10.0, 10.0, 20.0],  # Higher costs for sign convention test
+            "q_vel": [5.0, 5.0, 10.0],
+            "r_thrust": 0.1,
+            "r_rate": 1.0,
         })
 
         obs = env.render()

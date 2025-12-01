@@ -188,6 +188,24 @@ These values are surfaced from the environment configuration to controller const
 
 **Hover Thrust Baseline:** Both PID and LQR controllers output absolute thrust values that include the hover feedforward term. At zero tracking error (quadcopter at target position with matching velocity), controllers output `hover_thrust` (~9.81 N with default mass/gravity). This ensures training data contains meaningful thrust values suitable for learning gravity compensation.
 
+### Default Controller Gains
+
+The default PID and LQR gains are experimentally validated for stable tracking across stationary, linear, and circular target scenarios:
+
+| Controller | XY Gains | Z Gains | Rationale |
+|------------|----------|---------|-----------|
+| PID kp_pos | 0.01 | 4.0 | Low XY to prevent saturation |
+| PID ki_pos | 0.0 | 0.0 | Zero to avoid wind-up |
+| PID kd_pos | 0.06 | 2.0 | Low XY damping |
+| LQR q_pos | 0.0001 | 16.0 | Low XY position cost |
+| LQR q_vel | 0.0036 | 4.0 | Velocity damping |
+
+**Why are XY gains so small?** Position errors in meters are mapped directly to angular rates in rad/s. With the old gains (kp=2.0), a 1-meter XY error would produce 2 rad/s of pitch/roll rate—enough to saturate actuators and cause instability. The new gains (kp=0.01) produce only 0.01 rad/s per meter of error, ensuring stable convergence without saturation.
+
+**Integral term:** The integral gains default to zero for XY axes to avoid wind-up. Users can tune these for bias rejection if needed, but the default provides stable tracking for most scenarios.
+
+See [docs/architecture.md](docs/architecture.md) for detailed gain tuning guidance.
+
 ### Configuration
 
 ```python

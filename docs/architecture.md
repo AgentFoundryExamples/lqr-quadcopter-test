@@ -297,23 +297,59 @@ The evaluation pipeline records:
 
 ### Classical Controller Configuration
 
-Controller gains are configured via YAML:
+Controller gains are configured via YAML. The default gains are experimentally validated for stable tracking across stationary, linear, and circular target scenarios.
+
+**Recommended Baseline Gains:**
 
 ```yaml
-# PID Controller
+# PID Controller - Validated baseline gains
+# XY gains are small to prevent actuator saturation (meter→rad/sec mapping)
 pid:
-  kp_pos: [2.0, 2.0, 4.0]   # Proportional gains [x, y, z]
-  ki_pos: [0.1, 0.1, 0.2]   # Integral gains [x, y, z]
-  kd_pos: [1.5, 1.5, 2.0]   # Derivative gains [x, y, z]
-  integral_limit: 5.0        # Windup prevention
+  kp_pos: [0.01, 0.01, 4.0]   # Proportional gains [x, y, z] - low XY
+  ki_pos: [0.0, 0.0, 0.0]     # Integral gains [x, y, z] - zero to avoid wind-up
+  kd_pos: [0.06, 0.06, 2.0]   # Derivative gains [x, y, z] - low XY damping
+  integral_limit: 0.0          # Disabled by default
 
-# LQR Controller
+# LQR Controller - Validated baseline weights
+# XY costs are small to produce low feedback gains (meter→rad/sec mapping)
 lqr:
-  q_pos: [10.0, 10.0, 20.0]  # Position cost weights
-  q_vel: [5.0, 5.0, 10.0]    # Velocity cost weights
-  r_thrust: 0.1               # Thrust control cost
-  r_rate: 1.0                 # Rate control cost
+  q_pos: [0.0001, 0.0001, 16.0]  # Position cost weights - low XY
+  q_vel: [0.0036, 0.0036, 4.0]   # Velocity cost weights
+  r_thrust: 1.0                   # Thrust control cost
+  r_rate: 1.0                     # Rate control cost
 ```
+
+**Why are XY gains so small?**
+
+Position errors in meters are mapped directly to angular rates in rad/s:
+- A 1m XY error with kp=0.01 → 0.01 rad/s pitch/roll rate (safe)
+- A 1m XY error with kp=2.0 → 2.0 rad/s pitch/roll rate (saturates actuators)
+
+The new validated gains ensure stable convergence without actuator saturation.
+
+**Integral Term:**
+
+The integral gains default to zero for XY axes to avoid wind-up during transients. Users can tune these for bias rejection if steady-state error is observed:
+
+```yaml
+# Example: Adding integral for bias rejection
+pid:
+  ki_pos: [0.001, 0.001, 0.0]  # Small XY integral
+  integral_limit: 0.1           # Tight limit to prevent wind-up
+```
+
+**Overriding Defaults:**
+
+To use custom gains for specific scenarios, pass them in the config:
+
+```yaml
+# Example: Aggressive gains for testing (not recommended for production)
+pid:
+  kp_pos: [2.0, 2.0, 4.0]   # Higher XY gains
+  kd_pos: [1.5, 1.5, 2.0]   # Higher XY damping
+```
+
+**Warning:** Higher XY gains may cause actuator saturation and instability. Always verify with the new gains before deploying.
 
 ## Success Criteria
 

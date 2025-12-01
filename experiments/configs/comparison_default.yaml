@@ -21,6 +21,7 @@
 
 configurations:
   # PID Controller - Classical proportional-integral-derivative control
+  # Validated baseline gains with low XY proportional gains (meter→rad/sec mapping)
   - name: pid_baseline
     controller_type: pid
     num_episodes: 10
@@ -29,12 +30,13 @@ configurations:
     episode_length: 30.0
     target_radius: 0.5
     pid:
-      kp_pos: [2.0, 2.0, 4.0]
-      ki_pos: [0.1, 0.1, 0.2]
-      kd_pos: [1.5, 1.5, 2.0]
-      integral_limit: 5.0
+      kp_pos: [0.01, 0.01, 4.0]    # Low XY gains (meter→rad/sec mapping)
+      ki_pos: [0.0, 0.0, 0.0]      # Zero integral to avoid wind-up
+      kd_pos: [0.06, 0.06, 2.0]    # Low XY damping
+      integral_limit: 0.0
 
   # LQR Controller - Linear Quadratic Regulator (optimal linear control)
+  # Validated baseline weights scaled for meter→rad/sec mapping
   - name: lqr_baseline
     controller_type: lqr
     num_episodes: 10
@@ -43,9 +45,9 @@ configurations:
     episode_length: 30.0
     target_radius: 0.5
     lqr:
-      q_pos: [10.0, 10.0, 20.0]
-      q_vel: [5.0, 5.0, 10.0]
-      r_thrust: 0.1
+      q_pos: [0.0001, 0.0001, 16.0]  # Low XY position cost
+      q_vel: [0.0036, 0.0036, 4.0]   # Velocity cost for damping
+      r_thrust: 1.0
       r_rate: 1.0
 
   # Deep Controller - Neural network policy (requires trained checkpoint)
