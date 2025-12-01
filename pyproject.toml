@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "quadcopter-tracking"
-version = "0.3.1"
+version = "0.3.0"
 description = "Research repository for quadcopter target-tracking studies using LQR and ML controllers"
 readme = "README.md"
 license = "MIT"
