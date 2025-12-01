@@ -189,8 +189,8 @@ generate-comparison-report:
 # Error handling: Tuning will fail with clear error if config file is missing
 
 _check_tuning_config = @if [ ! -f $(1) ]; then \
-	echo "ERROR: Required config file not found: $(1)"; \
-	echo "Please ensure the config file exists at the specified path."; \
+	echo "ERROR: Required config file not found: $(1)" >&2; \
+	echo "Please ensure the config file exists at the specified path." >&2; \
 	exit 1; \
 fi
 
