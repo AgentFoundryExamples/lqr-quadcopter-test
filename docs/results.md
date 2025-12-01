@@ -665,6 +665,60 @@ The following preset configurations are available:
 
 See [docs/training.md](training.md) for detailed configuration options.
 
+## Hover Thrust Verification Tests
+
+Integration tests verify that PID and LQR controllers output correct hover thrust when the quadcopter is at the target position with zero velocity.
+
+### Running Hover Tests
+
+```bash
+# Run all hover thrust integration tests
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+
+# Run specific controller tests
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration::test_pid_hover_thrust_integration -v
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration::test_lqr_hover_thrust_integration -v
+
+# Run parametrized tests for various mass/gravity configurations
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v -k "parametrized"
+```
+
+### Test Coverage
+
+| Test Category | Description | Tolerance |
+|--------------|-------------|-----------|
+| Thrust Accuracy | Hover thrust within expected baseline | ±0.5N |
+| No Torques | Roll/pitch/yaw rates at equilibrium | <0.01 rad/s |
+| Mass/Gravity Scaling | Various mass/gravity configurations | ±0.5N |
+| Regression Guards | Detect zero-thrust failures | >1.0N |
+| Multi-Step Stability | Thrust stability over time | ±0.5N |
+
+### Expected Hover Thrust
+
+The expected hover thrust is calculated as:
+
+```
+hover_thrust = mass × gravity
+```
+
+Default configuration (mass=1.0kg, gravity=9.81m/s²) expects ~9.81N thrust at hover equilibrium.
+
+### Test Helper Functions
+
+The test suite provides shared helper functions for constructing hover test scenarios:
+
+- `create_hover_observation()`: Creates zero-error observation dictionary
+- `create_hover_env_config()`: Creates environment config for stationary hover testing
+
+These helpers ensure consistent test setup across different hover verification tests.
+
+### Test Characteristics
+
+- **Deterministic**: Seeded random state ensures reproducible results
+- **Fast**: Each test completes in <1s
+- **CI-Ready**: Suitable for continuous integration workflows
+- **Parameterized**: Tests cover multiple mass/gravity configurations
+
 ## v0.2 Migration Notes
 
 ### Upgrading from v0.1
