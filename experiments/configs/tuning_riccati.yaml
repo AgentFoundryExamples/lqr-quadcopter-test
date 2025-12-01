@@ -1,0 +1,151 @@
+# Riccati-LQR Controller Auto-Tuning Configuration
+# This file demonstrates the YAML configuration format for tuning Riccati-LQR
+# controller cost weights using the discrete-time algebraic Riccati equation
+# (DARE) solver.
+#
+# The Riccati-LQR controller computes mathematically optimal feedback gains by
+# solving DARE for the linearized quadcopter dynamics around hover. This is
+# suitable for:
+# - Establishing optimal control baselines
+# - Serving as a teacher for deep imitation learning
+# - Research on LQR-based quadcopter control
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_riccati.yaml
+#
+# Quick CLI Examples:
+#   # Random search with defaults
+#   python scripts/controller_autotune.py --controller riccati_lqr --max-iterations 30
+#
+#   # Custom Q/R ranges
+#   python scripts/controller_autotune.py --controller riccati_lqr \
+#       --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0 \
+#       --r-controls-range 0.5,0.5,0.5,0.5 2.0,2.0,2.0,2.0
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+# Options: 'pid', 'lqr', 'riccati_lqr'
+controller_type: riccati_lqr
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+# Search strategy: 'random' or 'grid'
+strategy: random
+
+# Maximum number of configurations to evaluate
+# NOTE: Riccati solvers can be slow; start with fewer iterations
+max_iterations: 30
+
+# Points per dimension for grid search (ignored for random)
+# WARNING: Large search spaces with grid search lead to exponential growth
+# Example: 3 params x 4 values each = 4^3 = 64 configurations
+grid_points_per_dim: 3
+
+# =============================================================================
+# SEARCH SPACE
+# =============================================================================
+# Define min and max values for each parameter to tune.
+# For Riccati-LQR, the key parameters are:
+#   - q_pos: Position cost weights [x, y, z] (Q matrix diagonal elements 0-2)
+#   - q_vel: Velocity cost weights [vx, vy, vz] (Q matrix diagonal elements 3-5)
+#   - r_controls: Control cost weights [thrust, roll, pitch, yaw] (R matrix)
+#
+# Cost function: J = integral(x'Qx + u'Ru) dt
+# Higher Q values -> more aggressive tracking (tighter error minimization)
+# Higher R values -> smoother control (less actuator effort)
+#
+# NOTE: XY position/velocity costs should be small to prevent actuator
+# saturation. The meter→rad/s mapping means large position errors would
+# produce aggressive roll/pitch rates. Keep q_pos[xy] < 0.001.
+
+search_space:
+  # Position cost weights range [x, y, z]
+  # Default range captures validated baseline around [0.0001, 0.0001, 16.0]
+  q_pos_range:
+    - [0.00005, 0.00005, 10.0]   # min: [x, y, z]
+    - [0.0005, 0.0005, 25.0]     # max: [x, y, z]
+
+  # Velocity cost weights range [vx, vy, vz]
+  # Default range captures validated baseline around [0.0036, 0.0036, 4.0]
+  q_vel_range:
+    - [0.001, 0.001, 2.0]        # min: [vx, vy, vz]
+    - [0.01, 0.01, 8.0]          # max: [vx, vy, vz]
+
+  # Control cost weights range [thrust, roll, pitch, yaw]
+  # Higher values = smoother control, lower = more aggressive
+  # All controls are typically weighted equally but can be tuned individually
+  r_controls_range:
+    - [0.5, 0.5, 0.5, 0.5]       # min: [thrust, roll, pitch, yaw]
+    - [2.0, 2.0, 2.0, 2.0]       # max: [thrust, roll, pitch, yaw]
+
+# =============================================================================
+# EVALUATION SETTINGS
+# =============================================================================
+
+# Number of episodes to evaluate each configuration
+# More episodes = more reliable metrics but slower tuning
+evaluation_episodes: 5
+
+# Maximum steps per evaluation episode
+evaluation_horizon: 3000
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target motion type for evaluation
+# Options: stationary, linear, circular, sinusoidal, figure8
+# Recommend starting with stationary for baseline tuning
+target_motion_type: stationary
+
+# On-target radius in meters
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+
+# Random seed for deterministic results
+seed: 42
+
+# Enable feedforward gain tuning (usually not needed for Riccati-LQR)
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+# Output directory for tuning results
+# Can be overridden with TUNING_OUTPUT_DIR environment variable
+output_dir: reports/tuning
+
+# Path to previous results to resume from (optional)
+# resume_from: reports/tuning/tuning_riccati_lqr_20240101_120000_results.json
+
+# =============================================================================
+# EDGE CASE HANDLING
+# =============================================================================
+#
+# 1. DARE solver failure:
+#    If the Riccati equation cannot be solved (e.g., system not stabilizable),
+#    the RiccatiLQRController falls back to heuristic LQR gains. This is logged
+#    as a warning and the configuration is still evaluated.
+#
+# 2. Narrow Q/R ranges:
+#    Very narrow ranges (min ≈ max) effectively fix that parameter. This is
+#    useful for ablation studies or when you want to tune only specific weights.
+#    The tuner logs a warning but proceeds normally.
+#
+# 3. Wide Q/R ranges:
+#    Extremely wide ranges can lead to unstable configurations or very long
+#    tuning runs. The DARE solver handles most cases gracefully, but you may
+#    see more fallback to heuristic LQR.
+#
+# 4. Interruption:
+#    Press Ctrl+C (SIGINT) to gracefully stop tuning. Partial results are
+#    saved automatically and can be resumed with the --resume flag.
+#
+# 5. Headless environments:
+#    Set MPLBACKEND=Agg for headless servers. Plotting can be disabled in
+#    the evaluation config if needed.

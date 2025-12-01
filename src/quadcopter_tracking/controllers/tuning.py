@@ -134,6 +134,11 @@ def _get_lqr_controller():
     return LQRController
 
 
+def _get_riccati_lqr_controller():
+    from quadcopter_tracking.controllers import RiccatiLQRController
+    return RiccatiLQRController
+
+
 @dataclass
 class GainSearchSpace:
     """
@@ -149,10 +154,11 @@ class GainSearchSpace:
         kd_pos_range: PID derivative gains range
         ff_velocity_gain_range: Feedforward velocity gains range
         ff_acceleration_gain_range: Feedforward acceleration gains range
-        q_pos_range: LQR position cost weights range
-        q_vel_range: LQR velocity cost weights range
+        q_pos_range: LQR/Riccati position cost weights range
+        q_vel_range: LQR/Riccati velocity cost weights range
         r_thrust_range: LQR thrust cost weight range (min, max) scalar
         r_rate_range: LQR rate cost weight range (min, max) scalar
+        r_controls_range: Riccati control cost weights range [thrust, roll, pitch, yaw]
     """
 
     # PID gains
@@ -164,11 +170,14 @@ class GainSearchSpace:
     ff_velocity_gain_range: tuple[list[float], list[float]] | None = None
     ff_acceleration_gain_range: tuple[list[float], list[float]] | None = None
 
-    # LQR weights
+    # LQR/Riccati weights
     q_pos_range: tuple[list[float], list[float]] | None = None
     q_vel_range: tuple[list[float], list[float]] | None = None
     r_thrust_range: tuple[float, float] | None = None
     r_rate_range: tuple[float, float] | None = None
+
+    # Riccati-specific: 4D control cost weights [thrust, roll, pitch, yaw]
+    r_controls_range: tuple[list[float], list[float]] | None = None
 
     def validate(self) -> None:
         """
@@ -230,6 +239,29 @@ class GainSearchSpace:
                     f"Cost weights should be non-negative."
                 )
 
+        # Riccati r_controls_range (4D vector)
+        if self.r_controls_range is not None:
+            min_vals, max_vals = self.r_controls_range
+            if len(min_vals) != 4 or len(max_vals) != 4:
+                raise ValueError(
+                    f"r_controls_range must have exactly 4 values for "
+                    f"[thrust, roll, pitch, yaw], "
+                    f"got min={len(min_vals)}, max={len(max_vals)}"
+                )
+            control_names = ["thrust", "roll", "pitch", "yaw"]
+            for i, (lo, hi) in enumerate(zip(min_vals, max_vals)):
+                if lo > hi:
+                    raise ValueError(
+                        f"r_controls_range[{control_names[i]}] has inverted range: "
+                        f"min={lo} > max={hi}. "
+                        f"Swap values or use equal values for fixed parameter."
+                    )
+                if lo < 0:
+                    raise ValueError(
+                        f"r_controls_range[{control_names[i]}] has negative minimum: "
+                        f"{lo}. Cost weights should be non-negative."
+                    )
+
     def get_active_parameters(self) -> list[str]:
         """Get list of parameter names that have search ranges defined."""
         params = []
@@ -251,6 +283,8 @@ class GainSearchSpace:
             params.append("r_thrust")
         if self.r_rate_range is not None:
             params.append("r_rate")
+        if self.r_controls_range is not None:
+            params.append("r_controls")
         return params
 
     @classmethod
@@ -266,6 +300,7 @@ class GainSearchSpace:
             q_vel_range=config.get("q_vel_range"),
             r_thrust_range=config.get("r_thrust_range"),
             r_rate_range=config.get("r_rate_range"),
+            r_controls_range=config.get("r_controls_range"),
         )
 
     def to_dict(self) -> dict:
@@ -280,6 +315,7 @@ class GainSearchSpace:
             "q_vel_range": self.q_vel_range,
             "r_thrust_range": self.r_thrust_range,
             "r_rate_range": self.r_rate_range,
+            "r_controls_range": self.r_controls_range,
         }
 
 
@@ -289,7 +325,7 @@ class TuningConfig:
     Configuration for controller auto-tuning.
 
     Attributes:
-        controller_type: Type of controller to tune ('pid' or 'lqr')
+        controller_type: Type of controller to tune ('pid', 'lqr', or 'riccati_lqr')
         search_space: Gain search space definition
         strategy: Search strategy ('grid' or 'random')
         max_iterations: Maximum number of configurations to evaluate
@@ -322,7 +358,7 @@ class TuningConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
-        valid_controllers = ("pid", "lqr")
+        valid_controllers = ("pid", "lqr", "riccati_lqr")
         if self.controller_type not in valid_controllers:
             raise ValueError(
                 f"Invalid controller_type: '{self.controller_type}'. "
@@ -569,6 +605,15 @@ class ControllerTuner:
         lo, hi = range_def
         return float(rng.uniform(lo, hi))
 
+    def _sample_4d_vector_param(
+        self, rng: np.random.Generator, range_def: tuple[list[float], list[float]]
+    ) -> list[float]:
+        """Sample a 4D vector parameter from uniform distribution."""
+        min_vals, max_vals = range_def
+        return [
+            float(rng.uniform(lo, hi)) for lo, hi in zip(min_vals, max_vals)
+        ]
+
     def _generate_random_config(self) -> dict:
         """Generate a random controller configuration."""
         space = self.config.search_space
@@ -594,7 +639,7 @@ class ControllerTuner:
             )
             config["feedforward_enabled"] = True
 
-        # LQR parameters
+        # LQR/Riccati parameters
         if space.q_pos_range is not None:
             config["q_pos"] = self._sample_vector_param(self.rng, space.q_pos_range)
         if space.q_vel_range is not None:
@@ -605,6 +650,12 @@ class ControllerTuner:
             )
         if space.r_rate_range is not None:
             config["r_rate"] = self._sample_scalar_param(self.rng, space.r_rate_range)
+
+        # Riccati-specific: r_controls (4D vector)
+        if space.r_controls_range is not None:
+            config["r_controls"] = self._sample_4d_vector_param(
+                self.rng, space.r_controls_range
+            )
 
         return config
 
@@ -619,7 +670,7 @@ class ControllerTuner:
         def make_vector_grid(
             range_def: tuple[list[float], list[float]]
         ) -> list[list[float]]:
-            """Create grid points for a 3D vector parameter."""
+            """Create grid points for a vector parameter (any dimension)."""
             min_vals, max_vals = range_def
             grids = []
             for lo, hi in zip(min_vals, max_vals):
@@ -661,6 +712,9 @@ class ControllerTuner:
             param_grids["r_thrust"] = make_scalar_grid(space.r_thrust_range)
         if space.r_rate_range is not None:
             param_grids["r_rate"] = make_scalar_grid(space.r_rate_range)
+        # Riccati-specific: r_controls (4D vector)
+        if space.r_controls_range is not None:
+            param_grids["r_controls"] = make_vector_grid(space.r_controls_range)
 
         if not param_grids:
             return []
@@ -689,6 +743,9 @@ class ControllerTuner:
         elif self.config.controller_type == "lqr":
             LQRController = _get_lqr_controller()
             return LQRController(config=controller_config)
+        elif self.config.controller_type == "riccati_lqr":
+            RiccatiLQRController = _get_riccati_lqr_controller()
+            return RiccatiLQRController(config=controller_config)
         else:
             raise ValueError(f"Unknown controller type: {self.config.controller_type}")
 

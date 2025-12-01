@@ -420,9 +420,9 @@ See [docs/training.md](docs/training.md) for complete training documentation.
 
 ## Controller Auto-Tuning
 
-The auto-tuning feature provides automated PID and LQR gain optimization by
-searching through parameter space to find configurations that minimize tracking
-error.
+The auto-tuning feature provides automated PID, LQR, and Riccati-LQR gain
+optimization by searching through parameter space to find configurations that
+minimize tracking error.
 
 ### Quick Start
 
@@ -435,14 +435,23 @@ python scripts/controller_autotune.py --controller pid --strategy grid
 
 # LQR auto-tuning
 python scripts/controller_autotune.py --controller lqr --max-iterations 30
+
+# Riccati-LQR auto-tuning (DARE-solved optimal gains)
+python scripts/controller_autotune.py --controller riccati_lqr --max-iterations 30
 ```
 
 ### Custom Search Ranges
 
 ```bash
+# PID custom ranges
 python scripts/controller_autotune.py --controller pid \
     --kp-range 0.005,0.005,2.0 0.05,0.05,6.0 \
     --kd-range 0.02,0.02,1.0 0.15,0.15,3.0
+
+# Riccati-LQR Q/R cost weight ranges
+python scripts/controller_autotune.py --controller riccati_lqr \
+    --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0 \
+    --r-controls-range 0.5,0.5,0.5,0.5 2.0,2.0,2.0,2.0
 ```
 
 ### Features
@@ -452,6 +461,7 @@ python scripts/controller_autotune.py --controller pid \
 - **Graceful interruption** with partial results saved
 - **Resume capability** from previous runs
 - **Feedforward gain tuning** (optional)
+- **Riccati-LQR support** with Q/R matrix tuning
 - **Configurable via environment variable** (`TUNING_OUTPUT_DIR`)
 
 ### Output
@@ -461,7 +471,7 @@ Tuning results are saved to `reports/tuning/` by default:
 - `tuning_pid_*_best_config.json` - Best configuration for easy loading
 
 See [docs/training.md](docs/training.md#pid-auto-tuning) for complete
-auto-tuning documentation.
+auto-tuning documentation including [Riccati-LQR tuning](docs/training.md#riccati-lqr-auto-tuning).
 
 ## Evaluating Controllers
 
