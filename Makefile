@@ -188,14 +188,14 @@ generate-comparison-report:
 #
 # Error handling: Tuning will fail with clear error if config file is missing
 
-_check-tuning-config = @if [ ! -f $(1) ]; then \
+_check_tuning_config = @if [ ! -f $(1) ]; then \
 	echo "ERROR: Required config file not found: $(1)"; \
 	echo "Please ensure the config file exists at the specified path."; \
 	exit 1; \
 fi
 
 tune-pid-linear:
-	$(call _check-tuning-config,experiments/configs/tuning_pid_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning_pid_linear.yaml)
 	@echo "=== Auto-tuning PID for linear motion ==="
 	@echo "Config: experiments/configs/tuning_pid_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
@@ -212,7 +212,7 @@ tune-pid-linear:
 	@echo "  3. Run: make eval-baseline-linear"
 
 tune-lqr-linear:
-	$(call _check-tuning-config,experiments/configs/tuning_lqr_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning_lqr_linear.yaml)
 	@echo "=== Auto-tuning LQR for linear motion ==="
 	@echo "Config: experiments/configs/tuning_lqr_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
@@ -230,7 +230,7 @@ tune-lqr-linear:
 	@echo "  4. Run: make eval-baseline-linear"
 
 tune-riccati-linear:
-	$(call _check-tuning-config,experiments/configs/tuning_riccati_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning_riccati_linear.yaml)
 	@echo "=== Auto-tuning Riccati-LQR for linear motion ==="
 	@echo "Config: experiments/configs/tuning_riccati_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
