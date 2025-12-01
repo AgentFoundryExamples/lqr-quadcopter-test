@@ -1,6 +1,6 @@
 # Quadcopter Target Tracking Research
 
-[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -700,9 +700,16 @@ python -m quadcopter_tracking.train \
 
 See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for detailed low-resource guidance.
 
-## v0.2.1 Status and Known Limitations
+## v0.3.0 Status and Known Limitations
 
 **Release Date:** December 1, 2025
+
+**New in v0.3.0:**
+- ✅ Riccati-LQR controller with DARE-solved optimal feedback gains
+- ✅ Controller auto-tuning framework (grid/random search)
+- ✅ Feedforward support for improved moving target tracking
+- ✅ Consolidated documentation for tuning workflows and baseline performance
+- ✅ Environment variable documentation for controller config paths
 
 **New in v0.2.1:**
 - ✅ Hover thrust feedforward properly documented and tested for PID/LQR
@@ -730,18 +737,19 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 - ⚠️ Experiment tracking integrations (WandB, MLflow) are placeholders only
 - ⚠️ Transfer learning not supported via Trainer class
 
-**Stubs / Future Work (v0.3+):**
+**Stubs / Future Work (v0.4+):**
 - 🔲 Observation noise and imperfect information
 - 🔲 State estimation (Kalman filter)
 - 🔲 Reinforcement learning (PPO/SAC)
-- 🔲 True LQR with linearization
 - 🔲 Hardware-in-the-loop support
 - 🔲 Distributed training
 
-**Upgrading from v0.2.0:**
+**Upgrading from v0.2.x:**
+- No breaking changes; all v0.2.x configurations and checkpoints remain compatible
+- Review the new Riccati-LQR controller if you need mathematically optimal feedback gains
+- Consider using auto-tuning (`scripts/controller_autotune.py`) when customizing gains for specific scenarios
 - If using custom mass/gravity values, pass them explicitly to controller constructors
-- DeepTrackingPolicy is unchanged and continues to learn from training data
-- Run `python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v` to verify hover thrust
+- Optionally run `python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v` to verify hover thrust
 
 **Upgrading from v0.1:**
 - No breaking changes; all v0.1 configurations and checkpoints remain compatible
