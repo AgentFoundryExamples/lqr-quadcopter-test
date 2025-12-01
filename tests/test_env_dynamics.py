@@ -760,9 +760,10 @@ class TestPIDController:
 
         action = pid.compute_action(obs)
 
-        # With default mass=1.0 and gravity=9.81, hover_thrust should be 9.81N
-        assert abs(action["thrust"] - 9.81) < 0.01, (
-            f"PID thrust at zero error should be ~9.81N, got {action['thrust']}"
+        # With default parameters, thrust at zero error should equal hover_thrust
+        assert abs(action["thrust"] - pid.hover_thrust) < 0.01, (
+            f"PID thrust at zero error should be {pid.hover_thrust}N, "
+            f"got {action['thrust']}"
         )
         # All rates should be zero with no error
         assert abs(action["roll_rate"]) < 0.01
@@ -843,8 +844,8 @@ class TestPIDController:
             action = pid.compute_action(obs)
 
         # Thrust should remain at hover baseline (integral of zero error = 0)
-        assert abs(action["thrust"] - 9.81) < 0.01, (
-            f"PID thrust should stay at ~9.81N after sustained zero error, "
+        assert abs(action["thrust"] - pid.hover_thrust) < 0.01, (
+            f"PID thrust should stay at {pid.hover_thrust}N after zero error, "
             f"got {action['thrust']}"
         )
         # Integral error should be zero
@@ -1035,9 +1036,10 @@ class TestLQRController:
 
         action = lqr.compute_action(obs)
 
-        # With default mass=1.0 and gravity=9.81, hover_thrust should be 9.81N
-        assert abs(action["thrust"] - 9.81) < 0.01, (
-            f"LQR thrust at zero error should be ~9.81N, got {action['thrust']}"
+        # With default parameters, thrust at zero error should equal hover_thrust
+        assert abs(action["thrust"] - lqr.hover_thrust) < 0.01, (
+            f"LQR thrust at zero error should be {lqr.hover_thrust}N, "
+            f"got {action['thrust']}"
         )
         # All rates should be zero with no error
         assert abs(action["roll_rate"]) < 0.01
