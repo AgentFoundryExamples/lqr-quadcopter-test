@@ -25,9 +25,16 @@ The quadcopter state consists of 12 variables:
 
 ### Coordinate System
 
-- **World frame**: North-East-Down (NED) with Z pointing up
-- **Body frame**: X forward, Y right, Z up
+- **World frame**: East-North-Up (ENU) convention - X points East, Y points North, Z points Up
+- **Body frame**: X forward, Y left, Z up
 - **Euler angles**: ZYX convention (yaw-pitch-roll)
+
+**Axis-to-Control Mapping:**
+- **Pitch** controls X-axis motion: +pitch_rate → +X velocity (forward)
+- **Roll** controls Y-axis motion: +roll_rate → −Y velocity (rolling right accelerates left)
+- **Thrust** controls Z-axis motion: +thrust → +Z acceleration (upward)
+
+> **Note:** The roll-to-Y mapping has a negative sign because rolling right (positive roll rate) tilts the thrust vector to produce leftward (negative Y) acceleration. This is standard for ENU frames. See [docs/architecture.md](architecture.md#coordinate-frame-and-axis-conventions) for detailed sign convention documentation.
 
 ## Action Space
 
