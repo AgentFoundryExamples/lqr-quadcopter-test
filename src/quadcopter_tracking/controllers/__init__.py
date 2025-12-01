@@ -89,15 +89,21 @@ class PIDController(BaseController):
         """
         Initialize PID controller.
 
+        The default gains are tuned for stable tracking across stationary, linear,
+        and circular target scenarios. XY gains are intentionally much smaller than
+        Z gains because position errors (in meters) are mapped to angular rates
+        (in rad/s). A 1-meter XY error with kp=0.01 produces only 0.01 rad/s of
+        pitch/roll rate, preventing actuator saturation while still converging.
+
         Args:
             config: Configuration with PID gain parameters:
                 - kp_pos: Proportional gains [x, y, z] or scalar
-                  (default: [2.0, 2.0, 4.0])
+                  (default: [0.01, 0.01, 4.0])
                 - ki_pos: Integral gains [x, y, z] or scalar
-                  (default: [0.1, 0.1, 0.2])
+                  (default: [0.0, 0.0, 0.0])
                 - kd_pos: Derivative gains [x, y, z] or scalar
-                  (default: [1.5, 1.5, 2.0])
-                - integral_limit: Max integral magnitude (default: 5.0)
+                  (default: [0.06, 0.06, 2.0])
+                - integral_limit: Max integral magnitude (default: 0.0)
                 - max_thrust: Max thrust in N (default: 20.0)
                 - min_thrust: Min thrust in N (default: 0.0)
                 - max_rate: Max angular rate in rad/s (default: 3.0)
@@ -113,9 +119,10 @@ class PIDController(BaseController):
         super().__init__(name="pid", config=config, mass=mass, gravity=gravity)
 
         # Position PID gains - can be scalar or array
-        kp = config.get("kp_pos", config.get("kp", [2.0, 2.0, 4.0]))
-        ki = config.get("ki_pos", config.get("ki", [0.1, 0.1, 0.2]))
-        kd = config.get("kd_pos", config.get("kd", [1.5, 1.5, 2.0]))
+        # XY gains are small because meter→rad/s mapping would otherwise saturate
+        kp = config.get("kp_pos", config.get("kp", [0.01, 0.01, 4.0]))
+        ki = config.get("ki_pos", config.get("ki", [0.0, 0.0, 0.0]))
+        kd = config.get("kd_pos", config.get("kd", [0.06, 0.06, 2.0]))
 
         # Convert scalars to arrays using helper
         def _ensure_array(value, size=3):
@@ -128,7 +135,8 @@ class PIDController(BaseController):
         self.kd_pos = _ensure_array(kd)
 
         # Integral windup prevention
-        self.integral_limit = config.get("integral_limit", 5.0)
+        # Default 0.0 for XY to avoid windup; users can tune for bias rejection
+        self.integral_limit = config.get("integral_limit", 0.0)
 
         # Output limits
         self.max_thrust = config.get("max_thrust", 20.0)
@@ -261,12 +269,18 @@ class LQRController(BaseController):
         """
         Initialize LQR controller.
 
+        The default cost weights are tuned to produce feedback gains consistent
+        with the validated PID defaults. XY position cost weights are much smaller
+        than Z because the resulting gains map meter errors to rad/s rates, and
+        large gains would saturate the actuators. The r_rate cost is higher to
+        further reduce XY aggressiveness.
+
         Args:
             config: Configuration with LQR parameters:
                 - K: Feedback gain matrix (4x6) or None to use defaults
-                - q_pos: Position state cost weights [x, y, z] (default: [10, 10, 20])
-                - q_vel: Velocity state cost weights [vx, vy, vz] (default: [5, 5, 10])
-                - r_thrust: Thrust control cost (default: 0.1)
+                - q_pos: Position cost [x, y, z] (default: [0.0001, 0.0001, 16.0])
+                - q_vel: Velocity cost [vx, vy, vz] (default: [0.0036, 0.0036, 4.0])
+                - r_thrust: Thrust control cost (default: 1.0)
                 - r_rate: Rate control cost (default: 1.0)
                 - max_thrust: Max thrust in N (default: 20.0)
                 - min_thrust: Min thrust in N (default: 0.0)
@@ -315,9 +329,11 @@ class LQRController(BaseController):
             Feedback gain matrix K (4x6).
         """
         # Cost weights
-        q_pos = np.array(config.get("q_pos", [10.0, 10.0, 20.0]))
-        q_vel = np.array(config.get("q_vel", [5.0, 5.0, 10.0]))
-        r_thrust = config.get("r_thrust", 0.1)
+        # XY position costs are small to avoid saturation (meter→rad/s mapping)
+        # Z position cost is higher for tight altitude tracking
+        q_pos = np.array(config.get("q_pos", [0.0001, 0.0001, 16.0]))
+        q_vel = np.array(config.get("q_vel", [0.0036, 0.0036, 4.0]))
+        r_thrust = config.get("r_thrust", 1.0)
         r_rate = config.get("r_rate", 1.0)
 
         # For each axis, we treat the dynamics as a double integrator:

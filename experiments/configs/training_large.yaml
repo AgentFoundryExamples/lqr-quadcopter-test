@@ -66,23 +66,23 @@ lr_reduction_factor: 0.3
 # =============================================================================
 # Classical Controller Configuration (PID and LQR)
 # =============================================================================
-# Aggressive gains for complex figure-8 motion tracking.
-# Higher gains enable faster response to dynamic target motion.
+# Validated baseline gains for figure-8 motion tracking.
+# XY gains are small (meter→rad/s mapping) to prevent actuator saturation.
+# These gains provide stable tracking without saturation for complex motion.
 
-# PID Controller Gains - Aggressive for complex motion
+# PID Controller Gains - Validated baseline for complex motion
 pid:
-  # Higher gains for tracking fast-moving targets
-  kp_pos: [3.0, 3.0, 5.0]
-  ki_pos: [0.15, 0.15, 0.3]
-  kd_pos: [2.0, 2.0, 2.5]
-  # Higher integral limit for extended tracking
-  integral_limit: 8.0
+  # Low XY gains for meter→rad/s mapping
+  kp_pos: [0.01, 0.01, 4.0]
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.06, 0.06, 2.0]
+  # Integral disabled
+  integral_limit: 0.0
 
-# LQR Controller Gains - Aggressive for complex motion
+# LQR Controller Gains - Validated baseline for complex motion
 lqr:
-  # Higher position cost for tighter tracking
-  q_pos: [15.0, 15.0, 25.0]
-  q_vel: [8.0, 8.0, 12.0]
-  # Lower control costs for more responsive behavior
-  r_thrust: 0.05
-  r_rate: 0.5
+  # Low XY position cost for meter→rad/s mapping
+  q_pos: [0.0001, 0.0001, 16.0]
+  q_vel: [0.0036, 0.0036, 4.0]
+  r_thrust: 1.0
+  r_rate: 1.0

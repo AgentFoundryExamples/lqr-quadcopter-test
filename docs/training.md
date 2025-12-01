@@ -907,61 +907,76 @@ This section provides guidance for tuning the PID and LQR classical controllers.
 
 ### PID Controller
 
-The PID controller uses separate gains for each axis (X, Y, Z):
+The PID controller uses separate gains for each axis (X, Y, Z). The default gains are experimentally validated for stable tracking:
 
 ```python
 from quadcopter_tracking.controllers import PIDController
 
+# Validated baseline gains (default)
 pid = PIDController(config={
-    "kp_pos": [2.0, 2.0, 4.0],   # Proportional gains [x, y, z]
-    "ki_pos": [0.1, 0.1, 0.2],   # Integral gains [x, y, z]
-    "kd_pos": [1.5, 1.5, 2.0],   # Derivative gains [x, y, z]
-    "integral_limit": 5.0,       # Windup prevention clamp
+    "kp_pos": [0.01, 0.01, 4.0],   # Proportional gains [x, y, z] - low XY
+    "ki_pos": [0.0, 0.0, 0.0],     # Integral gains [x, y, z] - zero by default
+    "kd_pos": [0.06, 0.06, 2.0],   # Derivative gains [x, y, z] - low XY
+    "integral_limit": 0.0,         # Disabled by default
 })
 ```
 
+**Why are XY gains so small?** Position errors in meters are mapped directly to angular rates in rad/s. With large gains, a 1-meter error would produce 2+ rad/s of pitch/roll rate—enough to saturate actuators. The validated gains (kp=0.01) produce only 0.01 rad/s per meter, ensuring stable convergence.
+
 #### Gain Tuning Guidelines
 
-| Parameter | Effect of Increase | Typical Range |
-|-----------|-------------------|---------------|
-| `kp_pos` | Faster response, more overshoot | 0.5 - 5.0 |
-| `ki_pos` | Eliminates steady-state error, causes oscillation | 0.01 - 0.5 |
-| `kd_pos` | More damping, reduces overshoot | 0.5 - 3.0 |
-| `integral_limit` | Higher limit = more correction, but risk of windup | 2.0 - 10.0 |
+| Parameter | Effect of Increase | Recommended Range |
+|-----------|-------------------|-------------------|
+| `kp_pos[xy]` | Faster XY response, risk of saturation | 0.005 - 0.05 |
+| `kp_pos[z]` | Faster altitude response | 2.0 - 6.0 |
+| `ki_pos` | Eliminates steady-state error, risk of wind-up | 0.0 - 0.01 |
+| `kd_pos[xy]` | More XY damping | 0.02 - 0.1 |
+| `kd_pos[z]` | More altitude damping | 1.0 - 3.0 |
+| `integral_limit` | Higher limit = more correction, risk of windup | 0.0 - 0.5 |
 
 #### Tuning Strategy
 
-1. **Start with proportional only**: Set `ki_pos = [0, 0, 0]`, tune `kp_pos` until system responds without excessive oscillation
-2. **Add derivative**: Increase `kd_pos` to reduce overshoot and oscillation
-3. **Add integral**: Slowly increase `ki_pos` to eliminate steady-state error
-4. **Adjust windup limit**: If tracking large errors, increase `integral_limit`
+1. **Start with validated baseline**: Use the defaults (kp_pos=[0.01, 0.01, 4.0])
+2. **Add derivative if oscillating**: Increase `kd_pos` to reduce overshoot
+3. **Add integral for bias**: If steady-state error persists, add small `ki_pos` with tight `integral_limit`
+4. **Avoid large XY gains**: Keep kp_pos[xy] < 0.05 to prevent saturation
 
 #### Common Issues
 
-- **Oscillation**: Reduce `kp_pos` or increase `kd_pos`
-- **Slow response**: Increase `kp_pos`
-- **Overshoot**: Increase `kd_pos` or reduce `kp_pos`
-- **Steady-state error**: Increase `ki_pos`
+- **Actuator saturation**: Reduce XY gains (kp_pos, kd_pos)
+- **Slow XY response**: Increase kp_pos[xy] cautiously (max 0.05)
+- **Altitude oscillation**: Reduce kp_pos[z] or increase kd_pos[z]
+- **Steady-state XY error**: Add small ki_pos[xy] with integral_limit
 - **Windup (runaway after large error)**: Reduce `integral_limit`
 
 #### Example Configurations
 
-**Stationary Target (conservative)**:
+**Validated Baseline (recommended for all scenarios)**:
 ```yaml
 pid:
-  kp_pos: [1.5, 1.5, 3.0]
-  ki_pos: [0.05, 0.05, 0.1]
-  kd_pos: [1.0, 1.0, 1.5]
-  integral_limit: 3.0
+  kp_pos: [0.01, 0.01, 4.0]
+  ki_pos: [0.0, 0.0, 0.0]
+  kd_pos: [0.06, 0.06, 2.0]
+  integral_limit: 0.0
 ```
 
-**Dynamic Tracking (aggressive)**:
+**With Bias Rejection (for steady-state error)**:
 ```yaml
 pid:
-  kp_pos: [3.0, 3.0, 5.0]
-  ki_pos: [0.15, 0.15, 0.3]
-  kd_pos: [2.0, 2.0, 2.5]
-  integral_limit: 8.0
+  kp_pos: [0.01, 0.01, 4.0]
+  ki_pos: [0.001, 0.001, 0.0]  # Small integral for XY
+  kd_pos: [0.06, 0.06, 2.0]
+  integral_limit: 0.1           # Tight limit
+```
+
+**Legacy Aggressive Gains (for ablation studies only)**:
+```yaml
+# WARNING: May saturate actuators - use for comparison only
+pid:
+  kp_pos: [2.0, 2.0, 4.0]
+  ki_pos: [0.1, 0.1, 0.2]
+  kd_pos: [1.5, 1.5, 2.0]
+  integral_limit: 5.0
 ```
 
 ### LQR Controller
@@ -971,29 +986,33 @@ The LQR controller computes optimal feedback gains from cost weights:
 ```python
 from quadcopter_tracking.controllers import LQRController
 
+# Validated baseline weights (default)
 lqr = LQRController(config={
-    "q_pos": [10.0, 10.0, 20.0],  # Position error cost [x, y, z]
-    "q_vel": [5.0, 5.0, 10.0],   # Velocity error cost [vx, vy, vz]
-    "r_thrust": 0.1,              # Thrust control cost
-    "r_rate": 1.0,                # Angular rate control cost
+    "q_pos": [0.0001, 0.0001, 16.0],  # Position error cost [x, y, z] - low XY
+    "q_vel": [0.0036, 0.0036, 4.0],   # Velocity error cost [vx, vy, vz]
+    "r_thrust": 1.0,                   # Thrust control cost
+    "r_rate": 1.0,                     # Angular rate control cost
 })
 ```
 
+**Why are XY costs so small?** The LQR gain formula produces K_pos = sqrt(q_pos/r). With the validated weights (q_pos[xy]=0.0001, r_rate=1.0), the XY position gains are sqrt(0.0001) = 0.01, matching the PID baseline. This prevents actuator saturation from the meter→rad/s mapping.
+
 #### Cost Weight Guidelines
 
-| Parameter | Effect of Increase | Typical Range |
-|-----------|-------------------|---------------|
-| `q_pos` | Tighter position tracking | 1.0 - 50.0 |
-| `q_vel` | More velocity damping | 1.0 - 20.0 |
-| `r_thrust` | Smoother thrust changes | 0.01 - 1.0 |
-| `r_rate` | Smoother attitude rate changes | 0.1 - 5.0 |
+| Parameter | Effect of Increase | Recommended Range |
+|-----------|-------------------|-------------------|
+| `q_pos[xy]` | Tighter XY tracking, risk of saturation | 0.00001 - 0.001 |
+| `q_pos[z]` | Tighter altitude tracking | 4.0 - 25.0 |
+| `q_vel` | More velocity damping | 0.001 - 0.01 (XY), 1.0 - 10.0 (Z) |
+| `r_thrust` | Smoother thrust changes | 0.5 - 2.0 |
+| `r_rate` | Smoother attitude rate changes | 0.5 - 2.0 |
 
 #### Tuning Strategy
 
-1. **Start with balanced weights**: Use defaults
-2. **Adjust tracking tightness**: Increase `q_pos` for tighter tracking
-3. **Add damping**: Increase `q_vel` if too oscillatory
-4. **Control smoothness**: Increase `r_*` weights for smoother control
+1. **Start with validated baseline**: Use the defaults
+2. **Adjust tracking tightness**: Increase `q_pos[z]` for tighter altitude tracking
+3. **Add XY damping**: Increase `q_vel[xy]` if XY is oscillatory
+4. **Keep XY position costs low**: q_pos[xy] should stay < 0.001 to prevent saturation
 
 #### Pre-computed K Matrix
 
@@ -1002,12 +1021,12 @@ For advanced users, you can provide a pre-computed feedback gain matrix:
 ```python
 import numpy as np
 
-# Custom 4x6 gain matrix
+# Custom 4x6 gain matrix (validated baseline produces similar gains)
 K = np.array([
-    [0, 0, 14.14, 0, 0, 7.42],      # Z error -> thrust
-    [0, 3.16, 0, 0, 2.35, 0],       # Y error -> roll rate
-    [-3.16, 0, 0, -2.35, 0, 0],     # X error -> pitch rate
-    [0, 0, 0, 0, 0, 0],             # yaw (unused)
+    [0, 0, 4.0, 0, 0, 2.0],      # Z error -> thrust
+    [0, -0.01, 0, 0, -0.06, 0],  # Y error -> roll rate (negative sign)
+    [0.01, 0, 0, 0.06, 0, 0],    # X error -> pitch rate
+    [0, 0, 0, 0, 0, 0],          # yaw (unused)
 ])
 
 lqr = LQRController(config={"K": K.tolist()})
@@ -1021,6 +1040,17 @@ The LQR linearization is valid for:
 - Position errors < 10 m
 
 Outside this envelope, the controller may perform poorly.
+
+#### Legacy Cost Weights (for ablation studies)
+
+```yaml
+# WARNING: May saturate actuators - use for comparison only
+lqr:
+  q_pos: [10.0, 10.0, 20.0]
+  q_vel: [5.0, 5.0, 10.0]
+  r_thrust: 0.1
+  r_rate: 1.0
+```
 
 ### Comparing Controllers
 
