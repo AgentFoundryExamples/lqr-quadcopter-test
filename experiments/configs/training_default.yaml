@@ -136,3 +136,27 @@ lqr:
   # Max velocity/acceleration for clamping
   ff_max_velocity: 10.0
   ff_max_acceleration: 5.0
+
+# =============================================================================
+# Riccati-LQR Controller Configuration
+# =============================================================================
+# Optimal LQR using DARE-solved gains. Use for imitation learning teacher or
+# optimal baseline comparison.
+riccati_lqr:
+  # Simulation timestep (must match environment dt)
+  dt: 0.01
+  # Physical parameters (match environment)
+  mass: 1.0
+  gravity: 9.81
+  # Position state cost weights [x, y, z] - matched to heuristic LQR
+  q_pos: [0.0001, 0.0001, 16.0]
+  # Velocity state cost weights [vx, vy, vz]
+  q_vel: [0.0036, 0.0036, 4.0]
+  # Control cost weights [thrust, roll_rate, pitch_rate, yaw_rate]
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+  # Output limits
+  max_thrust: 20.0
+  min_thrust: 0.0
+  max_rate: 3.0
+  # Fallback to heuristic LQR if DARE solver fails
+  fallback_on_failure: true

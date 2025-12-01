@@ -9,6 +9,10 @@
 #
 # Usage:
 #   # Evaluate Riccati-LQR on stationary target
+#   python -m quadcopter_tracking.eval \
+#       --config experiments/configs/eval_riccati_lqr_baseline.yaml
+#
+#   # Override controller via CLI (optional, config has controller: riccati_lqr)
 #   python -m quadcopter_tracking.eval --controller riccati_lqr \
 #       --config experiments/configs/eval_riccati_lqr_baseline.yaml
 #
@@ -16,6 +20,16 @@
 #   - On-target ratio: >90% for stationary targets
 #   - Mean tracking error: <0.4m
 #   - Success rate: 100%
+
+# =============================================================================
+# Controller Selection
+# =============================================================================
+# Options: deep, lqr, pid, riccati_lqr
+# - deep: Neural network controller (requires checkpoint)
+# - lqr: Linear Quadratic Regulator (heuristic gains)
+# - pid: PID controller
+# - riccati_lqr: Riccati-LQR (DARE-solved optimal gains)
+controller: riccati_lqr
 
 # =============================================================================
 # Evaluation Parameters
