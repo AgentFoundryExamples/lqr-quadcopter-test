@@ -462,13 +462,17 @@ class RiccatiLQRController(BaseController):
         q_pos = [self.Q[0, 0], self.Q[1, 1], self.Q[2, 2]]
         q_vel = [self.Q[3, 3], self.Q[4, 4], self.Q[5, 5]]
 
+        # Use the average of rate costs for the heuristic LQR's single r_rate param
+        r_rate_costs = [self.R[1, 1], self.R[2, 2], self.R[3, 3]]
+        avg_r_rate = sum(r_rate_costs) / len(r_rate_costs)
+
         fallback_config = {
             "mass": self.mass,
             "gravity": self.gravity,
             "q_pos": q_pos,
             "q_vel": q_vel,
             "r_thrust": self.R[0, 0],
-            "r_rate": self.R[1, 1],  # Use roll rate cost as representative
+            "r_rate": avg_r_rate,
             "max_thrust": self.max_thrust,
             "min_thrust": self.min_thrust,
             "max_rate": self.max_rate,
