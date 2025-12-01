@@ -1216,3 +1216,431 @@ class TestClassicalControllerIntegration:
             assert action["thrust"] >= 0.0
             assert abs(action["roll_rate"]) <= 3.0
             assert abs(action["pitch_rate"]) <= 3.0
+
+
+# =============================================================================
+# Hover Thrust Integration Tests
+# =============================================================================
+# These tests validate that PID and LQR controllers output correct hover thrust
+# (~9.81N for default mass/gravity) when the quadcopter is at the target with
+# zero velocity. Tests use public APIs and the environment to simulate the
+# stationary hover scenario.
+
+
+def create_hover_observation(
+    position: np.ndarray | None = None,
+) -> dict:
+    """
+    Create a stationary hover observation with zero tracking error.
+
+    This helper constructs an observation dictionary where the quadcopter
+    is exactly at the target position with zero velocity - the ideal hover
+    condition.
+
+    Args:
+        position: Target/quadcopter position (default: [0, 0, 1]).
+
+    Returns:
+        Observation dictionary suitable for controller.compute_action().
+    """
+    if position is None:
+        position = np.array([0.0, 0.0, 1.0])
+    else:
+        position = np.asarray(position, dtype=float)
+
+    return {
+        "quadcopter": {
+            "position": position.copy(),
+            "velocity": np.array([0.0, 0.0, 0.0]),
+            "attitude": np.array([0.0, 0.0, 0.0]),
+            "angular_velocity": np.array([0.0, 0.0, 0.0]),
+        },
+        "target": {
+            "position": position.copy(),
+            "velocity": np.array([0.0, 0.0, 0.0]),
+        },
+        "time": 0.0,
+    }
+
+
+def create_hover_env_config(
+    mass: float = 1.0,
+    gravity: float = 9.81,
+) -> EnvConfig:
+    """
+    Create environment configuration for stationary hover testing.
+
+    Sets up a minimal environment with:
+    - Stationary target motion
+    - Short episode for fast testing
+    - Configurable mass/gravity
+
+    Args:
+        mass: Quadcopter mass in kg.
+        gravity: Gravitational acceleration.
+
+    Returns:
+        EnvConfig configured for hover testing.
+    """
+    config = EnvConfig()
+    config.simulation = SimulationParams(dt=0.01, max_episode_time=2.0)
+    config.target = TargetParams(motion_type="stationary")
+    config.quadcopter.mass = mass
+    config.quadcopter.gravity = gravity
+    return config
+
+
+class TestHoverThrustIntegration:
+    """
+    Integration tests for hover thrust verification.
+
+    These tests instantiate PID and LQR controllers through public APIs
+    and verify they output correct hover thrust (within 0.5N of expected)
+    when the quadcopter is at the target position with zero velocity.
+
+    Acceptance criteria (from issue):
+    - Thrust within 0.5N of mass * gravity (9.81N for default config)
+    - No unintended torques (roll/pitch/yaw rates near zero)
+    - Tests cover stationary target and zero-velocity setup
+    - Tests are deterministic and fast (<1s each)
+    """
+
+    # Tolerance for hover thrust verification (per issue specification)
+    HOVER_THRUST_TOLERANCE_N = 0.5
+
+    # Tolerance for angular rates (should be near zero at hover)
+    RATE_TOLERANCE_RAD_S = 0.01
+
+    def test_pid_hover_thrust_integration(self):
+        """
+        Test PID outputs hover thrust (~9.81N) via environment integration.
+
+        Instantiates PID controller and environment, positions quadcopter
+        at target, and verifies thrust output matches hover baseline.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        # Setup environment with stationary target
+        env_config = create_hover_env_config()
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
+
+        # Position quadcopter exactly at target (zero error state)
+        # Get target position from the environment's target generator
+        target_state = env.target.get_state(0.0)
+        target_pos = target_state["position"]
+        state = env.get_state_vector()
+        state[0:3] = target_pos  # Position
+        state[3:6] = [0.0, 0.0, 0.0]  # Zero velocity
+        env.set_state_vector(state)
+        obs = env.render()
+
+        # Create controller with matching physics parameters
+        controller = PIDController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+
+        # Compute action at hover equilibrium
+        action = controller.compute_action(obs)
+
+        # Expected hover thrust
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
+
+        # Verify thrust within 0.5N tolerance
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"PID hover thrust error {thrust_error:.3f}N exceeds tolerance "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N. Expected {expected_thrust:.2f}N, "
+            f"got {action['thrust']:.2f}N"
+        )
+
+        # Verify no unintended torques (rates should be ~0)
+        assert abs(action["roll_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"PID roll_rate {action['roll_rate']:.4f} should be ~0 at hover"
+        )
+        assert abs(action["pitch_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"PID pitch_rate {action['pitch_rate']:.4f} should be ~0 at hover"
+        )
+        assert abs(action["yaw_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"PID yaw_rate {action['yaw_rate']:.4f} should be ~0 at hover"
+        )
+
+    def test_lqr_hover_thrust_integration(self):
+        """
+        Test LQR outputs hover thrust (~9.81N) via environment integration.
+
+        Instantiates LQR controller and environment, positions quadcopter
+        at target, and verifies thrust output matches hover baseline.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        # Setup environment with stationary target
+        env_config = create_hover_env_config()
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
+
+        # Position quadcopter exactly at target (zero error state)
+        target_state = env.target.get_state(0.0)
+        target_pos = target_state["position"]
+        state = env.get_state_vector()
+        state[0:3] = target_pos
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+        obs = env.render()
+
+        # Create controller with matching physics parameters
+        controller = LQRController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+
+        # Compute action at hover equilibrium
+        action = controller.compute_action(obs)
+
+        # Expected hover thrust
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
+
+        # Verify thrust within 0.5N tolerance
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"LQR hover thrust error {thrust_error:.3f}N exceeds tolerance "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N. Expected {expected_thrust:.2f}N, "
+            f"got {action['thrust']:.2f}N"
+        )
+
+        # Verify no unintended torques
+        assert abs(action["roll_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"LQR roll_rate {action['roll_rate']:.4f} should be ~0 at hover"
+        )
+        assert abs(action["pitch_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"LQR pitch_rate {action['pitch_rate']:.4f} should be ~0 at hover"
+        )
+        assert abs(action["yaw_rate"]) < self.RATE_TOLERANCE_RAD_S, (
+            f"LQR yaw_rate {action['yaw_rate']:.4f} should be ~0 at hover"
+        )
+
+    def test_pid_hover_thrust_helper_observation(self):
+        """
+        Test PID hover thrust using shared helper observation.
+
+        Uses create_hover_observation() helper to construct zero-error
+        state and verifies PID outputs correct hover thrust.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        # Default mass/gravity
+        mass, gravity = 1.0, 9.81
+        expected_thrust = mass * gravity
+
+        controller = PIDController(config={"mass": mass, "gravity": gravity})
+        obs = create_hover_observation()
+
+        action = controller.compute_action(obs)
+
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"PID hover thrust {action['thrust']:.2f}N not within "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N of {expected_thrust:.2f}N"
+        )
+
+    def test_lqr_hover_thrust_helper_observation(self):
+        """
+        Test LQR hover thrust using shared helper observation.
+
+        Uses create_hover_observation() helper to construct zero-error
+        state and verifies LQR outputs correct hover thrust.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        mass, gravity = 1.0, 9.81
+        expected_thrust = mass * gravity
+
+        controller = LQRController(config={"mass": mass, "gravity": gravity})
+        obs = create_hover_observation()
+
+        action = controller.compute_action(obs)
+
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"LQR hover thrust {action['thrust']:.2f}N not within "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N of {expected_thrust:.2f}N"
+        )
+
+    @pytest.mark.parametrize(
+        "mass,gravity,description",
+        [
+            (1.0, 9.81, "default"),
+            (1.5, 9.81, "heavier_quadcopter"),
+            (1.0, 10.0, "higher_gravity"),
+            (2.0, 9.81, "double_mass"),
+            (0.5, 9.81, "light_quadcopter"),
+        ],
+    )
+    def test_pid_hover_thrust_parametrized(self, mass, gravity, description):
+        """
+        Test PID hover thrust scales correctly with mass/gravity.
+
+        Parameterized test verifying hover_thrust = mass * gravity
+        for various configurations.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        expected_thrust = mass * gravity
+        controller = PIDController(config={"mass": mass, "gravity": gravity})
+        obs = create_hover_observation()
+
+        action = controller.compute_action(obs)
+
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"PID [{description}] thrust {action['thrust']:.2f}N not within "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N of expected {expected_thrust:.2f}N"
+        )
+
+    @pytest.mark.parametrize(
+        "mass,gravity,description",
+        [
+            (1.0, 9.81, "default"),
+            (1.5, 9.81, "heavier_quadcopter"),
+            (1.0, 10.0, "higher_gravity"),
+            (2.0, 9.81, "double_mass"),
+            (0.5, 9.81, "light_quadcopter"),
+        ],
+    )
+    def test_lqr_hover_thrust_parametrized(self, mass, gravity, description):
+        """
+        Test LQR hover thrust scales correctly with mass/gravity.
+
+        Parameterized test verifying hover_thrust = mass * gravity
+        for various configurations.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        expected_thrust = mass * gravity
+        controller = LQRController(config={"mass": mass, "gravity": gravity})
+        obs = create_hover_observation()
+
+        action = controller.compute_action(obs)
+
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+            f"LQR [{description}] thrust {action['thrust']:.2f}N not within "
+            f"{self.HOVER_THRUST_TOLERANCE_N}N of expected {expected_thrust:.2f}N"
+        )
+
+    def test_pid_zero_thrust_regression_guard(self):
+        """
+        Guard test: Fail loudly if PID regresses to zero-thrust behavior.
+
+        Ensures PID doesn't output near-zero thrust at hover, which would
+        indicate a regression in hover feedforward computation.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        controller = PIDController()
+        obs = create_hover_observation()
+        action = controller.compute_action(obs)
+
+        # Thrust should NOT be near zero (regression guard)
+        assert action["thrust"] > 1.0, (
+            f"PID REGRESSION: thrust {action['thrust']:.2f}N is near zero. "
+            "Hover feedforward may be broken."
+        )
+
+    def test_lqr_zero_thrust_regression_guard(self):
+        """
+        Guard test: Fail loudly if LQR regresses to zero-thrust behavior.
+
+        Ensures LQR doesn't output near-zero thrust at hover, which would
+        indicate a regression in hover feedforward computation.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        controller = LQRController()
+        obs = create_hover_observation()
+        action = controller.compute_action(obs)
+
+        # Thrust should NOT be near zero (regression guard)
+        assert action["thrust"] > 1.0, (
+            f"LQR REGRESSION: thrust {action['thrust']:.2f}N is near zero. "
+            "Hover feedforward may be broken."
+        )
+
+    def test_hover_stability_pid_multi_step(self):
+        """
+        Test PID maintains hover thrust over multiple time steps.
+
+        Verifies thrust remains stable when quadcopter stays at hover
+        equilibrium across multiple controller invocations.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        env_config = create_hover_env_config(mass=1.0, gravity=9.81)
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
+
+        # Position quadcopter at hover equilibrium
+        target_state = env.target.get_state(0.0)
+        state = env.get_state_vector()
+        state[0:3] = target_state["position"]
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+
+        controller = PIDController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
+
+        # Simulate multiple timesteps at hover
+        for i in range(10):
+            obs = env.render()
+            action = controller.compute_action(obs)
+            env.step(action)
+
+            # Verify thrust remains stable
+            thrust_error = abs(action["thrust"] - expected_thrust)
+            assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+                f"PID step {i}: thrust {action['thrust']:.2f}N drifted from "
+                f"hover baseline {expected_thrust:.2f}N"
+            )
+
+    def test_hover_stability_lqr_multi_step(self):
+        """
+        Test LQR maintains hover thrust over multiple time steps.
+
+        Verifies thrust remains stable when quadcopter stays at hover
+        equilibrium across multiple controller invocations.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        env_config = create_hover_env_config(mass=1.0, gravity=9.81)
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
+
+        # Position quadcopter at hover equilibrium
+        target_state = env.target.get_state(0.0)
+        state = env.get_state_vector()
+        state[0:3] = target_state["position"]
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+
+        controller = LQRController(config={
+            "mass": env_config.quadcopter.mass,
+            "gravity": env_config.quadcopter.gravity,
+        })
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
+
+        # Simulate multiple timesteps at hover
+        for i in range(10):
+            obs = env.render()
+            action = controller.compute_action(obs)
+            env.step(action)
+
+            # Verify thrust remains stable
+            thrust_error = abs(action["thrust"] - expected_thrust)
+            assert thrust_error <= self.HOVER_THRUST_TOLERANCE_N, (
+                f"LQR step {i}: thrust {action['thrust']:.2f}N drifted from "
+                f"hover baseline {expected_thrust:.2f}N"
+            )

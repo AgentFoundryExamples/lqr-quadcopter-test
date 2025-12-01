@@ -384,6 +384,30 @@ make format
 make clean
 ```
 
+### Hover Verification Tests
+
+The test suite includes hover thrust integration tests that verify PID and LQR controllers output correct hover thrust (~9.81N for default mass/gravity) when the quadcopter is at the target with zero velocity.
+
+```bash
+# Run all hover thrust integration tests
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+
+# Run specific hover tests
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration::test_pid_hover_thrust_integration -v
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration::test_lqr_hover_thrust_integration -v
+
+# Run parametrized tests for different mass/gravity configurations
+python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v -k "parametrized"
+```
+
+The hover tests verify:
+- **Thrust accuracy**: Within 0.5N of expected `hover_thrust = mass × gravity`
+- **No unintended torques**: Roll, pitch, and yaw rates are ~0 at hover equilibrium
+- **Regression guards**: Tests fail loudly if controllers output near-zero thrust
+- **Stability**: Thrust remains stable over multiple timesteps at hover
+
+Tests are deterministic and fast (<1s each), suitable for CI integration.
+
 ## Workflow Overview
 
 1. **Configure**: Set experiment parameters via `.env` or config file
