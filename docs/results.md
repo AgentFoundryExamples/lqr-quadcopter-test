@@ -366,7 +366,7 @@ def convert_action_enu_to_ned(action):
     return {
         "thrust": action["thrust"],
         "roll_rate": -action["roll_rate"],   # Flip roll sign
-        "pitch_rate": action["pitch_rate"],  # Pitch same
+        "pitch_rate": -action["pitch_rate"], # Flip pitch sign
         "yaw_rate": -action["yaw_rate"],     # Flip yaw sign
     }
 ```
