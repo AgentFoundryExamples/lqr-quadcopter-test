@@ -10,12 +10,13 @@ Total files: 24
 **Language:** Python  
 **Role:** script  
 **Role Justification:** located in 'scripts' directory  
-**Size:** 14.11 KB  
-**LOC:** 373  
+**Size:** 15.96 KB  
+**LOC:** 408  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 7  
+**Declarations:** 8  
 **Top-level declarations:**
   - function parse_vector_arg
+  - function parse_4d_vector_arg
   - function parse_args
   - function build_search_space
   - function get_default_search_space
@@ -118,15 +119,16 @@ Total files: 24
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 35.37 KB  
-**LOC:** 796  
+**Size:** 38.53 KB  
+**LOC:** 851  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 8  
+**Declarations:** 9  
 **Top-level declarations:**
   - function _validate_path
   - function _validate_output_dir
   - function _get_pid_controller
   - function _get_lqr_controller
+  - function _get_riccati_lqr_controller
   - class GainSearchSpace
   - class TuningConfig
   - class TuningResult
@@ -418,16 +420,17 @@ Total files: 24
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 20.89 KB  
-**LOC:** 475  
+**Size:** 27.90 KB  
+**LOC:** 622  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 5  
+**Declarations:** 6  
 **Top-level declarations:**
   - class TestGainSearchSpace
   - class TestTuningConfig
   - class TestTuningResult
   - class TestControllerTuner
   - class TestTuningIntegration
+  - class TestRiccatiTuning
 **External Dependencies:**
   - **Stdlib:** `json`
   - **Third-party:** `pytest`
