@@ -1,9 +1,0 @@
-Defaulting to user installation because normal site-packages is not writeable
-Collecting scipy
-  Downloading scipy-1.16.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (62 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 62.0/62.0 kB 23.2 MB/s eta 0:00:00
-Requirement already satisfied: numpy<2.6,>=1.25.2 in /home/runner/.local/lib/python3.12/site-packages (from scipy) (1.26.4)
-Downloading scipy-1.16.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (35.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.7/35.7 MB 21.3 MB/s eta 0:00:00
-Installing collected packages: scipy
-Successfully installed scipy-1.16.3
