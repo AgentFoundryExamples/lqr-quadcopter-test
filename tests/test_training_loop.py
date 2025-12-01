@@ -393,6 +393,11 @@ class TestTrainingConfig:
         config = TrainingConfig(controller="lqr")
         assert config.controller == "lqr"
 
+    def test_config_controller_riccati_lqr(self):
+        """Test controller selection for riccati_lqr."""
+        config = TrainingConfig(controller="riccati_lqr")
+        assert config.controller == "riccati_lqr"
+
     def test_config_invalid_controller(self):
         """Test error on invalid controller type."""
         with pytest.raises(ValueError, match="Invalid controller type"):

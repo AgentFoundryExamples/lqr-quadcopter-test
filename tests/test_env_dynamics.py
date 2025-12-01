@@ -2568,3 +2568,634 @@ class TestFeedforwardSupport:
 
         lqr.reset()
         assert lqr.get_control_components() is None
+
+
+# =============================================================================
+# Riccati-LQR Controller Tests
+# =============================================================================
+# Tests for the RiccatiLQRController that solves the discrete-time algebraic
+# Riccati equation (DARE) for optimal feedback gains.
+
+
+class TestRiccatiLQRController:
+    """Tests for Riccati-LQR controller implementation."""
+
+    def test_riccati_lqr_controller_initialization(self):
+        """Test Riccati-LQR controller initializes correctly."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+        assert controller.name == "riccati_lqr"
+        assert controller.K is not None
+        assert controller.K.shape == (4, 6)
+        assert controller.P is not None
+        assert controller.P.shape == (6, 6)
+        assert not controller.is_using_fallback()
+
+    def test_riccati_lqr_dare_solution(self):
+        """Test that DARE solution produces valid P and K matrices."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        P = controller.get_riccati_solution()
+        K = controller.get_gain_matrix()
+
+        assert P is not None
+        assert K is not None
+
+        # P should be positive semi-definite (all eigenvalues >= 0)
+        eigenvalues = np.linalg.eigvalsh(P)
+        assert np.all(eigenvalues >= -1e-10), (
+            f"P should be positive semi-definite, got eigenvalues: {eigenvalues}"
+        )
+
+        # P should be symmetric
+        assert np.allclose(P, P.T), "P should be symmetric"
+
+    def test_riccati_lqr_custom_cost_matrices(self):
+        """Test Riccati-LQR with custom Q and R cost matrices."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "q_pos": [2.0, 2.0, 10.0],
+            "q_vel": [0.5, 0.5, 2.0],
+            "r_controls": [1.0, 0.5, 0.5, 1.0],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        assert controller.K.shape == (4, 6)
+        assert not controller.is_using_fallback()
+
+    def test_riccati_lqr_full_Q_R_matrices(self):
+        """Test Riccati-LQR with full Q and R matrices."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        Q = np.diag([1.0, 1.0, 10.0, 0.1, 0.1, 1.0])
+        R = np.diag([1.0, 1.0, 1.0, 1.0])
+
+        config = {
+            "dt": 0.01,
+            "Q": Q.tolist(),
+            "R": R.tolist(),
+        }
+        controller = RiccatiLQRController(config=config)
+
+        assert controller.K.shape == (4, 6)
+        assert not controller.is_using_fallback()
+
+    def test_riccati_lqr_compute_action_format(self):
+        """Test Riccati-LQR compute_action returns correct format."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        action = controller.compute_action(obs)
+
+        assert "thrust" in action
+        assert "roll_rate" in action
+        assert "pitch_rate" in action
+        assert "yaw_rate" in action
+        assert isinstance(action["thrust"], float)
+        assert isinstance(action["roll_rate"], float)
+
+    def test_riccati_lqr_output_bounds(self):
+        """Test Riccati-LQR controller respects output bounds."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "max_thrust": 20.0,
+            "min_thrust": 0.0,
+            "max_rate": 3.0,
+        }
+        controller = RiccatiLQRController(config=config)
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        for _ in range(50):
+            action = controller.compute_action(obs)
+            obs, _, done, _ = env.step(action)
+            if done:
+                break
+
+            assert action["thrust"] >= 0.0
+            assert action["thrust"] <= 20.0
+            assert abs(action["roll_rate"]) <= 3.0
+            assert abs(action["pitch_rate"]) <= 3.0
+            assert abs(action["yaw_rate"]) <= 3.0
+
+    def test_riccati_lqr_hover_thrust_at_zero_error(self):
+        """Test Riccati-LQR returns hover thrust when at target with zero velocity."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "time": 0.0,
+        }
+
+        action = controller.compute_action(obs)
+
+        # At zero error, thrust should equal hover_thrust
+        assert abs(action["thrust"] - controller.hover_thrust) < 0.01, (
+            f"Riccati-LQR thrust at zero error should be {controller.hover_thrust}N, "
+            f"got {action['thrust']}"
+        )
+        # All rates should be zero with no error
+        assert abs(action["roll_rate"]) < 0.01
+        assert abs(action["pitch_rate"]) < 0.01
+        assert abs(action["yaw_rate"]) < 0.01
+
+    def test_riccati_lqr_responds_to_position_error(self):
+        """Test Riccati-LQR controller responds correctly to position error."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        # Observation with positive X error (target ahead in X)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),  # +1m in X
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Positive X error should result in positive pitch rate
+        assert action["pitch_rate"] > 0, (
+            f"Riccati-LQR should produce positive pitch_rate for +X error. "
+            f"Got pitch_rate = {action['pitch_rate']}"
+        )
+
+    def test_riccati_lqr_responds_to_y_error(self):
+        """Test Riccati-LQR controller produces negative roll_rate for +Y error."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 1.0, 1.0]),  # +1m in Y
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Positive Y error should result in negative roll rate
+        assert action["roll_rate"] < 0, (
+            f"Riccati-LQR should produce negative roll_rate for +Y error. "
+            f"Got roll_rate = {action['roll_rate']}"
+        )
+
+    def test_riccati_lqr_responds_to_z_error(self):
+        """Test Riccati-LQR controller increases thrust for +Z error."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 2.0]),  # +1m in Z
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Positive Z error should result in increased thrust
+        assert action["thrust"] > controller.hover_thrust, (
+            f"Riccati-LQR should produce thrust > hover for +Z error. "
+            f"Got thrust = {action['thrust']}, hover = {controller.hover_thrust}"
+        )
+
+    def test_riccati_lqr_moves_quadcopter_toward_target(self):
+        """Test Riccati-LQR controller reduces tracking error over time."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        # Run controller and track minimum error achieved
+        min_error = float("inf")
+        for _ in range(500):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+            if done:
+                break
+
+        # Controller should achieve reasonable tracking at some point
+        assert min_error < 0.5, f"Min tracking error too high: {min_error}"
+
+    def test_riccati_lqr_full_episode_stationary(self):
+        """Test Riccati-LQR completes a full episode with stationary target."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        done = False
+        min_error = float("inf")
+
+        while not done:
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+
+        # Controller should achieve some tracking during episode
+        assert min_error < 1.0, f"Min tracking error too high: {min_error}"
+
+    def test_riccati_lqr_linear_tracking(self):
+        """Test Riccati-LQR tracks linear motion without diverging."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="linear", speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        errors = []
+        for _ in range(200):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded (not diverge to infinity)
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        # Controller should achieve some tracking at some point
+        assert min(errors) < 2.0, f"Min error too high: {min(errors)}"
+
+    def test_riccati_lqr_circular_tracking(self):
+        """Test Riccati-LQR tracks circular motion without diverging."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="circular", radius=1.0, speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        errors = []
+        for _ in range(200):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded (not diverge to infinity)
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        # Controller should achieve some tracking at some point
+        assert min(errors) < 3.0, f"Min error too high: {min(errors)}"
+
+    def test_riccati_lqr_observation_validation(self):
+        """Test Riccati-LQR controller raises error on invalid observation."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        # Missing quadcopter key
+        with pytest.raises(KeyError, match="quadcopter"):
+            controller.compute_action({"target": {}})
+
+        # Missing target key
+        with pytest.raises(KeyError, match="target"):
+            controller.compute_action({"quadcopter": {}})
+
+    def test_riccati_lqr_stateless(self):
+        """Test Riccati-LQR controller is stateless (reset is no-op)."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+        K_before = controller.K.copy()
+        controller.reset()
+        assert np.allclose(controller.K, K_before)
+
+    def test_riccati_lqr_diagnostics(self):
+        """Test Riccati-LQR logs control components for diagnostics."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        controller.compute_action(obs)
+        components = controller.get_control_components()
+
+        assert components is not None
+        assert "state_error" in components
+        assert "feedback_u" in components
+        assert "K_matrix" in components
+
+        # State error should have the X position error
+        assert components["state_error"][0] > 0  # X error
+
+    def test_riccati_lqr_reset_clears_diagnostics(self):
+        """Test Riccati-LQR reset clears control component diagnostics."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        obs = create_hover_observation()
+        controller.compute_action(obs)
+        assert controller.get_control_components() is not None
+
+        controller.reset()
+        assert controller.get_control_components() is None
+
+
+class TestRiccatiLQRValidation:
+    """Tests for Riccati-LQR matrix validation and error handling."""
+
+    def test_riccati_lqr_invalid_q_matrix_shape(self):
+        """Test error raised for invalid Q matrix shape."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "Q": [[1, 2], [3, 4]],  # Wrong shape (2x2 instead of 6x6)
+        }
+        with pytest.raises(ValueError, match="Q matrix must have shape"):
+            RiccatiLQRController(config=config)
+
+    def test_riccati_lqr_invalid_r_matrix_shape(self):
+        """Test error raised for invalid R matrix shape."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "R": [[1, 2], [3, 4]],  # Wrong shape (2x2 instead of 4x4)
+        }
+        with pytest.raises(ValueError, match="R matrix must have shape"):
+            RiccatiLQRController(config=config)
+
+    def test_riccati_lqr_non_positive_definite_r(self):
+        """Test error raised for non-positive-definite R matrix."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # R with a zero eigenvalue (not positive definite)
+        R_bad = np.diag([1.0, 1.0, 0.0, 1.0])
+
+        config = {
+            "dt": 0.01,
+            "R": R_bad.tolist(),
+            "fallback_on_failure": False,
+        }
+        with pytest.raises(ValueError, match="R matrix must be positive definite"):
+            RiccatiLQRController(config=config)
+
+    def test_riccati_lqr_fallback_on_invalid_matrices(self):
+        """Test fallback to heuristic LQR on solver failure."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # R with near-zero eigenvalue that will cause solver issues
+        R_bad = np.diag([1.0, 1.0, 1e-15, 1.0])
+
+        config = {
+            "dt": 0.01,
+            "R": R_bad.tolist(),
+            "fallback_on_failure": True,
+        }
+
+        # Should not raise, but should fall back
+        controller = RiccatiLQRController(config=config)
+        assert controller.is_using_fallback()
+
+        # Fallback should still produce valid actions
+        obs = create_hover_observation()
+        action = controller.compute_action(obs)
+        assert "thrust" in action
+
+    def test_riccati_lqr_q_pos_q_vel_validation(self):
+        """Test error for invalid q_pos/q_vel lengths."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # Invalid q_pos length
+        with pytest.raises(ValueError, match="q_pos must have 3 elements"):
+            RiccatiLQRController(config={"dt": 0.01, "q_pos": [1.0, 2.0]})
+
+        # Invalid q_vel length
+        with pytest.raises(ValueError, match="q_vel must have 3 elements"):
+            RiccatiLQRController(config={"dt": 0.01, "q_vel": [1.0]})
+
+    def test_riccati_lqr_r_controls_validation(self):
+        """Test error for invalid r_controls length."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        with pytest.raises(ValueError, match="r_controls must have 4 elements"):
+            RiccatiLQRController(config={"dt": 0.01, "r_controls": [1.0, 2.0, 3.0]})
+
+
+class TestRiccatiLQRIntegration:
+    """Integration tests for Riccati-LQR with the training/eval pipeline."""
+
+    def test_riccati_lqr_train_integration(self, tmp_path):
+        """Test Riccati-LQR works with the training pipeline."""
+        from quadcopter_tracking.train import Trainer, TrainingConfig
+
+        config = TrainingConfig(
+            controller="riccati_lqr",
+            epochs=2,
+            episodes_per_epoch=2,
+            max_steps_per_episode=50,
+            checkpoint_dir=str(tmp_path / "checkpoints"),
+            log_dir=str(tmp_path / "logs"),
+            device="cpu",
+        )
+
+        # Riccati-LQR needs dt in the config
+        config.full_config = {"riccati_lqr": {"dt": 0.01}}
+
+        trainer = Trainer(config)
+
+        assert trainer.controller.name == "riccati_lqr"
+        assert not trainer.is_deep_controller
+        assert trainer.optimizer is None
+
+        # Run evaluation (not training)
+        summary = trainer.train()
+
+        assert summary["controller"] == "riccati_lqr"
+        assert summary["epochs_completed"] == 2
+
+    def test_riccati_lqr_eval_integration(self):
+        """Test Riccati-LQR works with the evaluation pipeline."""
+        from quadcopter_tracking.eval import Evaluator, load_controller
+
+        controller = load_controller(
+            controller_type="riccati_lqr",
+            config={"dt": 0.01},
+        )
+
+        assert controller.name == "riccati_lqr"
+
+        env_config = EnvConfig()
+        env_config.target.motion_type = "stationary"
+        env_config.simulation.max_episode_time = 2.0
+
+        evaluator = Evaluator(
+            controller=controller,
+            env_config=env_config,
+        )
+
+        summary = evaluator.evaluate(
+            num_episodes=2,
+            base_seed=42,
+            verbose=False,
+        )
+
+        assert summary.total_episodes == 2
+
+    def test_riccati_lqr_as_supervisor(self, tmp_path):
+        """Test Riccati-LQR can be used as imitation learning supervisor."""
+        from quadcopter_tracking.train import Trainer, TrainingConfig
+
+        config_dict = {
+            "controller": "deep",
+            "training_mode": "imitation",
+            "supervisor_controller": "riccati_lqr",
+            "epochs": 2,
+            "episodes_per_epoch": 2,
+            "max_steps_per_episode": 50,
+            "checkpoint_dir": str(tmp_path / "checkpoints"),
+            "log_dir": str(tmp_path / "logs"),
+            "device": "cpu",
+            "riccati_lqr": {"dt": 0.01},
+        }
+
+        config = TrainingConfig.from_dict(config_dict)
+        trainer = Trainer(config)
+
+        assert trainer.supervisor is not None
+        assert trainer.supervisor.name == "riccati_lqr"
+
+        # Should train without errors
+        summary = trainer.train()
+        assert summary["epochs_completed"] == 2
+
+
+class TestRiccatiLQRComparison:
+    """Tests comparing Riccati-LQR with heuristic LQR."""
+
+    def test_riccati_lqr_different_from_heuristic_lqr(self):
+        """Test that Riccati-LQR produces different gains than heuristic LQR."""
+        from quadcopter_tracking.controllers import LQRController, RiccatiLQRController
+
+        # Use same cost weights for both
+        common_config = {
+            "q_pos": [1.0, 1.0, 10.0],
+            "q_vel": [0.1, 0.1, 1.0],
+            "r_thrust": 1.0,
+            "r_rate": 1.0,
+        }
+
+        heuristic = LQRController(config=common_config)
+        riccati = RiccatiLQRController(config={**common_config, "dt": 0.01})
+
+        # Gains should be different (Riccati is mathematically optimal)
+        assert not np.allclose(heuristic.K, riccati.K, rtol=0.1), (
+            "Riccati-LQR and heuristic LQR should produce different K matrices"
+        )
+
+    def test_riccati_lqr_hover_thrust_integration(self):
+        """Test Riccati-LQR hover thrust via environment integration."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # Setup environment with stationary target
+        env_config = create_hover_env_config()
+        env = QuadcopterEnv(config=env_config)
+        env.reset(seed=42)
+
+        # Position quadcopter exactly at target (zero error state)
+        target_state = env.target.get_state(0.0)
+        target_pos = target_state["position"]
+        state = env.get_state_vector()
+        state[0:3] = target_pos
+        state[3:6] = [0.0, 0.0, 0.0]
+        env.set_state_vector(state)
+        obs = env.render()
+
+        controller = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "mass": env_config.quadcopter.mass,
+                "gravity": env_config.quadcopter.gravity,
+            }
+        )
+
+        action = controller.compute_action(obs)
+        expected_thrust = env_config.quadcopter.mass * env_config.quadcopter.gravity
+
+        # Verify thrust within 0.5N tolerance
+        thrust_error = abs(action["thrust"] - expected_thrust)
+        assert thrust_error <= 0.5, (
+            f"Riccati-LQR hover thrust error {thrust_error:.3f}N exceeds tolerance. "
+            f"Expected {expected_thrust:.2f}N, got {action['thrust']:.2f}N"
+        )
+
+        # Verify no unintended torques
+        assert abs(action["roll_rate"]) < 0.01
+        assert abs(action["pitch_rate"]) < 0.01
+        assert abs(action["yaw_rate"]) < 0.01

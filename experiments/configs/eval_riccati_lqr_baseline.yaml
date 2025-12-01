@@ -1,0 +1,85 @@
+# Baseline evaluation configuration using Riccati-LQR controller
+# The Riccati-LQR controller solves the discrete-time algebraic Riccati equation
+# (DARE) to compute mathematically optimal feedback gains K.
+#
+# This controller is recommended for:
+# - Serving as a strong teacher for deep imitation learning
+# - Validating control performance against optimal baselines
+# - Research on LQR-based quadcopter control
+#
+# Usage:
+#   # Evaluate Riccati-LQR on stationary target
+#   python -m quadcopter_tracking.eval --controller riccati_lqr \
+#       --config experiments/configs/eval_riccati_lqr_baseline.yaml
+#
+# Expected performance:
+#   - On-target ratio: >90% for stationary targets
+#   - Mean tracking error: <0.4m
+#   - Success rate: 100%
+
+# =============================================================================
+# Evaluation Parameters
+# =============================================================================
+num_episodes: 10
+seed: 42
+
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+target_motion_type: stationary
+episode_length: 30.0
+target_radius: 0.5
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: reports/baseline_riccati_lqr
+
+# =============================================================================
+# Riccati-LQR Controller Configuration
+# =============================================================================
+# The controller solves DARE for the linearized quadcopter dynamics around hover.
+#
+# State vector (6D): [x_error, y_error, z_error, vx_error, vy_error, vz_error]
+# Control vector (4D): [thrust, roll_rate, pitch_rate, yaw_rate]
+#
+# Cost function: J = integral(x'Qx + u'Ru) dt
+# - Q: State cost matrix (penalizes tracking error)
+# - R: Control cost matrix (penalizes control effort)
+#
+# Higher Q values -> more aggressive tracking
+# Higher R values -> smoother control but slower convergence
+#
+# NOTE: The default weights are matched to the heuristic LQR controller for
+# consistency. XY position costs are small because meter→rad/s mapping would
+# otherwise saturate actuators.
+
+riccati_lqr:
+  # Simulation timestep (must match environment dt)
+  dt: 0.01
+
+  # Physical parameters (match environment)
+  mass: 1.0
+  gravity: 9.81
+
+  # State cost weights (Q matrix diagonal)
+  # [x, y, z] position costs - matched to heuristic LQR defaults
+  # XY costs are small to prevent actuator saturation (meter→rad/s mapping)
+  q_pos: [0.0001, 0.0001, 16.0]
+
+  # [vx, vy, vz] velocity costs - matched to heuristic LQR defaults
+  q_vel: [0.0036, 0.0036, 4.0]
+
+  # Control cost weights (R matrix diagonal)
+  # [thrust, roll_rate, pitch_rate, yaw_rate]
+  # Higher values = smoother control at cost of tracking speed
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+
+  # Output limits (match environment action bounds)
+  max_thrust: 20.0
+  min_thrust: 0.0
+  max_rate: 3.0
+
+  # Fallback behavior if DARE solver fails
+  # When true, falls back to heuristic LQR with similar gains
+  fallback_on_failure: true

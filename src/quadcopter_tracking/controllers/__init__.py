@@ -6,8 +6,9 @@ Controllers receive environment observations and produce control actions
 to minimize tracking error.
 
 Controller Types:
-- LQR (Linear Quadratic Regulator): Classic optimal control
+- LQR (Linear Quadratic Regulator): Classic optimal control with heuristic gains
 - PID: Proportional-Integral-Derivative control
+- Riccati-LQR: True LQR with DARE-solved optimal gains (requires scipy)
 - Neural: ML-based deep learning controllers
 
 Action Schema:
@@ -39,11 +40,13 @@ from .base import (
     validate_action,
 )
 from .deep_tracking_policy import DeepTrackingPolicy, PolicyNetwork
+from .riccati_lqr import RiccatiLQRController
 
 __all__ = [
     "BaseController",
     "LQRController",
     "PIDController",
+    "RiccatiLQRController",
     "DeepTrackingPolicy",
     "PolicyNetwork",
     "ACTION_KEYS",
