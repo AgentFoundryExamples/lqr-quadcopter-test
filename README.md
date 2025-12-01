@@ -746,10 +746,10 @@ See [docs/training.md](docs/training.md#low-resource--cpu-only-training) for det
 
 **Upgrading from v0.2.x:**
 - No breaking changes; all v0.2.x configurations and checkpoints remain compatible
-- Review the new Riccati-LQR controller for optimal feedback gains
-- Consider using auto-tuning (`scripts/controller_autotune.py`) for custom scenarios
+- Review the new Riccati-LQR controller if you need mathematically optimal feedback gains
+- Consider using auto-tuning (`scripts/controller_autotune.py`) when customizing gains for specific scenarios
 - If using custom mass/gravity values, pass them explicitly to controller constructors
-- Run `python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v` to verify hover thrust
+- Optionally run `python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v` to verify hover thrust
 
 **Upgrading from v0.1:**
 - No breaking changes; all v0.1 configurations and checkpoints remain compatible

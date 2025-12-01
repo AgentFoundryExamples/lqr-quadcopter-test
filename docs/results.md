@@ -2,7 +2,7 @@
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
 
-> **v0.3.0 Update:** This version consolidates Riccati-LQR controller support, auto-tuning framework, and feedforward capabilities. PID and LQR controllers achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
+> **v0.3.0 Update:** This version adds Riccati-LQR controller support, an auto-tuning framework, and optional feedforward capabilities. PID and LQR controllers continue to achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
 
 ## Overview
 
@@ -479,7 +479,7 @@ ls -la reports/plots/*.png
 
 ## Release Validation
 
-When preparing a release, run full evaluation to document achieved metrics and regenerate baseline plots:
+When preparing a release, run a full evaluation to document achieved metrics and regenerate baseline plots:
 
 ### Step 1: Regenerate Baseline Metrics
 
