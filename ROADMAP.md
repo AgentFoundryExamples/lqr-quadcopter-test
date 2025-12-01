@@ -2,6 +2,20 @@
 
 This document contains detailed design proposals and pseudocode for planned future features. These are **not yet implemented** in the codebase.
 
+## Completed in v0.3
+
+The following features from the original roadmap have been implemented:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Riccati-LQR Controller | ✅ Complete | DARE-based optimal feedback gains |
+| Controller Auto-Tuning | ✅ Complete | Grid/random search for PID/LQR/Riccati |
+| Feedforward Support | ✅ Complete | Optional velocity/acceleration feedforward |
+| Documentation Overhaul | ✅ Complete | Consolidated workflows and config docs |
+| Release Validation Workflow | ✅ Complete | Baseline regeneration guidance |
+
+**Milestone Summary**: The v0.3 release delivers mathematically optimal control via the Riccati-LQR controller, automated gain tuning, and comprehensive documentation for reproducible research workflows. All v0.2.x configurations remain compatible.
+
 ## Completed in v0.2
 
 The following features from the original roadmap have been implemented:
@@ -14,18 +28,28 @@ The following features from the original roadmap have been implemented:
 | Reproducible Workflows | ✅ Complete | Three documented workflows |
 | Controller Comparison | ✅ Complete | Automated comparison reports |
 
+## Next Focus Areas (v0.4+)
+
+The following features are prioritized for the next major release:
+
+| Feature | Priority | Complexity | Notes |
+|---------|----------|------------|-------|
+| Observation Noise | High | Low | Add configurable sensor noise to observations |
+| State Estimation (Kalman) | High | Medium | Requires observation noise first |
+| Recurrent Policies (LSTM/GRU) | Medium | Medium | For partial observability |
+| Transfer Learning | Medium | Low | Trainer checkpoint loading enhancements |
+
 ## Deferred to Future Releases
 
 The following features are designed but not yet implemented:
 
 | Feature | Target | Reason for Deferral |
 |---------|--------|---------------------|
-| Observation Noise | v0.3+ | Requires environment modification |
-| State Estimation (Kalman) | v0.3+ | Depends on observation noise |
-| Recurrent Policies (LSTM/GRU) | v0.3+ | Research complexity |
-| Transfer Learning | v0.3+ | Trainer modification needed |
-| Reinforcement Learning (PPO/SAC) | v0.4+ | Significant implementation effort |
-| True LQR Optimization | v0.4+ | Requires linearization infrastructure |
+| Observation Noise | v0.4+ | Requires environment modification |
+| State Estimation (Kalman) | v0.4+ | Depends on observation noise |
+| Recurrent Policies (LSTM/GRU) | v0.4+ | Research complexity |
+| Transfer Learning | v0.4+ | Trainer modification needed |
+| Reinforcement Learning (PPO/SAC) | v0.5+ | Significant implementation effort |
 
 ## Imperfect Information Controllers
 
@@ -113,7 +137,7 @@ trainer = Trainer(config)
 trainer.train()
 ```
 
-## Implementation Priority (v0.3+)
+## Implementation Priority (v0.4+)
 
 | Feature | Priority | Complexity | Dependencies |
 |---------|----------|------------|--------------|
@@ -123,4 +147,3 @@ trainer.train()
 | Transfer Learning | Medium | Low | Trainer modification |
 | Uncertainty-aware Policies | Low | High | Research |
 | Reinforcement Learning (PPO/SAC) | Medium | High | Stable training pipeline |
-| True LQR with Linearization | Medium | Medium | System identification |

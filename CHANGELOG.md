@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Release Validation Workflow**: Added guidance in `docs/results.md` for regenerating baseline metrics and plots using Make targets (`make eval-baseline-stationary`, `make eval-baseline-circular`) when preparing releases.
 
+- **Roadmap Update**: Marked Riccati milestone as complete in `ROADMAP.md`, including DARE-based optimal control, auto-tuning framework, and documentation consolidation. Updated next focus areas to emphasize observation noise and state estimation (v0.4+).
+
 ### Changed
 
 - **Default Controller Gains**: PID and LQR gains are now experimentally validated for stable tracking across stationary, linear, and circular target scenarios. XY gains are intentionally small (kp=0.01) to prevent actuator saturation—position errors in meters map directly to angular rates in rad/s.
@@ -27,9 +29,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Documentation Consolidation**: README, docs/results.md, and docs/training.md updated to clearly reference tuning workflows, new controller options, and expected baseline performance metrics.
 
-### Migration from v0.2.x
+### Migration Notes
+
+#### From v0.2.x
 
 - **No Breaking Changes**: All v0.2.x configurations and checkpoints remain compatible.
+
+- **Riccati-LQR Controller**: To use the new Riccati-LQR controller, add the `riccati_lqr` block to your YAML configuration:
+
+  ```yaml
+  controller: riccati_lqr
+
+  riccati_lqr:
+    dt: 0.01                          # Must match your simulation timestep
+    mass: 1.0                         # Must match your quadcopter mass
+    gravity: 9.81                     # Must match your gravity setting
+    q_pos: [0.0001, 0.0001, 16.0]     # Position cost weights [x, y, z]
+    q_vel: [0.0036, 0.0036, 4.0]      # Velocity cost weights [vx, vy, vz]
+    r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+    fallback_on_failure: true         # Recommended: fall back to heuristic LQR on solver failure
+  ```
 
 - **Recommended Actions**:
   1. Review the new Riccati-LQR controller if you need mathematically optimal feedback gains.
@@ -37,9 +56,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   3. If using custom mass/gravity values, ensure controller initialization passes these values explicitly.
 
 - **Verification**: Run baseline evaluations to confirm expected performance:
+
   ```bash
+  # Verify version
+  pip show quadcopter-tracking | grep Version
+
+  # Run baseline evaluations
   make eval-baseline-stationary EPISODES=10
   make eval-baseline-circular EPISODES=10
+
+  # Test Riccati-LQR controller
+  python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 5
   ```
 
 - **Related Issues**: This release consolidates work from the following improvements:
