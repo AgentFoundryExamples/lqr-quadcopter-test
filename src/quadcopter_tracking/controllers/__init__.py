@@ -195,14 +195,14 @@ class PIDController(BaseController):
         thrust = self.hover_thrust + desired_correction[2]
         thrust = float(np.clip(thrust, self.min_thrust, self.max_thrust))
 
-        # X-axis: positive position error -> pitch forward (negative pitch rate)
-        # Pitching nose down (negative pitch) accelerates forward (+X)
-        pitch_rate = -desired_correction[0]
+        # X-axis: positive position error -> positive pitch rate
+        # Environment dynamics: +pitch_rate produces +X velocity
+        pitch_rate = desired_correction[0]
         pitch_rate = float(np.clip(pitch_rate, -self.max_rate, self.max_rate))
 
-        # Y-axis: positive position error -> roll right (positive roll rate)
-        # Rolling right (positive roll) accelerates right (+Y)
-        roll_rate = desired_correction[1]
+        # Y-axis: positive position error -> negative roll rate
+        # Environment dynamics: +roll_rate produces -Y velocity
+        roll_rate = -desired_correction[1]
         roll_rate = float(np.clip(roll_rate, -self.max_rate, self.max_rate))
 
         # No yaw tracking in this basic implementation
@@ -337,12 +337,16 @@ class LQRController(BaseController):
         K[0, 5] = np.sqrt(2 * np.sqrt(q_pos[2] / r_thrust) + q_vel[2] / r_thrust)
 
         # Y-axis -> roll rate (row 1)
-        K[1, 1] = np.sqrt(q_pos[1] / r_rate)
-        K[1, 4] = np.sqrt(2 * np.sqrt(q_pos[1] / r_rate) + q_vel[1] / r_rate)
+        # Environment dynamics: +roll_rate produces -Y velocity
+        # Therefore: +Y error needs -roll_rate, so gains are negative
+        K[1, 1] = -np.sqrt(q_pos[1] / r_rate)
+        K[1, 4] = -np.sqrt(2 * np.sqrt(q_pos[1] / r_rate) + q_vel[1] / r_rate)
 
-        # X-axis -> pitch rate (row 2, note sign flip)
-        K[2, 0] = -np.sqrt(q_pos[0] / r_rate)
-        K[2, 3] = -np.sqrt(2 * np.sqrt(q_pos[0] / r_rate) + q_vel[0] / r_rate)
+        # X-axis -> pitch rate (row 2)
+        # Environment dynamics: +pitch_rate produces +X velocity
+        # Therefore: +X error needs +pitch_rate, so gains are positive
+        K[2, 0] = np.sqrt(q_pos[0] / r_rate)
+        K[2, 3] = np.sqrt(2 * np.sqrt(q_pos[0] / r_rate) + q_vel[0] / r_rate)
 
         # Yaw rate (row 3) - no yaw tracking
         # K[3, :] = 0 (already initialized to zeros)
