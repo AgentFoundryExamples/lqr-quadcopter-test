@@ -102,8 +102,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 37.91 KB  
-**LOC:** 740  
+**Size:** 39.60 KB  
+**LOC:** 776  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 7  
 **Top-level declarations:**
@@ -122,8 +122,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 50.35 KB  
-**LOC:** 1076  
+**Size:** 53.27 KB  
+**LOC:** 1123  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 9  
 **Top-level declarations:**

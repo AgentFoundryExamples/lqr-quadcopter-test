@@ -206,8 +206,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 38819,
-        "loc": 740,
+        "size_bytes": 40547,
+        "loc": 776,
         "todo_count": 0,
         "declaration_count": 7
       },
@@ -243,8 +243,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 51563,
-        "loc": 1076,
+        "size_bytes": 54545,
+        "loc": 1123,
         "todo_count": 0,
         "declaration_count": 9
       },
