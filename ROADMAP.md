@@ -2,6 +2,18 @@
 
 This document contains detailed design proposals and pseudocode for planned future features. These are **not yet implemented** in the codebase.
 
+## Completed in v0.4
+
+The following features from the original roadmap have been implemented:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Config Reorganization | ✅ Complete | Configs now organized into training/evaluation/tuning subdirectories |
+| Migration Guide | ✅ Complete | Old→new config path mapping documented |
+| Controller Capability Matrix | ✅ Complete | Added to experiments/configs/README.md |
+
+**Milestone Summary**: The v0.4 release reorganizes configuration files for better discoverability and provides comprehensive documentation including migration guides and capability matrices. All v0.3.x configurations remain compatible with the new paths.
+
 ## Completed in v0.3
 
 The following features from the original roadmap have been implemented:
@@ -9,7 +21,7 @@ The following features from the original roadmap have been implemented:
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Riccati-LQR Controller | ✅ Complete | DARE-based optimal feedback gains |
-| Controller Auto-Tuning | ✅ Complete | Grid/random search for PID/LQR/Riccati |
+| Controller Auto-Tuning | ✅ Complete | Grid/random/CMA-ES search for PID/LQR/Riccati |
 | Feedforward Support | ✅ Complete | Optional velocity/acceleration feedforward |
 | Documentation Overhaul | ✅ Complete | Consolidated workflows and config docs |
 | Release Validation Workflow | ✅ Complete | Baseline regeneration guidance |

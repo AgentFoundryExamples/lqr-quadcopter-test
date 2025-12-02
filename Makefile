@@ -54,7 +54,7 @@ help:
 	@echo "  Override with: make tune-pid-linear TUNING_ITERATIONS=100"
 	@echo ""
 	@echo "  For other motion patterns, edit the target_motion_type in:"
-	@echo "    experiments/configs/tuning_*_linear.yaml"
+	@echo "    experiments/configs/tuning/tuning_*_linear.yaml"
 	@echo "  Valid options: stationary, linear, circular, sinusoidal, figure8"
 	@echo ""
 	@echo "Legacy/Other Commands:"
@@ -123,31 +123,31 @@ eval-riccati-lqr:
 
 eval-baseline-stationary:
 	@echo "=== Evaluating PID on stationary target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_pid
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_pid
 	@echo ""
 	@echo "=== Evaluating LQR on stationary target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_lqr
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/evaluation/eval_stationary_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_stationary_lqr
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_stationary_*/"
 
 eval-baseline-circular:
 	@echo "=== Evaluating PID on circular target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_pid
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_pid
 	@echo ""
 	@echo "=== Evaluating LQR on circular target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_lqr
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/evaluation/eval_circular_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_circular_lqr
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_circular_*/"
 
 eval-baseline-linear:
 	@echo "=== Evaluating PID on linear target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_pid
+	$(PYTHON) -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_pid
 	@echo ""
 	@echo "=== Evaluating LQR on linear target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_lqr
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqr --config experiments/configs/evaluation/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_lqr
 	@echo ""
 	@echo "=== Evaluating Riccati-LQR on linear target ==="
-	$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_riccati
+	$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/evaluation/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_riccati
 	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_linear_*/"
 
@@ -175,7 +175,7 @@ generate-comparison-report:
 # WORKFLOW 4: Controller Tuning (Linear Motion)
 # =============================================================================
 # Auto-tune controller gains for linear motion tracking.
-# These targets use YAML configs from experiments/configs/tuning_*_linear.yaml
+# These targets use YAML configs from experiments/configs/tuning/tuning_*_linear.yaml
 #
 # Workflow: tune → train → evaluate
 #   1. Run tuning (this section)
@@ -184,7 +184,7 @@ generate-comparison-report:
 #   4. Evaluate with eval-baseline-linear
 #
 # For other motion patterns (circular, sinusoidal, figure8):
-#   Copy tuning_*_linear.yaml, change target_motion_type, and use --config
+#   Copy tuning/tuning_*_linear.yaml, change target_motion_type, and use --config
 #
 # Error handling: Tuning will fail with clear error if config file is missing
 
@@ -195,56 +195,56 @@ _check_tuning_config = @if [ ! -f $(1) ]; then \
 fi
 
 tune-pid-linear:
-	$(call _check_tuning_config,experiments/configs/tuning_pid_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning/tuning_pid_linear.yaml)
 	@echo "=== Auto-tuning PID for linear motion ==="
-	@echo "Config: experiments/configs/tuning_pid_linear.yaml"
+	@echo "Config: experiments/configs/tuning/tuning_pid_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
 	@echo ""
 	$(PYTHON) scripts/controller_autotune.py \
-		--config experiments/configs/tuning_pid_linear.yaml \
+		--config experiments/configs/tuning/tuning_pid_linear.yaml \
 		--max-iterations $(TUNING_ITERATIONS) \
 		--seed $(SEED)
 	@echo ""
 	@echo "Tuning complete. Best config saved to reports/tuning/"
 	@echo "Next steps:"
-	@echo "  1. Copy best gains to experiments/configs/training_imitation.yaml"
-	@echo "  2. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  1. Copy best gains to experiments/configs/training/training_imitation.yaml"
+	@echo "  2. Run: python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml"
 	@echo "  3. Run: make eval-baseline-linear"
 
 tune-lqr-linear:
-	$(call _check_tuning_config,experiments/configs/tuning_lqr_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning/tuning_lqr_linear.yaml)
 	@echo "=== Auto-tuning LQR for linear motion ==="
-	@echo "Config: experiments/configs/tuning_lqr_linear.yaml"
+	@echo "Config: experiments/configs/tuning/tuning_lqr_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
 	@echo ""
 	$(PYTHON) scripts/controller_autotune.py \
-		--config experiments/configs/tuning_lqr_linear.yaml \
+		--config experiments/configs/tuning/tuning_lqr_linear.yaml \
 		--max-iterations $(TUNING_ITERATIONS) \
 		--seed $(SEED)
 	@echo ""
 	@echo "Tuning complete. Best config saved to reports/tuning/"
 	@echo "Next steps:"
-	@echo "  1. Copy best weights to experiments/configs/training_imitation.yaml"
+	@echo "  1. Copy best weights to experiments/configs/training/training_imitation.yaml"
 	@echo "  2. Set supervisor_controller: lqr"
-	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml"
 	@echo "  4. Run: make eval-baseline-linear"
 
 tune-riccati-linear:
-	$(call _check_tuning_config,experiments/configs/tuning_riccati_linear.yaml)
+	$(call _check_tuning_config,experiments/configs/tuning/tuning_riccati_linear.yaml)
 	@echo "=== Auto-tuning Riccati-LQR for linear motion ==="
-	@echo "Config: experiments/configs/tuning_riccati_linear.yaml"
+	@echo "Config: experiments/configs/tuning/tuning_riccati_linear.yaml"
 	@echo "Iterations: $(TUNING_ITERATIONS), Seed: $(SEED)"
 	@echo ""
 	$(PYTHON) scripts/controller_autotune.py \
-		--config experiments/configs/tuning_riccati_linear.yaml \
+		--config experiments/configs/tuning/tuning_riccati_linear.yaml \
 		--max-iterations $(TUNING_ITERATIONS) \
 		--seed $(SEED)
 	@echo ""
 	@echo "Tuning complete. Best config saved to reports/tuning/"
 	@echo "Next steps:"
-	@echo "  1. Copy best Q/R weights to experiments/configs/training_imitation.yaml"
+	@echo "  1. Copy best Q/R weights to experiments/configs/training/training_imitation.yaml"
 	@echo "  2. Set supervisor_controller: riccati_lqr"
-	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml"
+	@echo "  3. Run: python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml"
 	@echo "  4. Run: make eval-baseline-linear"
 
 # Note: CONFIG and SEED are validated by Python code, not shell interpolation

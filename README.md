@@ -80,7 +80,7 @@ make run-experiment
 make run-experiment SEED=123
 
 # Run with custom config file
-make run-experiment CONFIG=configs/circular.yaml
+make run-experiment CONFIG=experiments/configs/training/training_fast.yaml
 ```
 
 ### Riccati-LQR Quick Start
@@ -95,7 +95,7 @@ python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 10
 make tune-riccati-linear TUNING_ITERATIONS=30
 
 # Use tuned Riccati-LQR as teacher for imitation learning
-python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml
 ```
 
 See [Controller Auto-Tuning](#controller-auto-tuning) for detailed tuning guidance.
@@ -107,8 +107,8 @@ Use this checklist for end-to-end controller development:
 1. **Establish baseline**: `make eval-baseline-stationary EPISODES=10`
 2. **Tune controller gains**: `make tune-riccati-linear TUNING_ITERATIONS=50`
 3. **Review tuning results**: `cat reports/tuning/*_best_config.json`
-4. **Update training config**: Copy best gains to `experiments/configs/training_imitation.yaml`
-5. **Train deep controller**: `python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml`
+4. **Update training config**: Copy best gains to `experiments/configs/training/training_imitation.yaml`
+5. **Train deep controller**: `python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml`
 6. **Evaluate trained model**: `make eval-baseline-linear EPISODES=10`
 7. **Compare controllers**: `make compare-controllers EPISODES=10`
 
@@ -140,17 +140,25 @@ See [.env.example](.env.example) for all available options.
 │   ├── utils/         # Shared utilities and loss functions
 │   └── train.py       # Deep learning training script
 ├── experiments/
-│   └── configs/       # Training configuration files
+│   └── configs/       # Configuration files (see below)
+│       ├── README.md         # Config index and migration guide
+│       ├── training/         # Training configs (deep, imitation, diagnostics)
+│       ├── evaluation/       # Eval configs (baselines, comparison)
+│       └── tuning/           # Auto-tuning configs (grid, random, CMA-ES)
 ├── docs/              # Documentation
 │   ├── architecture.md
 │   ├── environment.md
-│   └── training.md
+│   ├── training.md
+│   └── results.md
+├── scripts/           # Utility scripts
 ├── tests/             # Test suite
 ├── pyproject.toml     # Python package configuration
 ├── Makefile           # CLI commands
 ├── .env.example       # Environment variable template
 └── README.md          # This file
 ```
+
+See [experiments/configs/README.md](experiments/configs/README.md) for the complete configuration index.
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
 
@@ -339,17 +347,17 @@ riccati_lqr:
 **Using with training:**
 
 ```bash
-python -m quadcopter_tracking.train --config experiments/configs/my_experiment.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_default.yaml
 ```
 
 **Using with evaluation:**
 
 ```bash
 # Use controller type from config file
-python -m quadcopter_tracking.eval --config experiments/configs/eval_riccati_lqr_baseline.yaml
+python -m quadcopter_tracking.eval --config experiments/configs/evaluation/eval_riccati_lqr_baseline.yaml
 
 # Override controller type via CLI
-python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
+python -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_stationary_baseline.yaml
 ```
 
 ### Environment Configuration
@@ -396,7 +404,7 @@ python -m quadcopter_tracking.train --controller lqr --epochs 10
 python -m quadcopter_tracking.train --controller riccati_lqr --epochs 10
 
 # Train with config file
-python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_default.yaml
 
 # Resume deep training from checkpoint
 python -m quadcopter_tracking.train --controller deep --resume checkpoints/train_xxx_epoch0050.pt
@@ -433,11 +441,11 @@ python -m quadcopter_tracking.train \
 ```
 
 See example configurations in `experiments/configs/`:
-- `training_default.yaml`: Standard training setup
-- `training_fast.yaml`: Quick testing configuration
-- `training_large.yaml`: Extended training with larger network
-- `diagnostics_stationary.yaml`: Diagnostic run with stationary target
-- `diagnostics_linear.yaml`: Diagnostic run with linear target
+- `training/training_default.yaml`: Standard training setup
+- `training/training_fast.yaml`: Quick testing configuration
+- `training/training_large.yaml`: Extended training with larger network
+- `training/diagnostics_stationary.yaml`: Diagnostic run with stationary target
+- `training/diagnostics_linear.yaml`: Diagnostic run with linear target
 
 ### Training Diagnostics
 
@@ -452,7 +460,7 @@ python -m quadcopter_tracking.train \
     --diagnostics-log-interval 1
 
 # Or use a diagnostic config file
-python -m quadcopter_tracking.train --config experiments/configs/diagnostics_stationary.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/diagnostics_stationary.yaml
 ```
 
 Diagnostics output includes:
@@ -682,9 +690,9 @@ python -m quadcopter_tracking.eval \
 ```
 
 **Configuration files:**
-- `experiments/configs/eval_stationary_baseline.yaml` - Stationary target baseline
-- `experiments/configs/eval_circular_baseline.yaml` - Circular motion baseline
-- `experiments/configs/eval_linear_baseline.yaml` - Linear motion baseline
+- `experiments/configs/evaluation/eval_stationary_baseline.yaml` - Stationary target baseline
+- `experiments/configs/evaluation/eval_circular_baseline.yaml` - Circular motion baseline
+- `experiments/configs/evaluation/eval_linear_baseline.yaml` - Linear motion baseline
 
 **Expected results:**
 - PID/LQR should achieve >80% on-target ratio on stationary targets
@@ -697,10 +705,10 @@ Train a neural network controller and compare to baselines.
 
 ```bash
 # Step 1: Start with fast config for testing
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 
 # Step 2: Full training with default config
-python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_default.yaml
 
 # Step 3: Evaluate trained model
 python -m quadcopter_tracking.eval \
@@ -714,10 +722,10 @@ make eval-deep EPISODES=10
 ```
 
 **Configuration files:**
-- `experiments/configs/training_fast.yaml` - Quick testing (20 epochs)
-- `experiments/configs/training_default.yaml` - Standard training (100 epochs)
-- `experiments/configs/training_large.yaml` - Extended training (500 epochs)
-- `experiments/configs/training_imitation.yaml` - Imitation learning from PID/LQR
+- `experiments/configs/training/training_fast.yaml` - Quick testing (20 epochs)
+- `experiments/configs/training/training_default.yaml` - Standard training (100 epochs)
+- `experiments/configs/training/training_large.yaml` - Extended training (500 epochs)
+- `experiments/configs/training/training_imitation.yaml` - Imitation learning from PID/LQR
 
 **Note:** The deep controller training has known regression issues (see [docs/results.md](docs/results.md#training-diagnostics-results)). PID and LQR are recommended for production use.
 
@@ -737,7 +745,7 @@ cat reports/comparison/comparison_summary.json
 ```
 
 **Configuration file:**
-- `experiments/configs/comparison_default.yaml` - Side-by-side controller comparison
+- `experiments/configs/evaluation/comparison_default.yaml` - Side-by-side controller comparison
 
 **Output:**
 - `reports/comparison/<controller>/metrics.json` - Per-controller metrics
@@ -754,11 +762,11 @@ make tune-pid-linear TUNING_ITERATIONS=50
 
 # Step 2: Copy best gains to training config
 # View best config: cat reports/tuning/*_best_config.json
-# Then manually copy gains to experiments/configs/training_imitation.yaml
+# Then manually copy gains to experiments/configs/training/training_imitation.yaml
 
 # Step 3: Train deep controller using tuned PID as supervisor
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_imitation.yaml
+    --config experiments/configs/training/training_imitation.yaml
 
 # Step 4: Evaluate trained model on linear motion
 make eval-baseline-linear EPISODES=10
@@ -767,7 +775,7 @@ make eval-baseline-linear EPISODES=10
 python -m quadcopter_tracking.eval \
     --controller deep \
     --checkpoint checkpoints/imitation/train_*_best.pt \
-    --config experiments/configs/eval_linear_baseline.yaml
+    --config experiments/configs/evaluation/eval_linear_baseline.yaml
 ```
 
 **Tuning Makefile targets:**
@@ -776,13 +784,13 @@ python -m quadcopter_tracking.eval \
 - `make tune-riccati-linear` - Tune Riccati-LQR for linear motion
 
 **Configuration files:**
-- `experiments/configs/tuning_pid_linear.yaml` - PID tuning for linear motion
-- `experiments/configs/tuning_lqr_linear.yaml` - LQR tuning for linear motion
-- `experiments/configs/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
-- `experiments/configs/eval_linear_baseline.yaml` - Linear motion evaluation
+- `experiments/configs/tuning/tuning_pid_linear.yaml` - PID tuning for linear motion
+- `experiments/configs/tuning/tuning_lqr_linear.yaml` - LQR tuning for linear motion
+- `experiments/configs/tuning/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
+- `experiments/configs/evaluation/eval_linear_baseline.yaml` - Linear motion evaluation
 
 **For other motion patterns** (circular, sinusoidal, figure8):
-1. Copy the `tuning_*_linear.yaml` config
+1. Copy the `tuning/tuning_*_linear.yaml` config
 2. Change `target_motion_type` to desired pattern
 3. Run with `--config path/to/your/config.yaml`
 
@@ -845,7 +853,7 @@ For machines without GPU or with limited RAM:
 
 ```bash
 # Use fast config with reduced workload
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 
 # Or set environment variables
 export CUDA_VISIBLE_DEVICES=""  # Force CPU
@@ -939,7 +947,7 @@ When connecting to external simulators (ROS, Gazebo, etc.):
 ```bash
 # Resume deep controller training from checkpoint
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_default.yaml \
+    --config experiments/configs/training/training_default.yaml \
     --resume checkpoints/train_*_epoch0050.pt
 ```
 

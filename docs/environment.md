@@ -562,7 +562,7 @@ source venv/bin/activate
 make dev-install
 
 # Run
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 #### macOS
@@ -577,7 +577,7 @@ source venv/bin/activate
 make dev-install
 
 # Run
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 #### Windows
@@ -592,7 +592,7 @@ python -m venv venv
 pip install -e ".[dev]"
 
 # Run
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 ### Environment Variables by Platform

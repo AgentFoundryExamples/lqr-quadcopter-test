@@ -67,10 +67,10 @@ Choose a configuration based on your goals:
 
 ```bash
 # Fast training for testing
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 
 # Standard training
-python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_default.yaml
 
 # Or with Makefile
 make train-deep EPOCHS=100 SEED=42
@@ -94,7 +94,7 @@ For real-time monitoring with diagnostics:
 
 ```bash
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_default.yaml \
+    --config experiments/configs/training/training_default.yaml \
     --diagnostics \
     --diagnostics-log-interval 1
 ```
@@ -181,7 +181,7 @@ make dev-install
 python -m quadcopter_tracking.train --controller deep --epochs 100 --seed 42
 
 # Or with a config file
-python -m quadcopter_tracking.train --config experiments/configs/training_default.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_default.yaml
 ```
 
 ### Train with Custom Parameters
@@ -358,7 +358,7 @@ In this mode, the control effort penalty is computed relative to supervisor acti
 ### Configuration Example
 
 ```yaml
-# experiments/configs/training_imitation.yaml
+# experiments/configs/training/training_imitation.yaml
 controller: deep
 training_mode: imitation
 supervisor_controller: pid
@@ -436,7 +436,7 @@ All configuration options can be overridden via CLI:
 
 ```bash
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_default.yaml \
+    --config experiments/configs/training/training_default.yaml \
     --epochs 500 \
     --lr 0.0001 \
     --optimizer adamw \
@@ -592,7 +592,7 @@ Resume from a checkpoint:
 
 ```bash
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_default.yaml \
+    --config experiments/configs/training/training_default.yaml \
     --resume checkpoints/train_20240101_120000_42_epoch0050.pt
 ```
 
@@ -1344,7 +1344,7 @@ python scripts/controller_autotune.py --controller riccati_lqr --strategy cma_es
     --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0
 
 # Using YAML configuration
-python scripts/controller_autotune.py --config experiments/configs/tuning_cma_es.yaml
+python scripts/controller_autotune.py --config experiments/configs/tuning/tuning_cma_es.yaml
 ```
 
 ### CMA-ES Parameters
@@ -1408,7 +1408,7 @@ The checkpoint file (`cma_checkpoint.pkl`) is saved alongside the results JSON.
 ### Example Configuration
 
 ```yaml
-# experiments/configs/tuning_cma_es.yaml
+# experiments/configs/tuning/tuning_cma_es.yaml
 controller_type: pid
 strategy: cma_es
 
@@ -1450,7 +1450,7 @@ python scripts/controller_autotune.py --controller riccati_lqr --strategy grid \
     --r-controls-range 0.5,0.5,0.5,0.5 2.0,2.0,2.0,2.0
 
 # Use YAML configuration
-python scripts/controller_autotune.py --config experiments/configs/tuning_riccati.yaml
+python scripts/controller_autotune.py --config experiments/configs/tuning/tuning_riccati.yaml
 ```
 
 ### Riccati-Specific Parameters
@@ -1563,15 +1563,15 @@ Tuning gains for moving targets requires different strategies than stationary ta
 3. **Tune for target motion**: Use the motion-specific tuning config
    ```bash
    # Copy and modify for your motion type
-   cp experiments/configs/tuning_pid_linear.yaml experiments/configs/tuning_pid_circular.yaml
+   cp experiments/configs/tuning/tuning_pid_linear.yaml experiments/configs/tuning/tuning_pid_circular.yaml
    # Edit target_motion_type: circular
-   python scripts/controller_autotune.py --config experiments/configs/tuning_pid_circular.yaml
+   python scripts/controller_autotune.py --config experiments/configs/tuning/tuning_pid_circular.yaml
    ```
 
 4. **Evaluate on same motion**: Match evaluation motion to tuning motion
    ```bash
    python -m quadcopter_tracking.eval --controller pid \
-       --config experiments/configs/eval_circular_baseline.yaml
+       --config experiments/configs/evaluation/eval_circular_baseline.yaml
    ```
 
 ### Tuning Parameter Recommendations by Motion Type
@@ -1705,7 +1705,9 @@ Best practices:
 
 ### Available Configuration Files
 
-The `experiments/configs/` directory contains preset configurations:
+The `experiments/configs/` directory contains preset configurations organized into subdirectories:
+
+**Training Configs (`training/`):**
 
 | Config File | Purpose | Training Time | Recommended Use |
 |-------------|---------|---------------|-----------------|
@@ -1715,18 +1717,39 @@ The `experiments/configs/` directory contains preset configurations:
 | `training_imitation.yaml` | Learn from PID/LQR | ~10 min | Bootstrapping |
 | `diagnostics_stationary.yaml` | Training analysis | ~5 min | Troubleshooting |
 | `diagnostics_linear.yaml` | Training analysis | ~5 min | Troubleshooting |
-| `eval_stationary_baseline.yaml` | Baseline evaluation | ~1 min | PID/LQR baselines |
-| `eval_circular_baseline.yaml` | Baseline evaluation | ~1 min | PID/LQR baselines |
-| `comparison_default.yaml` | Controller comparison | ~5 min | Side-by-side metrics |
+
+**Evaluation Configs (`evaluation/`):**
+
+| Config File | Purpose | Use Case |
+|-------------|---------|----------|
+| `eval_stationary_baseline.yaml` | Baseline evaluation | PID/LQR on stationary targets |
+| `eval_linear_baseline.yaml` | Baseline evaluation | PID/LQR on linear motion |
+| `eval_circular_baseline.yaml` | Baseline evaluation | PID/LQR on circular motion |
+| `eval_riccati_lqr_baseline.yaml` | Riccati-LQR baseline | Optimal controller comparison |
+| `comparison_default.yaml` | Controller comparison | Side-by-side metrics |
+
+**Tuning Configs (`tuning/`):**
+
+| Config File | Controller | Motion | Strategy |
+|-------------|------------|--------|----------|
+| `tuning_pid.yaml` | PID | Stationary | Random |
+| `tuning_pid_linear.yaml` | PID | Linear | Random |
+| `tuning_lqr.yaml` | LQR | Stationary | Random |
+| `tuning_lqr_linear.yaml` | LQR | Linear | Random |
+| `tuning_riccati.yaml` | Riccati-LQR | Stationary | Random |
+| `tuning_riccati_linear.yaml` | Riccati-LQR | Linear | Random |
+| `tuning_cma_es.yaml` | PID | Stationary | CMA-ES |
+
+See [experiments/configs/README.md](../experiments/configs/README.md) for the complete configuration index and migration guide.
 
 ### Creating Custom Configurations
 
 Copy an existing config and modify:
 
 ```bash
-cp experiments/configs/training_default.yaml experiments/configs/my_config.yaml
+cp experiments/configs/training/training_default.yaml experiments/configs/training/my_config.yaml
 # Edit my_config.yaml as needed
-python -m quadcopter_tracking.train --config experiments/configs/my_config.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/my_config.yaml
 ```
 
 ## Low-Resource / CPU-Only Training
@@ -1736,7 +1759,7 @@ For machines without GPU acceleration or with limited resources, use these strat
 ### Option 1: Use Fast Config
 
 ```bash
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 ### Option 2: Reduce Workload via CLI
@@ -1794,11 +1817,11 @@ QUADCOPTER_EPISODE_LENGTH=10.0
 ```bash
 # Windows Command Prompt
 set CUDA_VISIBLE_DEVICES=
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 
 # Windows PowerShell
 $env:CUDA_VISIBLE_DEVICES=""
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 ### Linux/macOS
@@ -1806,10 +1829,10 @@ python -m quadcopter_tracking.train --config experiments/configs/training_fast.y
 ```bash
 # Force CPU
 export CUDA_VISIBLE_DEVICES=""
-python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 
 # Or inline
-CUDA_VISIBLE_DEVICES="" python -m quadcopter_tracking.train --config experiments/configs/training_fast.yaml
+CUDA_VISIBLE_DEVICES="" python -m quadcopter_tracking.train --config experiments/configs/training/training_fast.yaml
 ```
 
 ## Known Limitations (v0.2)
