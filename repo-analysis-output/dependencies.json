@@ -487,15 +487,15 @@
     },
     {
       "source": "tests/test_env_dynamics.py",
+      "target": "src/quadcopter_tracking/utils/coordinate_frame.py"
+    },
+    {
+      "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/train.py"
     },
     {
       "source": "tests/test_env_dynamics.py",
       "target": "src/quadcopter_tracking/eval.py"
-    },
-    {
-      "source": "tests/test_env_dynamics.py",
-      "target": "src/quadcopter_tracking/utils/coordinate_frame.py"
     },
     {
       "source": "tests/test_env_dynamics.py",

@@ -102,15 +102,16 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 26.06 KB  
-**LOC:** 517  
+**Size:** 37.91 KB  
+**LOC:** 740  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 6  
+**Declarations:** 7  
 **Top-level declarations:**
   - function _is_positive_semidefinite
   - function _is_positive_definite
   - function solve_dare
   - function build_linearized_system
+  - function build_augmented_lqi_system
   - function _validate_observation
   - class RiccatiLQRController
 **External Dependencies:**
@@ -375,10 +376,10 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 161.05 KB  
-**LOC:** 3243  
+**Size:** 182.26 KB  
+**LOC:** 3694  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 18  
+**Declarations:** 19  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -390,7 +391,7 @@ Total files: 25
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
-  - ... and 8 more
+  - ... and 9 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 
