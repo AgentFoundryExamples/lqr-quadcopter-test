@@ -1,6 +1,6 @@
 # Quadcopter Target Tracking Research
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -1021,9 +1021,16 @@ export MPLBACKEND=Agg
 python -m quadcopter_tracking.eval --controller pid --no-plots
 ```
 
-## v0.4.0 Status and Known Limitations
+## v0.5.0 Status and Known Limitations
 
 **Release Date:** December 2, 2025
+
+**New in v0.5.0:**
+- ✅ LQI controller (Linear Quadratic Integral) for zero steady-state tracking error
+- ✅ 9-state augmented system with DARE-solved optimal integral gains
+- ✅ Configurable integral cost weights (`q_int`) and anti-windup protection
+- ✅ LQI evaluation support via `--controller lqi`
+- ✅ Comprehensive LQI documentation in architecture.md and results.md
 
 **New in v0.4.0:**
 - ✅ Configuration file reorganization into training/evaluation/tuning subdirectories
@@ -1053,7 +1060,7 @@ python -m quadcopter_tracking.eval --controller pid --no-plots
 - ✅ Extended configuration presets
 
 **Implemented Features:**
-- ✅ PID and LQR classical controllers with hover feedforward
+- ✅ PID, LQR, Riccati-LQR, and LQI classical controllers
 - ✅ Deep learning training pipeline
 - ✅ Multiple training modes (tracking, imitation, reward-weighted)
 - ✅ Evaluation and comparison workflows
@@ -1064,13 +1071,20 @@ python -m quadcopter_tracking.eval --controller pid --no-plots
 - ⚠️ Deep controller training exhibits regression (see docs/results.md)
 - ⚠️ Experiment tracking integrations (WandB, MLflow) are placeholders only
 - ⚠️ Transfer learning not supported via Trainer class
+- ⚠️ LQI may cause windup on fast-moving targets (use Riccati-LQR instead)
 
-**Stubs / Future Work (v0.5+):**
+**Stubs / Future Work (v0.6+):**
 - 🔲 Observation noise and imperfect information
 - 🔲 State estimation (Kalman filter)
 - 🔲 Reinforcement learning (PPO/SAC)
 - 🔲 Hardware-in-the-loop support
 - 🔲 Distributed training
+
+**Upgrading from v0.4.x:**
+- No breaking changes; all v0.4.x configurations and checkpoints remain compatible
+- To use LQI, add `use_lqi: true` and `q_int` weights to your `riccati_lqr` config block
+- Review [docs/architecture.md](docs/architecture.md#lqi-mode-with-integral-action) for LQI tuning guidance
+- LQI is best suited for stationary targets and constant velocity tracking
 
 **Upgrading from v0.3.x:**
 - Configuration files have been reorganized into subdirectories (`training/`, `evaluation/`, `tuning/`)

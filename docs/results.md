@@ -1,8 +1,10 @@
-# Evaluation Results Documentation (v0.4.0)
+# Evaluation Results Documentation (v0.5.0)
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
 
-> **v0.4.0 Update:** This version introduces configuration file reorganization into training/evaluation/tuning subdirectories. See [experiments/configs/README.md](../experiments/configs/README.md) for the migration guide. Previous versions' documentation for Riccati-LQR, auto-tuning, and feedforward remains applicable.
+> **v0.5.0 Update:** This version adds the LQI controller (Linear Quadratic Integral) for zero steady-state tracking error. LQI augments the Riccati-LQR state with integral of position error. See [docs/architecture.md](architecture.md#lqi-mode-with-integral-action) for implementation details.
+
+> **v0.4.0 Update:** Configuration files have been reorganized into training/evaluation/tuning subdirectories. See [experiments/configs/README.md](../experiments/configs/README.md) for the migration guide.
 
 ## Overview
 
@@ -990,7 +992,7 @@ python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
 python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 ```
 
-### Expected Baseline Performance (v0.4.0)
+### Expected Baseline Performance (v0.5.0)
 
 | Motion Type | Controller | Expected On-Target Ratio |
 |-------------|------------|-------------------------|
@@ -998,6 +1000,7 @@ python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 | Stationary | Riccati-LQR | >80% (verified) |
 | Stationary | LQI | >80% (verified) |
 | Linear | PID/LQR | 70-90% |
+| Linear | Riccati-LQR | 70-90% |
 | Linear | LQI | 75-95% (improved steady-state) |
 | Circular | PID/LQR | 70-90% |
 
@@ -1401,6 +1404,44 @@ These helpers ensure consistent test setup across different hover verification t
 - **Fast**: Each test completes in <1s
 - **CI-Ready**: Suitable for continuous integration workflows
 - **Parameterized**: Tests cover multiple mass/gravity configurations
+
+## v0.5.0 Migration Notes
+
+### Upgrading from v0.4.x
+
+1. **No Breaking Changes**: All v0.4.x configurations and checkpoints remain compatible. No migration required.
+
+2. **New LQI Controller**: The LQI controller extends Riccati-LQR with integral action for zero steady-state tracking error. Enable with:
+   ```yaml
+   riccati_lqr:
+     use_lqi: true
+     q_int: [0.001, 0.001, 0.01]  # Integral cost weights
+     integral_limit: 10.0          # Anti-windup clamp
+   ```
+
+3. **LQI Evaluation**: Use the new controller type for evaluation:
+   ```bash
+   python -m quadcopter_tracking.eval --controller lqi --episodes 10
+   ```
+
+4. **Tuning q_int**:
+   - Start conservative: `[0.001, 0.001, 0.01]`
+   - Z-axis typically needs higher weight for altitude tracking
+   - Reduce if oscillation occurs, increase if steady-state error persists
+
+5. **When to Use LQI vs Riccati-LQR**:
+   - Use LQI for stationary targets and constant velocity tracking (zero steady-state error)
+   - Use Riccati-LQR for fast-moving targets or short episodes (avoid windup)
+
+6. **Verification**:
+   ```bash
+   # Verify version
+   pip show quadcopter-tracking | grep Version
+   # Should show: Version: 0.5.0
+
+   # Test LQI controller
+   python -m quadcopter_tracking.eval --controller lqi --episodes 5
+   ```
 
 ## v0.4.0 Migration Notes
 
