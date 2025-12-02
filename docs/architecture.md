@@ -755,7 +755,7 @@ Controller-specific settings are read from the YAML config file's controller_con
 The `controller` key in the YAML file specifies which controller to use. For `eval.py`, this can be overridden by the `--controller` CLI argument (CLI takes precedence over config file).
 
 ```yaml
-# experiments/configs/my_config.yaml
+# experiments/configs/training/my_config.yaml
 controller: riccati_lqr  # Options: deep, lqr, riccati_lqr, pid
 epochs: 10
 episodes_per_epoch: 5
@@ -802,10 +802,10 @@ riccati_lqr:
 
 ```bash
 # Eval using controller type from config file (no --controller needed)
-python -m quadcopter_tracking.eval --config experiments/configs/eval_riccati_lqr_baseline.yaml
+python -m quadcopter_tracking.eval --config experiments/configs/evaluation/eval_riccati_lqr_baseline.yaml
 
 # Override controller via CLI (CLI takes precedence)
-python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_stationary_baseline.yaml
+python -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_stationary_baseline.yaml
 ```
 
 ### Behavior Differences

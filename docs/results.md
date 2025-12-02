@@ -299,7 +299,7 @@ The following table shows expected runtimes on CPU-only machines:
 # Force CPU and optimize for limited resources
 export CUDA_VISIBLE_DEVICES=""
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_fast.yaml \
+    --config experiments/configs/training/training_fast.yaml \
     --hidden-sizes 32 32 \
     --episodes-per-epoch 3
 ```
@@ -674,9 +674,9 @@ make tune-riccati-linear TUNING_ITERATIONS=30
 ```
 
 **Configuration files:**
-- `experiments/configs/tuning_pid_linear.yaml` - PID tuning for linear motion
-- `experiments/configs/tuning_lqr_linear.yaml` - LQR tuning for linear motion
-- `experiments/configs/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
+- `experiments/configs/tuning/tuning_pid_linear.yaml` - PID tuning for linear motion
+- `experiments/configs/tuning/tuning_lqr_linear.yaml` - LQR tuning for linear motion
+- `experiments/configs/tuning/tuning_riccati_linear.yaml` - Riccati-LQR tuning for linear motion
 
 For other motion patterns (circular, sinusoidal, figure8):
 1. Copy the appropriate `tuning_*_linear.yaml` config
@@ -694,7 +694,7 @@ cat reports/tuning/tuning_pid_*_best_config.json
 
 Copy the best gains to your training configuration:
 
-1. Open `experiments/configs/training_imitation.yaml`
+1. Open `experiments/configs/training/training_imitation.yaml`
 2. Update the `pid`, `lqr`, or `riccati_lqr` section with tuned values
 3. Set `supervisor_controller` to match your tuned controller type
 4. Set `target_motion_type: linear` (or your target motion)
@@ -719,7 +719,7 @@ Train a deep controller using the tuned classical controller as supervisor:
 
 ```bash
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_imitation.yaml
+    --config experiments/configs/training/training_imitation.yaml
 ```
 
 The deep controller learns to mimic the tuned supervisor's behavior.
@@ -736,7 +736,7 @@ make eval-baseline-linear EPISODES=10
 python -m quadcopter_tracking.eval \
     --controller deep \
     --checkpoint checkpoints/imitation/train_*_best.pt \
-    --config experiments/configs/eval_linear_baseline.yaml
+    --config experiments/configs/evaluation/eval_linear_baseline.yaml
 ```
 
 ### Complete Example
@@ -750,7 +750,7 @@ cat reports/tuning/tuning_pid_*_best_config.json
 
 # Train (after updating training_imitation.yaml)
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_imitation.yaml
+    --config experiments/configs/training/training_imitation.yaml
 
 # Evaluate
 make eval-baseline-linear EPISODES=20
@@ -795,7 +795,7 @@ Mixed-mode training combines multiple loss components or supervisors to achieve 
 Combine imitation learning with tracking loss for policies that can exceed supervisor performance:
 
 ```yaml
-# experiments/configs/training_mixed.yaml
+# experiments/configs/training/training_mixed.yaml
 training_mode: imitation
 supervisor_controller: riccati_lqr
 
@@ -844,12 +844,12 @@ Train with different supervisors for different motion types:
 ```bash
 # Train with PID on stationary
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_imitation_stationary.yaml \
+    --config experiments/configs/training/training_imitation_stationary.yaml \
     --epochs 30
 
 # Continue with Riccati-LQR on linear motion
 python -m quadcopter_tracking.train \
-    --config experiments/configs/training_imitation_linear.yaml \
+    --config experiments/configs/training/training_imitation_linear.yaml \
     --resume checkpoints/stationary/*_best.pt \
     --epochs 60
 ```
@@ -1165,7 +1165,7 @@ tracking_weight: 0.5
 
 ### Configuration Files
 
-The following preset configurations are available:
+The following preset configurations are available in `experiments/configs/training/`:
 
 | Config | Mode | Use Case |
 |--------|------|----------|
@@ -1176,7 +1176,7 @@ The following preset configurations are available:
 | `diagnostics_stationary.yaml` | tracking | Diagnostic with stationary target |
 | `diagnostics_linear.yaml` | tracking | Diagnostic with linear target |
 
-See [docs/training.md](training.md) for detailed configuration options.
+See [docs/training.md](training.md) for detailed configuration options and [experiments/configs/README.md](../experiments/configs/README.md) for the complete config index.
 
 ## Hover Thrust Verification Tests
 

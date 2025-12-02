@@ -17,12 +17,12 @@
 # =================================
 #   1. Run this tuning config to find optimal Riccati-LQR weights
 #   2. Copy best weights from reports/tuning/*_best_config.json
-#   3. Paste weights into experiments/configs/training_imitation.yaml (riccati_lqr section)
-#   4. Set supervisor_controller: riccati_lqr in training_imitation.yaml
-#   5. Train deep controller: python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+#   3. Paste weights into experiments/configs/training/training_imitation.yaml (riccati_lqr section)
+#   4. Set supervisor_controller: riccati_lqr in training/training_imitation.yaml
+#   5. Train deep controller: python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml
 #   6. Evaluate: make eval-baseline-stationary
 #
-# For LINEAR motion targets, use experiments/configs/tuning_riccati_linear.yaml
+# For LINEAR motion targets, use experiments/configs/tuning/tuning_riccati_linear.yaml
 # For other motion patterns, copy this file and change target_motion_type
 #
 # Quick CLI Examples:

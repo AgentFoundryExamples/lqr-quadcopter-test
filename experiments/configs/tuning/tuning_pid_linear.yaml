@@ -1,20 +1,20 @@
-# LQR Controller Auto-Tuning Configuration for LINEAR Motion Targets
+# PID Controller Auto-Tuning Configuration for LINEAR Motion Targets
 # This file configures auto-tuning for a linear (constant velocity) target.
 #
 # Linear motion is more challenging than stationary targets because the
 # controller must track a moving reference. This configuration searches for
-# Q/R cost weights that minimize tracking error while maintaining stability.
+# gains that minimize tracking error while maintaining stability.
 #
 # Usage:
-#   python scripts/controller_autotune.py --config experiments/configs/tuning_lqr_linear.yaml
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_pid_linear.yaml
 #
 # Or use Makefile target:
-#   make tune-lqr-linear
+#   make tune-pid-linear
 #
 # Workflow:
-#   1. Run this tuning config to find optimal LQR weights for linear motion
-#   2. Copy best weights to training_imitation.yaml or training_default.yaml
-#   3. Train deep controller using imitation mode with tuned LQR as supervisor
+#   1. Run this tuning config to find optimal PID gains for linear motion
+#   2. Copy best gains to training/training_imitation.yaml or training/training_default.yaml
+#   3. Train deep controller using imitation mode with tuned PID as supervisor
 #   4. Evaluate trained model with eval_linear_baseline.yaml
 #
 # For other motion patterns, copy this file and change:
@@ -23,40 +23,54 @@
 # =============================================================================
 # CONTROLLER SELECTION
 # =============================================================================
-controller_type: lqr
+controller_type: pid
 
 # =============================================================================
 # SEARCH STRATEGY
 # =============================================================================
 strategy: random
-max_iterations: 30
+max_iterations: 50
 grid_points_per_dim: 3
 
 # =============================================================================
 # SEARCH SPACE - Optimized for Linear Motion
 # =============================================================================
-# Linear motion may benefit from slightly different Q/R ratios than stationary.
-# Velocity costs become more important for tracking moving targets.
+# Linear motion requires slightly different gain ranges than stationary targets.
+# Velocity feedforward may help reduce phase lag behind the target.
 
 search_space:
-  # Position cost weights range [x, y, z]
-  q_pos_range:
-    - [0.00005, 0.00005, 10.0]   # min
-    - [0.0005, 0.0005, 25.0]     # max
+  # PID proportional gains range
+  # Slightly wider range for XY to handle tracking error during motion
+  kp_pos_range:
+    - [0.005, 0.005, 2.0]   # min: [x, y, z]
+    - [0.05, 0.05, 6.0]     # max: [x, y, z]
 
-  # Velocity cost weights range [vx, vy, vz]
-  # Higher velocity costs may help with motion tracking
-  q_vel_range:
-    - [0.001, 0.001, 2.0]        # min
-    - [0.01, 0.01, 8.0]          # max
+  # PID derivative gains range
+  # Higher damping may help with motion tracking stability
+  kd_pos_range:
+    - [0.02, 0.02, 1.0]     # min: [x, y, z]
+    - [0.15, 0.15, 3.0]     # max: [x, y, z]
 
-  # Thrust and rate control costs (optional tuning)
-  # r_thrust_range:
-  #   - 0.5
-  #   - 2.0
-  # r_rate_range:
-  #   - 0.5
-  #   - 2.0
+  # PID integral gains (optional, often left at zero)
+  # Enable if you need bias rejection during motion
+  # ki_pos_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.01, 0.01, 0.01]
+
+  # Feedforward velocity gains (optional for linear motion)
+  # NOTE: For constant-velocity (linear) targets, the D term naturally handles
+  # velocity tracking. Velocity feedforward provides marginal benefit but uses
+  # small gains (0.0-0.1) to avoid instability. The corrected implementation
+  # integrates velocity FF into the D term calculation, preventing double-counting.
+  #
+  # For circular/sinusoidal targets, use acceleration feedforward instead:
+  #   ff_acceleration_gain_range:
+  #     - [0.0, 0.0, 0.0]
+  #     - [0.2, 0.2, 0.0]  # Z=0 since altitude control already handles thrust
+  #
+  # ff_velocity_gain_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.1, 0.1, 0.0]  # Use small gains; large values cause instability
 
 # =============================================================================
 # EVALUATION SETTINGS - Linear Motion
@@ -74,6 +88,10 @@ target_radius: 0.5
 # REPRODUCIBILITY
 # =============================================================================
 seed: 42
+
+# Feedforward is disabled by default for baseline comparison.
+# For linear targets, the D term handles velocity tracking adequately.
+# Enable with small velocity gains (0.0-0.1) if needed.
 feedforward_enabled: false
 
 # =============================================================================
@@ -85,7 +103,7 @@ output_dir: reports/tuning
 # RESOURCE-LIMITED MACHINES
 # =============================================================================
 # If running on limited resources, reduce:
-#   - max_iterations: 15          (fewer configurations to test)
+#   - max_iterations: 20          (fewer configurations to test)
 #   - evaluation_episodes: 3      (faster per-config evaluation)
 #   - evaluation_horizon: 1500    (shorter episodes)
 #   - episode_length: 15.0        (shorter episode duration)

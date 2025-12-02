@@ -138,9 +138,9 @@ riccati_lqr:
 #
 # Step 2: TRAIN - Use tuned controller as supervisor for deep learning
 #   # Copy best gains from reports/tuning/*_best_config.json to
-#   # experiments/configs/training_imitation.yaml
+#   # experiments/configs/training/training_imitation.yaml
 #   # Then run:
-#   python -m quadcopter_tracking.train --config experiments/configs/training_imitation.yaml
+#   python -m quadcopter_tracking.train --config experiments/configs/training/training_imitation.yaml
 #
 # Step 3: EVALUATE - Assess performance on linear motion
 #   python -m quadcopter_tracking.eval --controller deep \
