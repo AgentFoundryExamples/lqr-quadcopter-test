@@ -36,7 +36,9 @@
       "path": "src/quadcopter_tracking/__init__.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
+        "stdlib": [
+          "importlib.metadata"
+        ],
         "third-party": []
       }
     },
@@ -550,6 +552,7 @@
       "datetime",
       "datetime.datetime",
       "datetime.timezone",
+      "importlib.metadata",
       "itertools.product",
       "json",
       "logging",
@@ -579,7 +582,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 22,
+    "stdlib_count": 23,
     "third-party_count": 12
   }
 }

@@ -44,9 +44,11 @@ Total files: 25
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 1.15 KB  
-**LOC:** 44  
+**Size:** 1.44 KB  
+**LOC:** 48  
 **TODOs/FIXMEs:** 0  
+**External Dependencies:**
+  - **Stdlib:** `importlib.metadata`
 
 ## src/quadcopter_tracking/controllers/__init__.py
 **Language:** Python  

@@ -81,8 +81,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 1173,
-        "loc": 44,
+        "size_bytes": 1471,
+        "loc": 48,
         "todo_count": 0
       },
       "structure": {
@@ -92,7 +92,9 @@
         "imports": [],
         "exports": [],
         "external": {
-          "stdlib": [],
+          "stdlib": [
+            "importlib.metadata"
+          ],
           "third-party": []
         }
       }
