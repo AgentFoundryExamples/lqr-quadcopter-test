@@ -128,8 +128,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   make eval-baseline-linear EPISODES=50
   make eval-baseline-circular EPISODES=50
 
-  # 2. Run controller comparison
+  # 2. Run controller comparison for all motion types
   make compare-controllers EPISODES=50 MOTION_TYPE=stationary
+  make compare-controllers EPISODES=50 MOTION_TYPE=linear
+  make compare-controllers EPISODES=50 MOTION_TYPE=circular
 
   # 3. Generate comparison report
   make generate-comparison-report
