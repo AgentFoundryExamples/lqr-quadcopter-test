@@ -339,6 +339,153 @@ The controller validates input matrices:
 - Requires `scipy>=1.11.0` for `scipy.linalg.solve_discrete_are`
 - scipy is included in `pyproject.toml` dependencies
 
+### LQI Mode with Integral Action
+
+The Riccati-LQR controller supports an optional **LQI mode** that augments the
+state vector with integral of position error. This enables zero steady-state
+tracking error for constant reference signals, making it ideal for precision
+hovering and stationary target tracking.
+
+```mermaid
+flowchart TB
+    subgraph "State Vector (LQI, 9D)"
+        A[Position Error<br/>x, y, z]
+        B[Velocity Error<br/>vx, vy, vz]
+        C[Integral Error<br/>∫x, ∫y, ∫z]
+    end
+
+    subgraph "DARE on Augmented System"
+        D[A_aug: 9×9<br/>B_aug: 9×4]
+        E[Q_aug: 9×9<br/>R: 4×4]
+        D --> F[DARE Solver]
+        E --> F
+        F --> G[K: 4×9]
+    end
+
+    subgraph "Gain Decomposition"
+        G --> H[K_pd: 4×6<br/>Proportional/Derivative]
+        G --> I[K_i: 4×3<br/>Integral]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+
+    H --> J[Control Output]
+    I --> J
+```
+
+**Augmented State Vector:**
+```
+x_aug = [x_err, y_err, z_err, vx_err, vy_err, vz_err, ∫x_err, ∫y_err, ∫z_err]
+        ╰─────── 6D LQR state ───────╯  ╰──── 3D integral ─────╯
+```
+
+**Augmented System Matrices:**
+```
+A_aug = [[A,      0    ],    B_aug = [[B],
+         [C*dt,   I    ]]             [0]]
+
+Where:
+  A: Original 6×6 state transition matrix
+  B: Original 6×4 control input matrix
+  C: Position selection matrix [I_3, 0_3]
+  dt: Simulation timestep
+```
+
+**Configuration:**
+
+```yaml
+riccati_lqr:
+  dt: 0.01                          # Simulation timestep (required)
+  use_lqi: true                     # Enable LQI mode
+  q_pos: [0.0001, 0.0001, 16.0]     # Position cost weights
+  q_vel: [0.0036, 0.0036, 4.0]      # Velocity cost weights
+  q_int: [0.001, 0.001, 0.01]       # Integral cost weights [ix, iy, iz]
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost
+  integral_limit: 10.0              # Anti-windup clamp (0 to disable)
+  integral_zero_threshold: 0.01    # Freeze integral below this error
+```
+
+**Integrator Behavior:**
+
+1. **State Evolution:**
+   ```
+   integral[k+1] = integral[k] + dt × pos_error[k]
+   ```
+
+2. **Anti-Windup Clamping:**
+   - Each axis is independently clamped: `|integral[i]| ≤ integral_limit`
+   - Set `integral_limit: 0` to disable clamping (not recommended)
+
+3. **Zero-Error Threshold:**
+   - When `‖pos_error‖ < integral_zero_threshold`, integral accumulation pauses
+   - Prevents drift when error is effectively zero (numerical noise)
+   - Default: 0.01m (1cm tolerance)
+
+4. **Reset Policy:**
+   - `controller.reset()` clears integral to zero (called between episodes)
+   - `controller.reset_integral_state()` explicitly resets integral only
+   - Switching `use_lqi` on/off requires re-instantiating the controller
+
+**When to Use LQI:**
+
+| Scenario | LQI Recommended | Reason |
+|----------|-----------------|--------|
+| Stationary target hovering | ✅ Yes | Zero steady-state error |
+| Constant velocity tracking | ⚠️ Maybe | Integral may help with drag bias |
+| Circular/sinusoidal motion | ❌ No | Integral windup risk |
+| Short episodes (< 5s) | ❌ No | Insufficient time for integral |
+
+**Gain Tuning Guidance:**
+
+The `q_int` weights control integral action aggressiveness:
+
+| q_int Range | Behavior |
+|-------------|----------|
+| 0.0 | Disabled (pure LQR) |
+| 0.001–0.01 | Gentle correction, slow convergence |
+| 0.01–0.1 | Moderate integral action |
+| > 0.1 | Aggressive, may oscillate |
+
+**Recommended starting point:** `q_int: [0.001, 0.001, 0.01]`
+- Low XY integral to avoid saturation
+- Higher Z integral for tight altitude tracking
+
+**Diagnostics:**
+
+```python
+controller = RiccatiLQRController(config={"dt": 0.01, "use_lqi": True, ...})
+controller.compute_action(obs)
+
+# Check LQI mode
+assert controller.is_lqi_mode() is True
+
+# Get integral state
+integral = controller.get_integral_state()  # Returns [ix, iy, iz]
+
+# Get decomposed gains
+k_pd = controller.get_pd_gains()  # 4×6 proportional/derivative
+k_i = controller.get_integral_gains()  # 4×3 integral
+
+# Access via diagnostics
+components = controller.get_control_components()
+print(components["integral_state"])  # Current integral
+print(components["K_pd"])           # P/D gains
+print(components["K_i"])            # Integral gains
+```
+
+**Edge Cases:**
+
+1. **DARE Failure:** If the augmented system is ill-conditioned, DARE may fail.
+   With `fallback_on_failure: true`, falls back to heuristic LQR (no integral).
+
+2. **Switching Mid-Run:** Changing `use_lqi` requires a new controller instance.
+   Integral state persists until `reset()` is called.
+
+3. **Large Initial Errors:** If starting far from target, integral may saturate
+   quickly. Consider larger `integral_limit` or smaller `q_int`.
+
 ### Feedforward Support (Optional)
 
 PID, LQR, and Riccati-LQR controllers all support optional feedforward terms

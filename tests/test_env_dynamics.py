@@ -3634,6 +3634,612 @@ class TestRiccatiLQRFeedforward:
         assert not np.allclose(components["ff_velocity_term"], [0.0, 0.0, 0.0])
 
 
+class TestRiccatiLQI:
+    """Tests for Riccati-LQI controller with augmented integral state.
+
+    These tests verify that the LQI mode correctly:
+    - Augments the state with integral of position error
+    - Solves DARE on the augmented system
+    - Splits gains into K_pd (proportional/derivative) and K_i (integral)
+    - Maintains and clamps the integrator state
+    - Resets integral state deterministically
+    - Preserves backward compatibility with LQR mode
+    """
+
+    def test_lqi_mode_disabled_by_default(self):
+        """Test that LQI mode is disabled by default for backward compatibility."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        assert controller.use_lqi is False
+        assert controller.is_lqi_mode() is False
+        assert controller.integral_state is None
+        # In LQR mode, K_pd is set to K and K_i is zeros for consistency
+        assert controller.K_pd is not None
+        assert controller.K_pd.shape == (4, 6)
+        assert controller.K_i is not None
+        assert controller.K_i.shape == (4, 3)
+        assert np.allclose(controller.K_i, 0.0)  # Zero integral gains in LQR mode
+
+    def test_lqi_mode_can_be_enabled(self):
+        """Test that LQI mode can be enabled via config."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        assert controller.use_lqi is True
+        assert controller.is_lqi_mode() is True
+        assert controller.integral_state is not None
+        assert np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+        assert np.allclose(controller.q_int, [0.01, 0.01, 0.1])
+
+    def test_lqi_augmented_system_matrices(self):
+        """Test that LQI builds correct augmented A and B matrices."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Augmented matrices should exist
+        assert controller.A_aug is not None
+        assert controller.B_aug is not None
+
+        # Shapes: A_aug is 9x9, B_aug is 9x4
+        assert controller.A_aug.shape == (9, 9)
+        assert controller.B_aug.shape == (9, 4)
+
+    def test_lqi_augmented_q_matrix(self):
+        """Test that Q matrix is correctly augmented with integral costs."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.05, 0.05, 0.2],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Q should be 9x9 for LQI
+        assert controller.Q.shape == (9, 9)
+
+        # Last 3 diagonal elements should be q_int
+        assert controller.Q[6, 6] == pytest.approx(0.05)
+        assert controller.Q[7, 7] == pytest.approx(0.05)
+        assert controller.Q[8, 8] == pytest.approx(0.2)
+
+    def test_lqi_dare_solution(self):
+        """Test that DARE is solved on augmented system for LQI."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # K should be 4x9 for LQI (4 controls, 9 augmented states)
+        assert controller.K.shape == (4, 9)
+
+        # K_pd should be 4x6 (proportional/derivative gains)
+        assert controller.K_pd is not None
+        assert controller.K_pd.shape == (4, 6)
+
+        # K_i should be 4x3 (integral gains)
+        assert controller.K_i is not None
+        assert controller.K_i.shape == (4, 3)
+
+        # P should be 9x9 for augmented system
+        assert controller.P.shape == (9, 9)
+
+    def test_lqi_integral_state_evolution(self):
+        """Test that integral state accumulates position error over time."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+            "integral_limit": 10.0,
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Create observation with position error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 2.0]),  # +1m X, +1m Z error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        # Initial integral state should be zero
+        assert np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+
+        # Compute action - this updates integral state
+        controller.compute_action(obs)
+
+        # Integral state should have accumulated: dt * pos_error
+        # pos_error = [1.0, 0.0, 1.0], dt = 0.01
+        expected_integral = np.array([0.01, 0.0, 0.01])
+        assert np.allclose(controller.integral_state, expected_integral, atol=1e-6)
+
+        # Compute again - should accumulate more
+        controller.compute_action(obs)
+        expected_integral2 = np.array([0.02, 0.0, 0.02])
+        assert np.allclose(controller.integral_state, expected_integral2, atol=1e-6)
+
+    def test_lqi_integral_saturation(self):
+        """Test that integral state is clamped to prevent windup."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+            "integral_limit": 0.05,  # Tight limit for testing
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Create observation with large position error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([10.0, 10.0, 10.0]),  # Large errors
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        # Run many steps to accumulate integral
+        for _ in range(100):
+            controller.compute_action(obs)
+
+        # Integral state should be clamped to limit
+        assert np.all(np.abs(controller.integral_state) <= 0.05)
+
+    def test_lqi_integral_zero_threshold(self):
+        """Test that integral doesn't accumulate when error is below threshold."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+            "integral_zero_threshold": 0.1,  # Threshold of 0.1m
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Create observation with very small position error (below threshold)
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.01, 0.01, 1.01]),  # Very small error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        # Run several steps
+        for _ in range(10):
+            controller.compute_action(obs)
+
+        # Integral should still be zero (error magnitude < threshold)
+        assert np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+
+    def test_lqi_reset_clears_integral_state(self):
+        """Test that reset() clears the integral state."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Accumulate some integral error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 2.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        for _ in range(10):
+            controller.compute_action(obs)
+
+        # Verify integral has accumulated
+        assert not np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+
+        # Reset should clear integral state
+        controller.reset()
+        assert np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+
+    def test_lqi_reset_integral_state_method(self):
+        """Test the explicit reset_integral_state() method."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Manually set some integral state
+        controller.integral_state = np.array([1.0, 2.0, 3.0])
+
+        # Reset just the integral state
+        controller.reset_integral_state()
+
+        assert np.allclose(controller.integral_state, [0.0, 0.0, 0.0])
+
+    def test_lqi_get_integral_state(self):
+        """Test the get_integral_state() method returns a copy."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        controller.integral_state = np.array([1.0, 2.0, 3.0])
+
+        state_copy = controller.get_integral_state()
+        assert np.allclose(state_copy, [1.0, 2.0, 3.0])
+
+        # Modifying the copy should not affect the original
+        state_copy[0] = 999.0
+        assert controller.integral_state[0] == 1.0
+
+    def test_lqi_get_pd_and_integral_gains(self):
+        """Test getters for K_pd and K_i."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        k_pd = controller.get_pd_gains()
+        k_i = controller.get_integral_gains()
+
+        assert k_pd is not None
+        assert k_pd.shape == (4, 6)
+
+        assert k_i is not None
+        assert k_i.shape == (4, 3)
+
+    def test_lqi_diagnostics_include_integral_state(self):
+        """Test that diagnostics include integral state for LQI mode."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        controller.compute_action(obs)
+        components = controller.get_control_components()
+
+        assert "integral_state" in components
+        assert "K_pd" in components
+        assert "K_i" in components
+        assert components["K_pd"].shape == (4, 6)
+        assert components["K_i"].shape == (4, 3)
+
+    def test_lqi_backward_compatible_with_lqr(self):
+        """Test that disabling LQI produces identical results to pure LQR."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # Pure LQR controller
+        lqr_config = {"dt": 0.01, "use_lqi": False}
+        lqr = RiccatiLQRController(config=lqr_config)
+
+        # LQI with zero integral costs (should behave like LQR)
+        lqi_zero_config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.0, 0.0, 0.0],
+        }
+        lqi_zero = RiccatiLQRController(config=lqi_zero_config)
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.5, 1.5]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        # First action (before any integral accumulates)
+        action_lqr = lqr.compute_action(obs)
+        action_lqi = lqi_zero.compute_action(obs)
+
+        # Actions should be very similar (not exactly equal due to DARE differences
+        # from augmented system, but proportional/derivative response should match)
+        # The K_pd gains should dominate when q_int is zero
+        assert abs(action_lqr["thrust"] - action_lqi["thrust"]) < 1.0
+        assert abs(action_lqr["roll_rate"] - action_lqi["roll_rate"]) < 0.5
+        assert abs(action_lqr["pitch_rate"] - action_lqi["pitch_rate"]) < 0.5
+
+    def test_lqi_hover_thrust_at_zero_error(self):
+        """Test LQI returns correct hover thrust at zero error."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Zero error observation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Should output hover thrust
+        assert abs(action["thrust"] - controller.hover_thrust) < 0.1
+        assert abs(action["roll_rate"]) < 0.01
+        assert abs(action["pitch_rate"]) < 0.01
+
+    def test_lqi_full_episode_stationary(self):
+        """Test LQI controller completes episode on stationary target."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        controller = RiccatiLQRController(config={
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.001, 0.001, 0.01],  # Small integral costs
+        })
+
+        done = False
+        min_error = float("inf")
+
+        while not done:
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            min_error = min(min_error, info["tracking_error"])
+
+        # Should achieve reasonable tracking
+        assert min_error < 1.0, f"Min tracking error too high: {min_error}"
+
+    def test_lqi_linear_tracking(self):
+        """Test LQI controller tracks linear motion without diverging."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="linear", speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        controller = RiccatiLQRController(config={
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.001, 0.001, 0.01],
+        })
+
+        errors = []
+        for _ in range(200):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        assert min(errors) < 3.0, f"Min error too high: {min(errors)}"
+
+    def test_lqi_circular_tracking(self):
+        """Test LQI controller tracks circular motion."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="circular", radius=1.0, speed=0.5)
+
+        env = QuadcopterEnv(config=config)
+        obs = env.reset(seed=42)
+
+        controller = RiccatiLQRController(config={
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.001, 0.001, 0.01],
+        })
+
+        errors = []
+        for _ in range(200):
+            action = controller.compute_action(obs)
+            obs, _, done, info = env.step(action)
+            errors.append(info["tracking_error"])
+            if done:
+                break
+
+        # Error should stay bounded
+        assert max(errors) < 50.0, f"Max error too high: {max(errors)}"
+        assert min(errors) < 3.0, f"Min error too high: {min(errors)}"
+
+    def test_lqi_output_bounds(self):
+        """Test LQI controller respects output bounds."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+            "max_thrust": 20.0,
+            "min_thrust": 0.0,
+            "max_rate": 3.0,
+        }
+        controller = RiccatiLQRController(config=config)
+
+        env = QuadcopterEnv()
+        obs = env.reset(seed=42)
+
+        for _ in range(50):
+            action = controller.compute_action(obs)
+            obs, _, done, _ = env.step(action)
+            if done:
+                break
+
+            assert action["thrust"] >= 0.0
+            assert action["thrust"] <= 20.0
+            assert abs(action["roll_rate"]) <= 3.0
+            assert abs(action["pitch_rate"]) <= 3.0
+            assert abs(action["yaw_rate"]) <= 3.0
+
+    def test_lqi_responds_to_position_error(self):
+        """Test LQI controller responds correctly to position error."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        })
+
+        # Create observation with X error
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),  # +1m in X
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Positive X error should result in positive pitch rate
+        assert action["pitch_rate"] > 0
+
+    def test_lqi_uses_enu_signs(self):
+        """Test LQI controller matches ENU sign conventions."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+        from quadcopter_tracking.utils.coordinate_frame import (
+            PITCH_RATE_TO_X_VEL_SIGN,
+            ROLL_RATE_TO_Y_VEL_SIGN,
+        )
+
+        controller = RiccatiLQRController(config={
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01, 0.1],
+        })
+
+        # Create observation with X and Y errors
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 1.0, 1.0]),  # +X and +Y error
+                "velocity": np.array([0.0, 0.0, 0.0]),
+            },
+        }
+
+        action = controller.compute_action(obs)
+
+        # Verify signs match ENU convention
+        assert np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
+        assert np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
+
+    def test_lqi_invalid_q_int_length(self):
+        """Test error raised for invalid q_int length."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01],  # Only 2 elements, need 3
+        }
+        with pytest.raises(ValueError, match="q_int must have 3 elements"):
+            RiccatiLQRController(config=config)
+
+
 class TestRiccatiLQRValidation:
     """Tests for Riccati-LQR matrix validation and error handling."""
 

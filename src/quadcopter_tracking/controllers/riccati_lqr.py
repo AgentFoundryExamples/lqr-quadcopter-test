@@ -1,5 +1,5 @@
 """
-Riccati-LQR Controller Module
+Riccati-LQR/LQI Controller Module
 
 Implements a true LQR controller that solves the discrete-time algebraic Riccati
 equation (DARE) to compute optimal feedback gains K, rather than using heuristic
@@ -15,14 +15,32 @@ This provides a mathematically optimal solution for the linearized quadcopter
 dynamics around hover, making it suitable as a strong teacher for deep imitation
 controllers.
 
+LQI Mode (optional):
+    When use_lqi=True, the controller augments the state with an integral of the
+    position error to provide zero steady-state tracking error. The augmented
+    state vector becomes:
+        [x_error, y_error, z_error, vx_error, vy_error, vz_error, ix, iy, iz]
+
+    Where ix, iy, iz are the accumulated integrals of position error. The DARE
+    is solved on the augmented system (A_aug, B_aug, Q_aug, R) to produce gains
+    that incorporate integral action.
+
 Dependencies:
     - scipy.linalg.solve_discrete_are for DARE solving
 
 Usage:
+    # Pure LQR mode (default)
     controller = RiccatiLQRController(config={
         'dt': 0.01,  # Required: simulation timestep
         'Q': Q_matrix,  # Optional: state cost (6x6)
         'R': R_matrix,  # Optional: control cost (4x4)
+    })
+
+    # LQI mode with integral action
+    controller = RiccatiLQRController(config={
+        'dt': 0.01,
+        'use_lqi': True,
+        'q_int': [0.01, 0.01, 0.1],  # Integral state cost weights
     })
     action = controller.compute_action(observation)
 """
@@ -245,6 +263,59 @@ def build_linearized_system(
     return A, B
 
 
+def build_augmented_lqi_system(
+    A: np.ndarray,
+    B: np.ndarray,
+    dt: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Build augmented discrete-time system matrices for LQI control.
+
+    Augments the state with integral of position error to enable zero
+    steady-state tracking error. The augmented state vector is:
+        [x_error, y_error, z_error, vx_error, vy_error, vz_error, ix, iy, iz]
+
+    Where ix, iy, iz are the time-integrated position errors.
+
+    The augmented dynamics are:
+        x_{k+1} = A_aug @ x_k + B_aug @ u_k
+
+    With:
+        A_aug = [[A,   0 ],    B_aug = [[B],
+                 [C*dt, I]]             [0]]
+
+    Where C selects position states (first 3 components).
+
+    Args:
+        A: Original state transition matrix (6x6).
+        B: Original control input matrix (6x4).
+        dt: Simulation timestep for integral discretization.
+
+    Returns:
+        Tuple of (A_aug, B_aug) augmented system matrices (9x9, 9x4).
+    """
+    n_orig = A.shape[0]  # 6
+    n_int = 3  # integral states for x, y, z position
+    n_aug = n_orig + n_int  # 9
+    m = B.shape[1]  # 4 controls
+
+    # Build augmented A matrix
+    A_aug = np.zeros((n_aug, n_aug))
+    # Original dynamics block
+    A_aug[:n_orig, :n_orig] = A
+    # Integral update: int_{k+1} = int_k + dt * pos_error_k
+    # Position error is first 3 states
+    A_aug[n_orig:, :3] = np.eye(n_int) * dt  # C * dt where C = [I_3, 0_3]
+    A_aug[n_orig:, n_orig:] = np.eye(n_int)  # I for integral persistence
+
+    # Build augmented B matrix
+    B_aug = np.zeros((n_aug, m))
+    B_aug[:n_orig, :] = B
+    # Integral states are not directly affected by control
+
+    return A_aug, B_aug
+
+
 def _validate_observation(observation: dict) -> None:
     """
     Validate that observation contains required keys.
@@ -273,7 +344,7 @@ def _validate_observation(observation: dict) -> None:
 
 class RiccatiLQRController(BaseController):
     """
-    Riccati-LQR Controller for quadcopter tracking with optional feedforward.
+    Riccati-LQR/LQI Controller for quadcopter tracking with optional feedforward.
 
     Solves the discrete-time algebraic Riccati equation (DARE) to compute
     optimal feedback gains for the linearized quadcopter dynamics around hover.
@@ -283,14 +354,28 @@ class RiccatiLQRController(BaseController):
     Optionally incorporates target velocity and acceleration feedforward
     terms for improved tracking of moving targets.
 
+    LQI Mode (optional, use_lqi=True):
+        When enabled, augments the state with integral of position error to
+        provide zero steady-state tracking error for constant reference signals.
+        The augmented state becomes:
+            [x_error, y_error, z_error, vx_error, vy_error, vz_error, ix, iy, iz]
+
+        The DARE is solved on the 9-state augmented system, producing a 4x9
+        gain matrix that splits into proportional/derivative (K_pd) and
+        integral (K_i) components.
+
     The controller is suitable for:
     - Serving as a strong teacher for deep imitation learning
     - Validating control performance against optimal baselines
     - Research on LQR-based quadcopter control
     - Tracking moving targets with feedforward enabled
+    - Zero steady-state error tracking with LQI mode
 
-    State vector (6 dimensions):
+    State vector (LQR mode, 6 dimensions):
         [x_error, y_error, z_error, vx_error, vy_error, vz_error]
+
+    State vector (LQI mode, 9 dimensions):
+        [x_error, y_error, z_error, vx_error, vy_error, vz_error, ix, iy, iz]
 
     Control vector (4 dimensions):
         [thrust, roll_rate, pitch_rate, yaw_rate]
@@ -302,13 +387,22 @@ class RiccatiLQRController(BaseController):
 
     Attributes:
         dt (float): Simulation timestep.
+        use_lqi (bool): Whether LQI mode is enabled.
         A (ndarray): Discrete-time state transition matrix (6x6).
         B (ndarray): Discrete-time control input matrix (6x4).
-        Q (ndarray): State cost matrix (6x6).
+        A_aug (ndarray | None): Augmented state matrix for LQI (9x9).
+        B_aug (ndarray | None): Augmented control matrix for LQI (9x4).
+        Q (ndarray): State cost matrix (6x6 for LQR, 9x9 for LQI).
         R (ndarray): Control cost matrix (4x4).
-        K (ndarray): Optimal feedback gain matrix (4x6).
-        P (ndarray): DARE solution matrix (6x6).
+        K (ndarray): Optimal feedback gain matrix (4x6 for LQR, 4x9 for LQI).
+        K_pd (ndarray | None): Proportional/derivative gains for LQI (4x6).
+        K_i (ndarray | None): Integral gains for LQI (4x3).
+        P (ndarray): DARE solution matrix.
         hover_thrust (float): Thrust required to hover (mass * gravity).
+        integral_state (ndarray | None): Accumulated integral error for LQI (3,).
+        integral_limit (float): Max integral magnitude for windup prevention.
+        integral_zero_threshold (float): Error threshold below which integral
+            accumulation is paused (prevents drift at steady state).
         feedforward_enabled (bool): Whether feedforward is enabled.
         ff_velocity_gain (ndarray): Feedforward gains for target velocity.
         ff_acceleration_gain (ndarray): Feedforward gains for target accel.
@@ -323,7 +417,7 @@ class RiccatiLQRController(BaseController):
 
     def __init__(self, config: dict | None = None):
         """
-        Initialize Riccati-LQR controller.
+        Initialize Riccati-LQR/LQI controller.
 
         Args:
             config: Configuration dictionary with parameters:
@@ -347,6 +441,14 @@ class RiccatiLQRController(BaseController):
                   [x, y, z] or scalar (default: [0.0, 0.0, 0.0] - disabled)
                 - ff_max_velocity: Max velocity for clamping (default: 10.0)
                 - ff_max_acceleration: Max acceleration for clamping (default: 5.0)
+                - use_lqi: Enable LQI mode with integral action (default: False)
+                - q_int: Integral state cost weights [ix, iy, iz] for LQI
+                  (default: [0.0, 0.0, 0.0] - when all zero, acts like pure LQR)
+                - integral_limit: Max integral magnitude per axis for windup
+                  prevention (default: 10.0). Set to 0 to disable clamping.
+                - integral_zero_threshold: Position error magnitude below which
+                  integral accumulation pauses (default: 0.01). Prevents drift
+                  when error is effectively zero.
 
         Raises:
             ValueError: If required parameters are missing or matrices are invalid.
@@ -368,6 +470,27 @@ class RiccatiLQRController(BaseController):
         # Hover thrust
         self.hover_thrust = self.mass * self.gravity
 
+        # LQI mode configuration
+        self.use_lqi = config.get("use_lqi", False)
+        q_int = config.get("q_int", [0.0, 0.0, 0.0])
+        self.q_int = self._ensure_array(q_int)
+
+        # Validate q_int has correct length
+        if len(self.q_int) != 3:
+            raise ValueError(f"q_int must have 3 elements, got {len(self.q_int)}")
+
+        self.integral_limit = config.get("integral_limit", 10.0)
+        self.integral_zero_threshold = config.get("integral_zero_threshold", 0.01)
+
+        # LQI state: integral of position error
+        self.integral_state: np.ndarray | None = None
+        if self.use_lqi:
+            self.integral_state = np.zeros(3)
+
+        # LQI gain components (populated after solving DARE)
+        self.K_pd: np.ndarray | None = None  # Proportional/derivative gains (4x6)
+        self.K_i: np.ndarray | None = None   # Integral gains (4x3)
+
         # Feedforward configuration
         # Default to disabled (gains = 0) to preserve baseline behavior
         self.feedforward_enabled = config.get("feedforward_enabled", False)
@@ -387,6 +510,14 @@ class RiccatiLQRController(BaseController):
         self.A, self.B = build_linearized_system(
             dt=self.dt, mass=self.mass, gravity=self.gravity
         )
+
+        # Build augmented system for LQI if needed
+        self.A_aug: np.ndarray | None = None
+        self.B_aug: np.ndarray | None = None
+        if self.use_lqi:
+            self.A_aug, self.B_aug = build_augmented_lqi_system(
+                self.A, self.B, self.dt
+            )
 
         # Build cost matrices Q and R
         self.Q = self._build_Q_matrix(config)
@@ -425,19 +556,19 @@ class RiccatiLQRController(BaseController):
         """
         Build the state cost matrix Q from configuration.
 
-        Supports either a full 6x6 matrix or separate position/velocity weights.
+        Supports either a full matrix or separate position/velocity weights.
+        For LQI mode, builds an augmented 9x9 matrix including integral costs.
 
         Args:
             config: Configuration dictionary.
 
         Returns:
-            6x6 state cost matrix Q.
+            6x6 state cost matrix Q for LQR, or 9x9 for LQI.
         """
+        # Handle explicit Q matrix
         if "Q" in config and config["Q"] is not None:
             Q = np.array(config["Q"])
-            if Q.shape != (6, 6):
-                raise ValueError(f"Q matrix must have shape (6, 6), got {Q.shape}")
-            return Q
+            return self._validate_and_augment_Q(Q)
 
         # Build from separate weights
         # Default weights matched to heuristic LQR for consistency:
@@ -451,8 +582,47 @@ class RiccatiLQRController(BaseController):
         if len(q_vel) != 3:
             raise ValueError(f"q_vel must have 3 elements, got {len(q_vel)}")
 
-        Q = np.diag(np.concatenate([q_pos, q_vel]))
+        if self.use_lqi:
+            # Build augmented Q for LQI: 9x9 matrix with [q_pos, q_vel, q_int] diagonal
+            Q = np.diag(np.concatenate([q_pos, q_vel, self.q_int]))
+        else:
+            Q = np.diag(np.concatenate([q_pos, q_vel]))
+
         return Q
+
+    def _validate_and_augment_Q(self, Q: np.ndarray) -> np.ndarray:
+        """
+        Validate Q matrix shape and augment for LQI mode if needed.
+
+        Args:
+            Q: Input state cost matrix.
+
+        Returns:
+            Validated Q matrix (6x6 for LQR, 9x9 for LQI).
+
+        Raises:
+            ValueError: If Q has invalid shape.
+        """
+        if self.use_lqi:
+            if Q.shape == (9, 9):
+                return Q
+            elif Q.shape == (6, 6):
+                # Augment 6x6 Q with integral costs for LQI
+                Q_aug = np.zeros((9, 9))
+                Q_aug[:6, :6] = Q
+                Q_aug[6:, 6:] = np.diag(self.q_int)
+                return Q_aug
+            else:
+                raise ValueError(
+                    f"Q matrix for LQI must have shape (9, 9) or (6, 6), "
+                    f"got {Q.shape}"
+                )
+        else:
+            if Q.shape != (6, 6):
+                raise ValueError(
+                    f"Q matrix must have shape (6, 6), got {Q.shape}"
+                )
+            return Q
 
     def _build_R_matrix(self, config: dict) -> np.ndarray:
         """
@@ -486,13 +656,37 @@ class RiccatiLQRController(BaseController):
         """
         Solve the DARE and compute optimal feedback gain K.
 
+        For LQI mode, solves the DARE on the augmented system (A_aug, B_aug)
+        and splits the resulting gain matrix into proportional/derivative (K_pd)
+        and integral (K_i) components.
+
         If the solver fails and fallback is enabled, creates a heuristic LQR
         controller as a backup.
         """
         try:
-            self.P, self.K = solve_dare(self.A, self.B, self.Q, self.R)
+            if self.use_lqi:
+                # Solve DARE on augmented system
+                self.P, self.K = solve_dare(
+                    self.A_aug, self.B_aug, self.Q, self.R
+                )
+                # Split K into proportional/derivative and integral components
+                # K is 4x9: first 6 columns are K_pd, last 3 are K_i
+                self.K_pd = self.K[:, :6]
+                self.K_i = self.K[:, 6:]
+                logger.info(
+                    "DARE solved successfully for LQI, K shape: %s, "
+                    "K_pd shape: %s, K_i shape: %s",
+                    self.K.shape, self.K_pd.shape, self.K_i.shape
+                )
+            else:
+                # Standard LQR solve
+                self.P, self.K = solve_dare(self.A, self.B, self.Q, self.R)
+                self.K_pd = self.K
+                self.K_i = np.zeros((self.K.shape[0], 3))
+                logger.info("DARE solved successfully, K shape: %s", self.K.shape)
+
             self._using_fallback = False
-            logger.info("DARE solved successfully, K shape: %s", self.K.shape)
+
         except (ValueError, RuntimeError, ImportError) as e:
             logger.warning("DARE solver failed: %s", e)
 
@@ -537,7 +731,7 @@ class RiccatiLQRController(BaseController):
 
     def compute_action(self, observation: dict) -> dict:
         """
-        Compute Riccati-LQR control action with optional feedforward.
+        Compute Riccati-LQR/LQI control action with optional feedforward.
 
         If the DARE solver failed and fallback is enabled, delegates to the
         heuristic LQR controller.
@@ -553,6 +747,14 @@ class RiccatiLQRController(BaseController):
 
         For changing velocity targets (circular, sinusoidal), acceleration
         feedforward helps anticipate velocity changes and reduces phase lag.
+
+        LQI Mode:
+        When use_lqi=True, the controller maintains an internal integrator state
+        that accumulates position error over time. This provides zero steady-state
+        tracking error for constant references. The integrator is:
+        - Updated each timestep: integral += dt * pos_error
+        - Clamped to prevent windup: |integral| <= integral_limit
+        - Frozen when error is below threshold to prevent drift
 
         Args:
             observation: Environment observation with quadcopter and target state.
@@ -614,11 +816,44 @@ class RiccatiLQRController(BaseController):
         # Compute velocity error uniformly
         vel_error = effective_target_vel - quad_vel
 
-        # Build state error vector (6D)
+        # Build state error vector (6D for LQR, 9D for LQI)
         state_error = np.concatenate([pos_error, vel_error])
 
-        # Compute feedback control: u = K @ state_error
-        u_feedback = self.K @ state_error
+        # LQI mode: update integral state and compute augmented control
+        integral_term = np.zeros(3)
+        if self.use_lqi and self.integral_state is not None:
+            # Update integral state with zero-threshold handling and anti-windup
+            error_mag = np.linalg.norm(pos_error)
+            if error_mag > self.integral_zero_threshold:
+                # Conditional integration for anti-windup
+                for i in range(3):
+                    # Allow integration if not saturated or if error helps desaturate
+                    is_saturated = (
+                        abs(self.integral_state[i]) >= self.integral_limit > 0
+                    )
+                    is_worsening = (
+                        np.sign(self.integral_state[i]) == np.sign(pos_error[i])
+                    )
+
+                    if not (is_saturated and is_worsening):
+                        self.integral_state[i] += self.dt * pos_error[i]
+
+            # Apply anti-windup clamping (serves as a safeguard)
+            if self.integral_limit > 0:
+                self.integral_state = np.clip(
+                    self.integral_state,
+                    -self.integral_limit,
+                    self.integral_limit
+                )
+
+            integral_term = self.integral_state.copy()
+
+            # Compute control using augmented state
+            # u = K_pd @ [pos_error, vel_error] + K_i @ integral_state
+            u_feedback = self.K_pd @ state_error + self.K_i @ self.integral_state
+        else:
+            # Standard LQR: u = K @ state_error
+            u_feedback = self.K @ state_error
 
         # Map feedforward acceleration to control outputs:
         # Z -> thrust, X -> pitch, Y -> -roll
@@ -671,6 +906,12 @@ class RiccatiLQRController(BaseController):
             "is_saturated": is_saturated,
         }
 
+        # Add LQI-specific diagnostics
+        if self.use_lqi:
+            self.last_control_components["integral_state"] = integral_term.copy()
+            self.last_control_components["K_pd"] = self.K_pd.copy()
+            self.last_control_components["K_i"] = self.K_i.copy()
+
         return {
             "thrust": thrust,
             "roll_rate": roll_rate,
@@ -715,7 +956,8 @@ class RiccatiLQRController(BaseController):
         Get the computed feedback gain matrix K.
 
         Returns:
-            The 4x6 feedback gain matrix, or None if using fallback.
+            The feedback gain matrix (4x6 for LQR, 4x9 for LQI),
+            or None if using fallback.
         """
         return self.K if not self._using_fallback else None
 
@@ -724,13 +966,74 @@ class RiccatiLQRController(BaseController):
         Get the DARE solution matrix P.
 
         Returns:
-            The 6x6 DARE solution matrix, or None if using fallback.
+            The DARE solution matrix (6x6 for LQR, 9x9 for LQI),
+            or None if using fallback.
         """
         return self.P if not self._using_fallback else None
 
+    def get_integral_gains(self) -> np.ndarray | None:
+        """
+        Get the integral gain matrix K_i for LQI mode.
+
+        Returns:
+            The 4x3 integral gain matrix if using LQI, None otherwise.
+        """
+        return self.K_i if self.use_lqi and not self._using_fallback else None
+
+    def get_pd_gains(self) -> np.ndarray | None:
+        """
+        Get the proportional/derivative gain matrix K_pd for LQI mode.
+
+        Returns:
+            The 4x6 proportional/derivative gain matrix if using LQI,
+            None otherwise.
+        """
+        return self.K_pd if self.use_lqi and not self._using_fallback else None
+
+    def get_integral_state(self) -> np.ndarray | None:
+        """
+        Get the current integral state for LQI mode.
+
+        Returns:
+            The 3-element integral state vector [ix, iy, iz] if using LQI,
+            None otherwise.
+        """
+        if self.use_lqi and self.integral_state is not None:
+            return self.integral_state.copy()
+        return None
+
+    def reset_integral_state(self) -> None:
+        """
+        Reset the integral state to zero.
+
+        This is useful when switching targets or after mode changes to
+        prevent accumulated integral error from causing transients.
+        Only has effect in LQI mode.
+        """
+        if self.use_lqi and self.integral_state is not None:
+            self.integral_state = np.zeros(3)
+            logger.debug("LQI integral state reset to zero")
+
+    def is_lqi_mode(self) -> bool:
+        """
+        Check if the controller is operating in LQI mode.
+
+        Returns:
+            True if using LQI with integral action, False for pure LQR.
+        """
+        return self.use_lqi
+
     def reset(self) -> None:
-        """Reset controller state and diagnostics."""
+        """Reset controller state and diagnostics.
+
+        For LQI mode, this also resets the integral state to zero.
+        """
         self.last_control_components = None
         self._saturation_count = 0
+
+        # Reset LQI integral state
+        if self.use_lqi and self.integral_state is not None:
+            self.integral_state = np.zeros(3)
+
         if self.fallback_controller is not None:
             self.fallback_controller.reset()
