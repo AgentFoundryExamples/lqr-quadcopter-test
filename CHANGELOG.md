@@ -31,11 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Config Path Structure**: All configuration files now reside in subdirectories. The Makefile targets have been updated internally but remain unchanged from a user perspective.
 
-- **`.env.example` Updates**: Added new environment variables:
-  - `TUNING_OUTPUT_DIR` for tuning results directory (default: `reports/tuning`)
-  - `CONTROLLER_CONFIG_ROOT` placeholder for custom config paths
-  - CMA-ES specific settings (`TUNING_CMA_SIGMA0`, `TUNING_CMA_POPSIZE`)
-  - Feedforward configuration variables
+- **`.env.example` Updates**: Added new environment variables for tuning and CMA-ES configuration.
 
 - **Documentation Updates**: README, docs/results.md, and experiments/configs/README.md updated to reference new config paths and provide quick-start examples.
 
@@ -55,10 +51,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Makefile Targets Unchanged**: All `make` commands (e.g., `make train-deep`, `make eval-baseline-stationary`, `make tune-pid-linear`) continue to work without modification.
 
-- **Environment Variables**: Review [.env.example](.env.example) for new variables:
-  - Copy `.env.example` to `.env` if you haven't already
-  - New `TUNING_OUTPUT_DIR` for customizing tuning output location
-  - CMA-ES settings for advanced tuning scenarios
+- **Environment Variables**: Copy [.env.example](.env.example) to `.env` and configure as needed. Key new variables:
+
+  ```bash
+  # Tuning output directory (default: reports/tuning)
+  TUNING_OUTPUT_DIR=reports/tuning
+
+  # CMA-ES optimization settings
+  TUNING_STRATEGY=cma_es
+  TUNING_CMA_SIGMA0=0.3
+  # TUNING_CMA_POPSIZE=  # Leave unset for auto-calculation
+
+  # Feedforward for moving targets (disabled by default)
+  QUADCOPTER_FEEDFORWARD_ENABLED=false
+  QUADCOPTER_FF_VELOCITY_GAIN=0.0,0.0,0.0
+  QUADCOPTER_FF_ACCELERATION_GAIN=0.0,0.0,0.0
+  ```
 
 - **No Breaking Changes to APIs**: All Python APIs, checkpoints, and controller configurations remain compatible.
 

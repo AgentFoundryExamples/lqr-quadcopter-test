@@ -11,7 +11,14 @@ Subpackages:
 - eval: Controller evaluation pipeline
 """
 
-__version__ = "0.4.0"
+import importlib.metadata
+
+try:
+    # Retrieve the version from installed package metadata
+    __version__ = importlib.metadata.version("quadcopter-tracking")
+except importlib.metadata.PackageNotFoundError:
+    # Fallback for when the package is not installed, e.g., in an editable install
+    __version__ = "0.0.0-dev"
 
 from quadcopter_tracking.controllers import (
     BaseController,
