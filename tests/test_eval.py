@@ -1023,10 +1023,10 @@ class TestLQIController:
             for step in episode_data:
                 action = step["action"]
                 # action is [thrust, roll_rate, pitch_rate, yaw_rate]
-                assert 0.0 <= action[0] <= 20.0, f"Thrust out of bounds: {action[0]}"
+                assert 0.0 <= action[0] <= 20.0, f"Thrust: {action[0]}"
                 assert -3.0 <= action[1] <= 3.0, f"Roll rate: {action[1]}"
                 assert -3.0 <= action[2] <= 3.0, f"Pitch rate: {action[2]}"
-                assert -3.0 <= action[3] <= 3.0, f"Yaw rate out of bounds: {action[3]}"
+                assert -3.0 <= action[3] <= 3.0, f"Yaw rate: {action[3]}"
 
     def test_lqi_tracks_linear_trajectory(self, tmp_path):
         """Test that LQI tracks linear trajectories with bounded error."""
