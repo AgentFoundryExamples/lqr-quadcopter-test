@@ -478,7 +478,8 @@ def load_controller(
     Load a controller by type and optionally from checkpoint.
 
     Args:
-        controller_type: Type of controller ('deep', 'lqr', 'pid', 'riccati_lqr').
+        controller_type: Type of controller
+            ('deep', 'lqr', 'pid', 'riccati_lqr', 'lqi').
         checkpoint_path: Path to checkpoint for neural controllers.
         config: Controller configuration dictionary.
 
@@ -499,6 +500,14 @@ def load_controller(
         return PIDController(config=config)
     elif controller_type == "riccati_lqr":
         return RiccatiLQRController(config=config)
+    elif controller_type == "lqi":
+        # LQI uses RiccatiLQRController with use_lqi=True
+        lqi_config = dict(config)
+        lqi_config["use_lqi"] = True
+        # Set default q_int if not provided
+        if "q_int" not in lqi_config:
+            lqi_config["q_int"] = [0.01, 0.01, 0.1]
+        return RiccatiLQRController(config=lqi_config)
     else:
         raise ValueError(f"Unknown controller type: {controller_type}")
 
@@ -636,7 +645,7 @@ def parse_args() -> argparse.Namespace:
         "--controller",
         type=str,
         default=None,
-        choices=["deep", "lqr", "pid", "riccati_lqr"],
+        choices=["deep", "lqr", "pid", "riccati_lqr", "lqi"],
         help="Controller type to evaluate (default: deep, or from config file)",
     )
     parser.add_argument(

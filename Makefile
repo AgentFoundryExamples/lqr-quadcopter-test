@@ -149,6 +149,9 @@ eval-baseline-linear:
 	@echo "=== Evaluating Riccati-LQR on linear target ==="
 	$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/evaluation/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_riccati
 	@echo ""
+	@echo "=== Evaluating LQI on linear target ==="
+	$(PYTHON) -m quadcopter_tracking.eval --controller lqi --config experiments/configs/evaluation/eval_linear_baseline.yaml --episodes $(EPISODES) --seed $(SEED) --output-dir reports/baseline_linear_lqi
+	@echo ""
 	@echo "Baseline evaluation complete. Results in reports/baseline_linear_*/"
 
 # =============================================================================
@@ -164,6 +167,12 @@ compare-controllers:
 	@echo ""
 	@echo "Evaluating LQR controller..."
 	-@$(PYTHON) -m quadcopter_tracking.eval --controller lqr --motion-type $(MOTION_TYPE) --episodes $(EPISODES) --seed $(SEED) --output-dir reports/comparison/lqr
+	@echo ""
+	@echo "Evaluating Riccati-LQR controller..."
+	-@$(PYTHON) -m quadcopter_tracking.eval --controller riccati_lqr --motion-type $(MOTION_TYPE) --episodes $(EPISODES) --seed $(SEED) --output-dir reports/comparison/riccati_lqr
+	@echo ""
+	@echo "Evaluating LQI controller..."
+	-@$(PYTHON) -m quadcopter_tracking.eval --controller lqi --motion-type $(MOTION_TYPE) --episodes $(EPISODES) --seed $(SEED) --output-dir reports/comparison/lqi
 	@echo ""
 	@echo "Controller evaluation complete. Run 'make generate-comparison-report' to generate summary."
 

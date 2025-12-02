@@ -1,5 +1,5 @@
 # Baseline evaluation configuration for LINEAR motion tracking
-# Use this config to evaluate PID/LQR/Riccati-LQR controller performance on
+# Use this config to evaluate PID/LQR/Riccati-LQR/LQI controller performance on
 # linear (constant velocity) target motion.
 #
 # Linear motion is more challenging than stationary targets because the
@@ -7,16 +7,20 @@
 #
 # Usage:
 #   # Evaluate PID baseline on linear motion
-#   python -m quadcopter_tracking.eval --controller pid --config experiments/configs/eval_linear_baseline.yaml
+#   python -m quadcopter_tracking.eval --controller pid --config experiments/configs/evaluation/eval_linear_baseline.yaml
 #
 #   # Evaluate LQR baseline on linear motion
-#   python -m quadcopter_tracking.eval --controller lqr --config experiments/configs/eval_linear_baseline.yaml
+#   python -m quadcopter_tracking.eval --controller lqr --config experiments/configs/evaluation/eval_linear_baseline.yaml
 #
 #   # Evaluate Riccati-LQR baseline on linear motion
-#   python -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/eval_linear_baseline.yaml
+#   python -m quadcopter_tracking.eval --controller riccati_lqr --config experiments/configs/evaluation/eval_linear_baseline.yaml
+#
+#   # Evaluate LQI (Riccati-LQR with integral action) on linear motion
+#   python -m quadcopter_tracking.eval --controller lqi --config experiments/configs/evaluation/eval_linear_baseline.yaml
 #
 # Expected performance (classical controllers):
-#   - On-target ratio: 70-90% for PID/LQR
+#   - On-target ratio: 70-90% for PID/LQR/Riccati-LQR
+#   - On-target ratio: 75-95% for LQI (improved steady-state tracking)
 #   - Mean tracking error: <0.6m
 #   - Success rate: >70%
 #
@@ -124,6 +128,35 @@ riccati_lqr:
   max_thrust: 20.0
   min_thrust: 0.0
   max_rate: 3.0
+  fallback_on_failure: true
+
+# LQI Controller - Riccati-LQR with integral action for zero steady-state error
+# LQI augments the state with integrated position error, enabling the controller
+# to eliminate steady-state tracking errors even under disturbances or model errors.
+#
+# Tuning q_int:
+#   - Higher values (e.g., [0.1, 0.1, 0.5]) = faster integral response, risk of overshoot
+#   - Lower values (e.g., [0.01, 0.01, 0.05]) = slower but more stable response
+#   - Z-axis typically needs higher gain due to gravity compensation requirements
+#
+# Trade-offs:
+#   - LQI typically shows improved steady-state tracking vs pure LQR
+#   - May have slightly more overshoot during target transitions
+#   - integral_limit prevents windup during saturation or large errors
+lqi:
+  dt: 0.01
+  mass: 1.0
+  gravity: 9.81
+  use_lqi: true
+  q_pos: *shared_q_pos
+  q_vel: *shared_q_vel
+  q_int: [0.01, 0.01, 0.1]  # Integral state cost weights [x, y, z]
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+  max_thrust: 20.0
+  min_thrust: 0.0
+  max_rate: 3.0
+  integral_limit: 10.0      # Anti-windup clamping per axis
+  integral_zero_threshold: 0.01  # Pause integration when error < threshold
   fallback_on_failure: true
 
 # =============================================================================

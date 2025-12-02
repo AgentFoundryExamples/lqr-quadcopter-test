@@ -68,7 +68,7 @@ __all__ = [
 
 # Valid controller type names for config validation
 # Used by train.py, eval.py, and other entry points
-VALID_CONTROLLER_TYPES = ("deep", "lqr", "pid", "riccati_lqr")
+VALID_CONTROLLER_TYPES = ("deep", "lqr", "pid", "riccati_lqr", "lqi")
 
 
 def _validate_observation(observation: dict) -> None:

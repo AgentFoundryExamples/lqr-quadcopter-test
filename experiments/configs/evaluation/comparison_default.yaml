@@ -1,12 +1,13 @@
 # Controller comparison configuration
-# Use this config to generate side-by-side metrics for PID, LQR, and Deep controllers.
+# Use this config to generate side-by-side metrics for PID, LQR, Riccati-LQR,
+# LQI, and Deep controllers.
 #
 # Usage with Makefile:
-#   make compare-controllers CONFIG=experiments/configs/comparison_default.yaml
+#   make compare-controllers CONFIG=experiments/configs/evaluation/comparison_default.yaml
 #
 # Manual usage:
 #   # Run comparison sweep
-#   python -m quadcopter_tracking.eval --sweep experiments/configs/comparison_default.yaml
+#   python -m quadcopter_tracking.eval --sweep experiments/configs/evaluation/comparison_default.yaml
 #
 # Output:
 #   - reports/comparison/sweep_results.json - Ranked results for all controllers
@@ -75,22 +76,21 @@ configurations:
       <<: *shared_lqr_weights
 
   # Riccati-LQR Controller - DARE-solved optimal gains
-  # Uncomment to include in comparison
-  # - name: riccati_lqr_baseline
-  #   controller_type: riccati_lqr
-  #   <<: *shared_eval
-  #   riccati_lqr:
-  #     <<: *shared_riccati_weights
+  - name: riccati_lqr_baseline
+    controller_type: riccati_lqr
+    <<: *shared_eval
+    riccati_lqr:
+      <<: *shared_riccati_weights
 
-  # Riccati-LQI Controller - LQR with integral action
-  # Uncomment for zero steady-state error tracking
-  # - name: riccati_lqi_baseline
-  #   controller_type: riccati_lqr
-  #   <<: *shared_eval
-  #   riccati_lqr:
-  #     <<: *shared_riccati_weights
-  #     use_lqi: true
-  #     q_int: [0.01, 0.01, 0.1]  # Integral cost weights per axis
+  # LQI Controller - Riccati-LQR with integral action for zero steady-state error
+  - name: lqi_baseline
+    controller_type: lqi
+    <<: *shared_eval
+    lqi:
+      <<: *shared_riccati_weights
+      use_lqi: true
+      q_int: [0.01, 0.01, 0.1]  # Integral cost weights per axis
+      integral_limit: 10.0       # Anti-windup clamping
 
   # Deep Controller - Neural network policy (requires trained checkpoint)
   # Uncomment and update checkpoint_path after training a model
