@@ -1287,10 +1287,11 @@ class ControllerTuner:
         self._cma_checkpoint_path = self.output_dir / "cma_checkpoint.pkl"
 
         # Run optimization
-        iteration = len(self.results)
-        while not self.cma_es.stop() and iteration < self.config.max_iterations:
+        # num_evals tracks total objective evaluations (max_iterations is the budget)
+        num_evals = len(self.results)
+        while not self.cma_es.stop() and num_evals < self.config.max_iterations:
             if self.interrupted:
-                logger.info("CMA-ES interrupted after %d evaluations", iteration)
+                logger.info("CMA-ES interrupted after %d evaluations", num_evals)
                 break
 
             # Ask for new solutions
@@ -1303,17 +1304,17 @@ class ControllerTuner:
                     break
 
                 logger.info(
-                    "Iteration %d/%d: evaluating %s",
-                    iteration + i + 1,
+                    "Evaluation %d/%d: evaluating %s",
+                    num_evals + 1,
                     self.config.max_iterations,
                     self._format_config_summary(self._vector_to_config(x)),
                 )
 
                 fitness = self._cma_objective(x)
                 fitness_values.append(fitness)
-                iteration += 1
+                num_evals += 1
 
-                if iteration >= self.config.max_iterations:
+                if num_evals >= self.config.max_iterations:
                     break
 
             # Tell CMA-ES about the fitness values
