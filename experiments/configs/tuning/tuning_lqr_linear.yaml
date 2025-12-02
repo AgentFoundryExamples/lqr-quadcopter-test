@@ -13,7 +13,7 @@
 #
 # Workflow:
 #   1. Run this tuning config to find optimal LQR weights for linear motion
-#   2. Copy best weights to training_imitation.yaml or training_default.yaml
+#   2. Copy best weights to training/training_imitation.yaml or training/training_default.yaml
 #   3. Train deep controller using imitation mode with tuned LQR as supervisor
 #   4. Evaluate trained model with eval_linear_baseline.yaml
 #

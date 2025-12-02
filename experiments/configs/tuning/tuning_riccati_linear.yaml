@@ -14,9 +14,9 @@
 #
 # Workflow:
 #   1. Run this tuning config to find optimal Riccati-LQR Q/R weights
-#   2. Copy best weights to training_imitation.yaml (set supervisor_controller: riccati_lqr)
+#   2. Copy best weights to training/training_imitation.yaml (set supervisor_controller: riccati_lqr)
 #   3. Train deep controller using imitation mode with tuned Riccati-LQR as supervisor
-#   4. Evaluate trained model with eval_linear_baseline.yaml
+#   4. Evaluate trained model with evaluation/eval_linear_baseline.yaml
 #
 # For other motion patterns, copy this file and change:
 #   - target_motion_type: circular, sinusoidal, figure8
@@ -119,7 +119,7 @@ output_dir: reports/tuning
 #
 # 3. Combining with imitation learning:
 #    The Riccati-LQR controller makes an excellent teacher for deep policies.
-#    Set supervisor_controller: riccati_lqr in training_imitation.yaml.
+#    Set supervisor_controller: riccati_lqr in training/training_imitation.yaml.
 
 # =============================================================================
 # RESOURCE-LIMITED MACHINES
