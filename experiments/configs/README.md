@@ -136,6 +136,20 @@ Configuration files have been reorganized into subdirectories. Update your scrip
 | `experiments/configs/tuning_riccati_linear.yaml` | `experiments/configs/tuning/tuning_riccati_linear.yaml` |
 | `experiments/configs/tuning_cma_es.yaml` | `experiments/configs/tuning/tuning_cma_es.yaml` |
 
+### Old Path Errors
+
+If you use an old config path, you will receive a clear "file not found" error:
+
+```
+FileNotFoundError: Config file not found: experiments/configs/training_default.yaml
+```
+
+**To resolve:** Use the path mapping table above to update your command to the new path. For example:
+- Old: `experiments/configs/training_default.yaml`
+- New: `experiments/configs/training/training_default.yaml`
+
+> **Tip:** If you have bookmarked old paths or scripts using them, search for `experiments/configs/` and add the appropriate subdirectory (`training/`, `evaluation/`, or `tuning/`).
+
 ### Updating Commands
 
 **Training:**
@@ -237,9 +251,9 @@ python scripts/controller_autotune.py \
     --config experiments/configs/tuning/tuning_cma_es.yaml \
     --max-iterations 100
 
-# Resume interrupted run
+# Resume interrupted run (replace with your specific results file)
 python scripts/controller_autotune.py \
-    --resume reports/tuning/tuning_*_results.json \
+    --resume reports/tuning/tuning_pid_20240101_120000_results.json \
     --max-iterations 200
 ```
 
