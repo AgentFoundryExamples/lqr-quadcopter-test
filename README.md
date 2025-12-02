@@ -100,6 +100,31 @@ python -m quadcopter_tracking.train --config experiments/configs/training/traini
 
 See [Controller Auto-Tuning](#controller-auto-tuning) for detailed tuning guidance.
 
+### LQI Mode (Integral Action)
+
+The Riccati-LQR controller optionally supports **LQI mode** which augments the state with integral of position error for zero steady-state tracking error.
+
+```yaml
+# Enable LQI mode for improved stationary target tracking
+riccati_lqr:
+  dt: 0.01
+  use_lqi: true
+  q_int: [0.001, 0.001, 0.01]  # Integral cost weights
+  integral_limit: 10.0          # Anti-windup clamp
+```
+
+**When to use LQI:**
+- Tracking stationary targets where steady-state error must be zero
+- Compensating for constant disturbances or model biases
+- Applications requiring precise position hold
+
+**When to avoid LQI:**
+- Tracking fast-moving targets (integral windup risk)
+- Short episodes where integral hasn't time to converge
+- Noisy observations that accumulate in the integrator
+
+See [docs/architecture.md](docs/architecture.md#lqi-mode-with-integral-action) for implementation details.
+
 ### Tune → Train → Evaluate Checklist
 
 Use this checklist for end-to-end controller development:
@@ -342,6 +367,11 @@ riccati_lqr:
   min_thrust: 0.0                   # Output limit (N)
   max_rate: 3.0                     # Output limit (rad/s)
   fallback_on_failure: true         # Fall back to heuristic LQR on solver failure
+  # LQI mode (optional) - adds integral action for zero steady-state error
+  use_lqi: false                    # Enable LQI with integral state (default: false)
+  q_int: [0.0, 0.0, 0.0]            # Integral state cost weights [ix, iy, iz]
+  integral_limit: 10.0              # Max integral magnitude for anti-windup
+  integral_zero_threshold: 0.01    # Error threshold below which integral pauses
 ```
 
 **Using with training:**
