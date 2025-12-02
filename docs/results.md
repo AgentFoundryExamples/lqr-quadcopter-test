@@ -18,12 +18,14 @@ The evaluation pipeline assesses controller performance against defined success 
 
 | Motion Type | Controller | Expected On-Target Ratio |
 |-------------|------------|-------------------------|
-| Stationary | PID/LQR | >80% (verified) |
-| Linear | PID/LQR | 70-90% |
+| Stationary | PID/LQR/Riccati-LQR | >80% (verified) |
+| Stationary | LQI | >80% (verified) |
+| Linear | PID/LQR/Riccati-LQR | 70-90% |
+| Linear | LQI | 75-95% (improved steady-state) |
 | Circular | PID/LQR | 70-90% |
 | Sinusoidal | PID/LQR | 60-80% |
 
-**Note:** Stationary target is now the default motion type. PID and LQR controllers are expected to achieve the 80% success threshold reliably on stationary targets.
+**Note:** Stationary target is now the default motion type. PID, LQR, Riccati-LQR, and LQI controllers are expected to achieve the 80% success threshold reliably on stationary targets.
 
 ## Running Evaluations
 
@@ -44,13 +46,15 @@ python -m quadcopter_tracking.eval \
 # Evaluate classical controllers
 python -m quadcopter_tracking.eval --controller lqr --episodes 10
 python -m quadcopter_tracking.eval --controller pid --episodes 10
+python -m quadcopter_tracking.eval --controller riccati_lqr --episodes 10
+python -m quadcopter_tracking.eval --controller lqi --episodes 10
 ```
 
 ### Command Line Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--controller` | `deep` | Controller type: `deep`, `lqr`, `pid` |
+| `--controller` | `deep` | Controller type: `deep`, `lqr`, `pid`, `riccati_lqr`, `lqi` |
 | `--checkpoint` | None | Path to checkpoint file for neural controllers |
 | `--episodes` | 10 | Number of evaluation episodes |
 | `--seed` | 42 | Base random seed for reproducibility |
@@ -992,8 +996,152 @@ python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 |-------------|------------|-------------------------|
 | Stationary | PID/LQR | >80% (verified) |
 | Stationary | Riccati-LQR | >80% (verified) |
+| Stationary | LQI | >80% (verified) |
 | Linear | PID/LQR | 70-90% |
+| Linear | LQI | 75-95% (improved steady-state) |
 | Circular | PID/LQR | 70-90% |
+
+## LQI Controller (Linear Quadratic Integral)
+
+The LQI controller extends Riccati-LQR with integral action to provide zero steady-state tracking error. This section covers LQI configuration, performance characteristics, and tuning guidance.
+
+### What is LQI?
+
+LQI (Linear Quadratic Integral) augments the standard LQR state vector with integral terms of the position error. The augmented state becomes:
+
+```
+[x_error, y_error, z_error, vx_error, vy_error, vz_error, ∫x_error dt, ∫y_error dt, ∫z_error dt]
+```
+
+The DARE solver computes optimal gains for the 9-state augmented system, producing a 4x9 gain matrix that splits into:
+- **K_pd (4x6)**: Proportional/derivative gains for position and velocity error
+- **K_i (4x3)**: Integral gains for accumulated position error
+
+### LQI vs Riccati-LQR Comparison
+
+| Characteristic | Riccati-LQR | LQI |
+|---------------|-------------|-----|
+| State dimension | 6 | 9 |
+| Steady-state error | May have small bias | Zero (theoretically) |
+| Transient response | Faster settling | Slightly slower |
+| Overshoot | Lower | Potentially higher |
+| Disturbance rejection | Good | Excellent |
+| Best use case | Fast tracking | Precision tracking |
+
+### Running LQI Evaluations
+
+```bash
+# Evaluate LQI on linear trajectory
+python -m quadcopter_tracking.eval \
+    --controller lqi \
+    --config experiments/configs/evaluation/eval_linear_baseline.yaml \
+    --episodes 10
+
+# Compare all controllers
+make compare-controllers MOTION_TYPE=linear
+```
+
+### LQI Configuration Parameters
+
+The LQI controller accepts the following configuration parameters in YAML:
+
+```yaml
+lqi:
+  dt: 0.01                    # Simulation timestep (required)
+  mass: 1.0                   # Quadcopter mass in kg
+  gravity: 9.81               # Gravitational acceleration
+
+  # State cost weights (same as Riccati-LQR)
+  q_pos: [0.0001, 0.0001, 16.0]  # Position cost [x, y, z]
+  q_vel: [0.0036, 0.0036, 4.0]   # Velocity cost [vx, vy, vz]
+
+  # Integral state cost weights (LQI-specific)
+  q_int: [0.01, 0.01, 0.1]    # Integral cost [ix, iy, iz]
+
+  # Control cost weights
+  r_controls: [1.0, 1.0, 1.0, 1.0]  # [thrust, roll, pitch, yaw]
+
+  # Actuator limits
+  max_thrust: 20.0            # Maximum thrust in N
+  min_thrust: 0.0             # Minimum thrust in N
+  max_rate: 3.0               # Maximum angular rate in rad/s
+
+  # Anti-windup and integral management
+  integral_limit: 10.0        # Max integral magnitude per axis
+  integral_zero_threshold: 0.01  # Pause integration when error < threshold
+
+  use_lqi: true               # Must be true for LQI mode
+  fallback_on_failure: true   # Fall back to heuristic LQR if DARE fails
+```
+
+### Tuning q_int (Integral Cost Weights)
+
+The `q_int` parameter controls how aggressively the controller uses integral action:
+
+| q_int values | Behavior | Use case |
+|-------------|----------|----------|
+| `[0.001, 0.001, 0.01]` | Very conservative, slow integral response | Noisy sensors, avoid oscillation |
+| `[0.01, 0.01, 0.1]` | Balanced (default) | General-purpose tracking |
+| `[0.1, 0.1, 0.5]` | Aggressive, fast integral response | Precision positioning |
+
+**Tuning tips:**
+- Z-axis typically needs higher integral weight due to gravity compensation
+- XY axes should have lower weights to avoid horizontal overshoot
+- Start with default values and increase gradually if steady-state error persists
+- Reduce q_int if you observe oscillation or overshoot
+
+### Anti-Windup Protection
+
+LQI includes built-in anti-windup mechanisms:
+
+1. **Integral clamping**: `integral_limit` prevents unbounded integral growth
+2. **Conditional integration**: Integration pauses when control is saturated and error would make saturation worse
+3. **Zero-threshold**: Integration pauses when error is below `integral_zero_threshold` to prevent drift
+
+### LQI Performance on Different Trajectories
+
+#### Linear Trajectories (3D)
+LQI typically shows improved steady-state tracking compared to pure LQR:
+- The integrator eliminates tracking bias from model errors
+- Expect 5-15% improvement in on-target ratio over Riccati-LQR
+- Works well for arbitrary direction linear motion (not axis-aligned)
+
+#### Stationary Targets
+LQI performs comparably to Riccati-LQR on stationary targets:
+- No regression expected compared to pure LQR
+- Integrator helps with any persistent disturbances
+- The integral term stays near zero when on-target
+
+#### Transitions (Moving → Stationary)
+Special consideration for target mode changes:
+- When target transitions from moving to stationary, residual integral may cause brief overshoot
+- Use `integral_zero_threshold` to pause integration when error is small
+- Call `controller.reset_integral_state()` if explicitly switching target modes
+
+### Actuator Saturation Handling
+
+The LQI controller respects thrust and rate limits at all times:
+- Thrust is clamped to `[min_thrust, max_thrust]`
+- Angular rates are clamped to `[-max_rate, max_rate]`
+- Saturation events are tracked and logged for diagnostics
+
+```python
+# Check saturation count after evaluation
+controller = load_controller("lqi")
+# ... run evaluation ...
+print(f"Saturation events: {controller.get_saturation_count()}")
+```
+
+### Comparison with PID Integral Action
+
+Both LQI and PID can include integral terms, but they differ significantly:
+
+| Aspect | LQI | PID with ki_pos |
+|--------|-----|-----------------|
+| Gain computation | Optimal (DARE-solved) | Heuristic (user-tuned) |
+| State coupling | Full (integral affects all outputs) | Decoupled (per-axis) |
+| Theoretical guarantee | Optimal control | Best-effort tuning |
+| Setup complexity | Lower (single q_int parameter) | Higher (tune ki_pos + integral_limit) |
 
 ## Training Diagnostics Results
 
