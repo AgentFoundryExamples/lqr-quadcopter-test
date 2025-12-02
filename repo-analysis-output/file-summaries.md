@@ -100,8 +100,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 19.38 KB  
-**LOC:** 407  
+**Size:** 26.06 KB  
+**LOC:** 517  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -373,10 +373,10 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 145.29 KB  
-**LOC:** 2930  
+**Size:** 161.05 KB  
+**LOC:** 3243  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 17  
+**Declarations:** 18  
 **Top-level declarations:**
   - class TestTargetMotion
   - class TestQuadcopterEnv
@@ -388,7 +388,7 @@ Total files: 25
   - function create_hover_observation
   - function create_hover_env_config
   - class TestHoverThrustIntegration
-  - ... and 7 more
+  - ... and 8 more
 **External Dependencies:**
   - **Third-party:** `numpy`, `pytest`
 

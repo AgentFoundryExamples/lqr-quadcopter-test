@@ -204,8 +204,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 19840,
-        "loc": 407,
+        "size_bytes": 26686,
+        "loc": 517,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -769,10 +769,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 148779,
-        "loc": 2930,
+        "size_bytes": 164918,
+        "loc": 3243,
         "todo_count": 0,
-        "declaration_count": 17
+        "declaration_count": 18
       },
       "structure": {
         "declarations": [
@@ -789,6 +789,7 @@
           "class TestAxisSignConventions",
           "class TestFeedforwardSupport",
           "class TestRiccatiLQRController",
+          "class TestRiccatiLQRFeedforward",
           "class TestRiccatiLQRValidation",
           "class TestRiccatiLQRIntegration",
           "class TestRiccatiLQRComparison",
