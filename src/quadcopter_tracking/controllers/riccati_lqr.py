@@ -474,6 +474,11 @@ class RiccatiLQRController(BaseController):
         self.use_lqi = config.get("use_lqi", False)
         q_int = config.get("q_int", [0.0, 0.0, 0.0])
         self.q_int = self._ensure_array(q_int)
+
+        # Validate q_int has correct length
+        if len(self.q_int) != 3:
+            raise ValueError(f"q_int must have 3 elements, got {len(self.q_int)}")
+
         self.integral_limit = config.get("integral_limit", 10.0)
         self.integral_zero_threshold = config.get("integral_zero_threshold", 0.01)
 
@@ -560,29 +565,10 @@ class RiccatiLQRController(BaseController):
         Returns:
             6x6 state cost matrix Q for LQR, or 9x9 for LQI.
         """
-        # Handle explicit Q matrix (only for non-LQI mode or if full 9x9 provided)
+        # Handle explicit Q matrix
         if "Q" in config and config["Q"] is not None:
             Q = np.array(config["Q"])
-            if self.use_lqi:
-                if Q.shape == (9, 9):
-                    return Q
-                elif Q.shape == (6, 6):
-                    # User provided 6x6 Q for LQI mode - augment with q_int
-                    Q_aug = np.zeros((9, 9))
-                    Q_aug[:6, :6] = Q
-                    Q_aug[6:, 6:] = np.diag(self.q_int)
-                    return Q_aug
-                else:
-                    raise ValueError(
-                        f"Q matrix for LQI must have shape (9, 9) or (6, 6), "
-                        f"got {Q.shape}"
-                    )
-            else:
-                if Q.shape != (6, 6):
-                    raise ValueError(
-                        f"Q matrix must have shape (6, 6), got {Q.shape}"
-                    )
-                return Q
+            return self._validate_and_augment_Q(Q)
 
         # Build from separate weights
         # Default weights matched to heuristic LQR for consistency:
@@ -597,17 +583,46 @@ class RiccatiLQRController(BaseController):
             raise ValueError(f"q_vel must have 3 elements, got {len(q_vel)}")
 
         if self.use_lqi:
-            # Build augmented Q for LQI: 9x9 matrix
-            # [q_pos, q_vel, q_int] on diagonal
-            if len(self.q_int) != 3:
-                raise ValueError(
-                    f"q_int must have 3 elements, got {len(self.q_int)}"
-                )
+            # Build augmented Q for LQI: 9x9 matrix with [q_pos, q_vel, q_int] diagonal
             Q = np.diag(np.concatenate([q_pos, q_vel, self.q_int]))
         else:
             Q = np.diag(np.concatenate([q_pos, q_vel]))
 
         return Q
+
+    def _validate_and_augment_Q(self, Q: np.ndarray) -> np.ndarray:
+        """
+        Validate Q matrix shape and augment for LQI mode if needed.
+
+        Args:
+            Q: Input state cost matrix.
+
+        Returns:
+            Validated Q matrix (6x6 for LQR, 9x9 for LQI).
+
+        Raises:
+            ValueError: If Q has invalid shape.
+        """
+        if self.use_lqi:
+            if Q.shape == (9, 9):
+                return Q
+            elif Q.shape == (6, 6):
+                # Augment 6x6 Q with integral costs for LQI
+                Q_aug = np.zeros((9, 9))
+                Q_aug[:6, :6] = Q
+                Q_aug[6:, 6:] = np.diag(self.q_int)
+                return Q_aug
+            else:
+                raise ValueError(
+                    f"Q matrix for LQI must have shape (9, 9) or (6, 6), "
+                    f"got {Q.shape}"
+                )
+        else:
+            if Q.shape != (6, 6):
+                raise ValueError(
+                    f"Q matrix must have shape (6, 6), got {Q.shape}"
+                )
+            return Q
 
     def _build_R_matrix(self, config: dict) -> np.ndarray:
         """

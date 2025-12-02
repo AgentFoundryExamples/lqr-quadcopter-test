@@ -4223,6 +4223,18 @@ class TestRiccatiLQI:
         assert np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
         assert np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
 
+    def test_lqi_invalid_q_int_length(self):
+        """Test error raised for invalid q_int length."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "use_lqi": True,
+            "q_int": [0.01, 0.01],  # Only 2 elements, need 3
+        }
+        with pytest.raises(ValueError, match="q_int must have 3 elements"):
+            RiccatiLQRController(config=config)
+
 
 class TestRiccatiLQRValidation:
     """Tests for Riccati-LQR matrix validation and error handling."""
