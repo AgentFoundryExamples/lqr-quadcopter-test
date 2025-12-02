@@ -730,6 +730,7 @@ class ControllerTuner:
         elif space.use_lqi:
             # use_lqi flag set but no q_int_range - use default q_int
             config["use_lqi"] = True
+            config["q_int"] = [0.0, 0.0, 0.0]
 
         return config
 
@@ -802,6 +803,9 @@ class ControllerTuner:
         # LQI-specific: q_int (3D vector)
         if space.q_int_range is not None:
             param_grids["q_int"] = make_vector_grid(space.q_int_range)
+        elif space.use_lqi:
+            # If LQI is enabled but q_int is not tuned, fix it to default [0,0,0]
+            param_grids["q_int"] = [[0.0, 0.0, 0.0]]
 
         if not param_grids:
             return []
