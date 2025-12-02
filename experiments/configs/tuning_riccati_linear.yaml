@@ -76,7 +76,29 @@ target_radius: 0.5
 # REPRODUCIBILITY
 # =============================================================================
 seed: 42
+
+# =============================================================================
+# FEEDFORWARD CONFIGURATION (Optional)
+# =============================================================================
+# Enable feedforward for improved moving target tracking.
+# Velocity feedforward scales target velocity contribution in velocity error.
+# Acceleration feedforward adds target acceleration to anticipate motion.
+#
+# For linear targets (constant velocity):
+#   - Velocity feedforward may help but D term naturally tracks velocity
+#   - Acceleration feedforward has no effect (linear targets have zero accel)
+#
+# For circular/sinusoidal targets:
+#   - Acceleration feedforward is recommended to reduce phase lag
+#
+# Feedforward is disabled here for tuning baseline gains.
+# Enable when using the controller for tracking.
+
 feedforward_enabled: false
+# ff_velocity_gain: [0.0, 0.0, 0.0]     # Scale target velocity in D term
+# ff_acceleration_gain: [0.1, 0.1, 0.0] # Add target acceleration to output
+# ff_max_velocity: 10.0                  # Clamp velocity for stability
+# ff_max_acceleration: 5.0               # Clamp acceleration for stability
 
 # =============================================================================
 # OUTPUT

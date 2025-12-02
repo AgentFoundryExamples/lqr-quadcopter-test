@@ -97,3 +97,20 @@ riccati_lqr:
   # Fallback behavior if DARE solver fails
   # When true, falls back to heuristic LQR with similar gains
   fallback_on_failure: true
+
+  # ==========================================================================
+  # Feedforward Configuration (Optional)
+  # ==========================================================================
+  # Enable feedforward for improved moving target tracking.
+  # Disabled by default to preserve baseline behavior.
+  #
+  # For stationary targets: feedforward has no effect (target velocity = 0)
+  # For linear targets: velocity feedforward may help slightly
+  # For circular/sinusoidal targets: acceleration feedforward is recommended
+  #
+  # To enable feedforward, uncomment the lines below:
+  # feedforward_enabled: true
+  # ff_velocity_gain: [0.1, 0.1, 0.1]      # Scale target velocity in D term
+  # ff_acceleration_gain: [0.1, 0.1, 0.0]  # Add target acceleration to output
+  # ff_max_velocity: 10.0                   # Clamp velocity for stability
+  # ff_max_acceleration: 5.0                # Clamp acceleration for stability
