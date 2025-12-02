@@ -1,0 +1,157 @@
+# CMA-ES Controller Auto-Tuning Configuration
+# This file demonstrates CMA-ES (Covariance Matrix Adaptation Evolution Strategy)
+# as a black-box optimization backend for tuning controller gains.
+#
+# CMA-ES is particularly effective for:
+# - High-dimensional parameter spaces
+# - Non-convex optimization landscapes
+# - Finding global optima in complex search spaces
+#
+# Usage:
+#   python scripts/controller_autotune.py --config experiments/configs/tuning_cma_es.yaml
+#
+# Comparison with other strategies:
+#   - random: Fast exploration, no adaptation
+#   - grid: Exhaustive but exponential in dimensions
+#   - cma_es: Adaptive, sample-efficient, good for complex landscapes
+#
+# When to use CMA-ES:
+#   - Large parameter spaces (>3 parameters)
+#   - Unknown optimal region
+#   - Noisy objective functions
+#   - When random/grid search is insufficient
+#
+# When NOT to use CMA-ES:
+#   - Very small evaluation budgets (<10 evaluations)
+#   - Simple/convex landscapes (random may suffice)
+#   - Fixed parameters (use grid with 1 point per dim instead)
+
+# =============================================================================
+# CONTROLLER SELECTION
+# =============================================================================
+controller_type: pid
+
+# =============================================================================
+# SEARCH STRATEGY
+# =============================================================================
+# Use cma_es for CMA-ES optimization
+strategy: cma_es
+
+# Maximum number of objective function evaluations
+# CMA-ES requires more evaluations than random search for convergence
+# Recommended: at least 10 * dimension for reasonable results
+max_iterations: 50
+
+# =============================================================================
+# CMA-ES SPECIFIC OPTIONS
+# =============================================================================
+
+# Initial standard deviation (sigma0) as a fraction of the parameter range
+# Smaller values = more local search, larger = more exploration
+# Recommended: 0.2-0.5 for most problems
+cma_sigma0: 0.3
+
+# Population size (number of solutions per generation)
+# Default: auto-calculated based on dimension (4 + floor(3*ln(n)))
+# Increase for harder problems or more parallelism
+# cma_popsize: 12
+
+# =============================================================================
+# SEARCH SPACE
+# =============================================================================
+# Define min and max values for each parameter to tune.
+# NOTE: CMA-ES requires lb < ub (no fixed parameters with min == max)
+# For fixed parameters, omit them from the search space
+
+search_space:
+  # PID proportional gains range [x, y, z]
+  kp_pos_range:
+    - [0.005, 0.005, 2.0]   # min
+    - [0.05, 0.05, 6.0]     # max
+
+  # PID derivative gains range [x, y, z]
+  kd_pos_range:
+    - [0.02, 0.02, 1.0]     # min
+    - [0.15, 0.15, 3.0]     # max
+
+  # Uncomment to include integral gains (usually not needed)
+  # ki_pos_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.01, 0.01, 0.01]
+
+  # Uncomment for feedforward tuning (requires feedforward_enabled: true)
+  # ff_velocity_gain_range:
+  #   - [0.0, 0.0, 0.0]
+  #   - [0.2, 0.2, 0.1]
+
+# =============================================================================
+# EVALUATION SETTINGS
+# =============================================================================
+
+# Number of episodes to evaluate each configuration
+# More episodes = more reliable fitness but slower
+evaluation_episodes: 5
+
+# Maximum steps per evaluation episode
+evaluation_horizon: 3000
+
+# Episode duration in seconds
+episode_length: 30.0
+
+# Target motion type for evaluation
+target_motion_type: stationary
+
+# On-target radius in meters
+target_radius: 0.5
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+
+# Random seed for deterministic results
+# CMA-ES uses this seed for its internal random number generator
+seed: 42
+
+# Enable feedforward gain tuning
+feedforward_enabled: false
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+# Output directory for tuning results
+# CMA-ES also saves a checkpoint file (cma_checkpoint.pkl) for resumption
+output_dir: reports/tuning
+
+# Path to previous results to resume from (optional)
+# CMA-ES will attempt to load its state from cma_checkpoint.pkl in same dir
+# resume_from: reports/tuning/tuning_pid_20240101_120000_results.json
+
+# =============================================================================
+# PERFORMANCE CONSIDERATIONS
+# =============================================================================
+#
+# 1. Evaluation budget:
+#    CMA-ES adaptively adjusts its search distribution. For n parameters:
+#    - Minimum: ~10*n evaluations for basic convergence
+#    - Recommended: ~30*n evaluations for good results
+#    - Example: 6 params (kp[3] + kd[3]) → 60-180 evaluations
+#
+# 2. Memory usage:
+#    CMA-ES maintains a covariance matrix of size n×n where n is the number
+#    of parameters. For typical controller tuning (~10 params), this is
+#    negligible. For very large spaces (>100 params), consider reducing
+#    dimensions or using a restricted covariance model.
+#
+# 3. Parallelism:
+#    Each generation evaluates popsize solutions. These could potentially
+#    be parallelized in future versions. Currently evaluations are sequential.
+#
+# 4. Checkpointing:
+#    CMA-ES state is saved after each generation. If interrupted, resume with
+#    the --resume flag pointing to the results file. The checkpoint file
+#    (cma_checkpoint.pkl) must be in the same directory.
+#
+# 5. Determinism:
+#    With the same seed and evaluation order, CMA-ES produces identical results.
+#    This enables reproducible experiments.

@@ -130,7 +130,7 @@ Examples:
     parser.add_argument(
         "--strategy",
         type=str,
-        choices=["grid", "random"],
+        choices=["grid", "random", "cma_es"],
         default="random",
         help="Search strategy (default: random)",
     )
@@ -147,6 +147,21 @@ Examples:
         type=int,
         default=3,
         help="Points per dimension for grid search (default: 3)",
+    )
+
+    # CMA-ES specific options
+    parser.add_argument(
+        "--cma-sigma0",
+        type=float,
+        default=0.3,
+        help="Initial standard deviation for CMA-ES (default: 0.3)",
+    )
+
+    parser.add_argument(
+        "--cma-popsize",
+        type=int,
+        default=None,
+        help="CMA-ES population size (default: auto-calculated)",
     )
 
     # PID gain ranges (each takes min and max vectors)
@@ -482,6 +497,8 @@ def main() -> int:
             output_dir=args.output_dir,
             resume_from=args.resume,
             feedforward_enabled=args.feedforward,
+            cma_sigma0=args.cma_sigma0,
+            cma_popsize=args.cma_popsize,
         )
 
     # Create and run tuner

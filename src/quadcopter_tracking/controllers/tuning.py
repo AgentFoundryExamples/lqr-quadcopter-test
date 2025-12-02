@@ -42,6 +42,7 @@ Usage:
 import json
 import logging
 import os
+import pickle
 import signal
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -330,7 +331,7 @@ class TuningConfig:
     Attributes:
         controller_type: Type of controller to tune ('pid', 'lqr', or 'riccati_lqr')
         search_space: Gain search space definition
-        strategy: Search strategy ('grid' or 'random')
+        strategy: Search strategy ('grid', 'random', or 'cma_es')
         max_iterations: Maximum number of configurations to evaluate
         grid_points_per_dim: Points per dimension for grid search (default: 3)
         evaluation_episodes: Number of episodes to evaluate each configuration
@@ -342,6 +343,8 @@ class TuningConfig:
         output_dir: Directory for saving tuning results
         resume_from: Path to previous tuning results to resume from
         feedforward_enabled: Whether feedforward is enabled for tuning
+        cma_sigma0: Initial standard deviation for CMA-ES (default: 0.3)
+        cma_popsize: CMA-ES population size (default: None for auto)
     """
 
     controller_type: str = "pid"
@@ -358,6 +361,8 @@ class TuningConfig:
     output_dir: str = "reports/tuning"
     resume_from: str | None = None
     feedforward_enabled: bool = False
+    cma_sigma0: float = 0.3
+    cma_popsize: int | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
@@ -368,7 +373,7 @@ class TuningConfig:
                 f"Valid choices are: {', '.join(valid_controllers)}"
             )
 
-        valid_strategies = ("grid", "random")
+        valid_strategies = ("grid", "random", "cma_es")
         if self.strategy not in valid_strategies:
             raise ValueError(
                 f"Invalid strategy: '{self.strategy}'. "
@@ -382,6 +387,12 @@ class TuningConfig:
             raise ValueError(
                 f"evaluation_episodes must be >= 1, got {self.evaluation_episodes}"
             )
+
+        if self.cma_sigma0 <= 0:
+            raise ValueError(f"cma_sigma0 must be > 0, got {self.cma_sigma0}")
+
+        if self.cma_popsize is not None and self.cma_popsize < 2:
+            raise ValueError(f"cma_popsize must be >= 2, got {self.cma_popsize}")
 
     @classmethod
     def from_dict(cls, config: dict) -> "TuningConfig":
@@ -404,6 +415,8 @@ class TuningConfig:
             output_dir=config.get("output_dir", "reports/tuning"),
             resume_from=config.get("resume_from"),
             feedforward_enabled=config.get("feedforward_enabled", False),
+            cma_sigma0=config.get("cma_sigma0", 0.3),
+            cma_popsize=config.get("cma_popsize"),
         )
 
     def to_dict(self) -> dict:
@@ -423,6 +436,8 @@ class TuningConfig:
             "output_dir": self.output_dir,
             "resume_from": self.resume_from,
             "feedforward_enabled": self.feedforward_enabled,
+            "cma_sigma0": self.cma_sigma0,
+            "cma_popsize": self.cma_popsize,
         }
 
 
@@ -530,7 +545,7 @@ class ControllerTuner:
     """
     Auto-tuner for PID and LQR controller gains.
 
-    Evaluates controller configurations using grid or random search
+    Evaluates controller configurations using grid, random, or CMA-ES search
     to find gains that minimize tracking error.
 
     Attributes:
@@ -540,6 +555,7 @@ class ControllerTuner:
         best_config: Best configuration found so far
         best_score: Score of best configuration
         interrupted: Whether tuning was interrupted
+        cma_es: CMA-ES optimizer instance (when using cma_es strategy)
     """
 
     def __init__(self, config: TuningConfig):
@@ -551,6 +567,7 @@ class ControllerTuner:
 
         Raises:
             ValueError: If configuration is invalid.
+            ImportError: If CMA-ES strategy is selected but cma package is missing.
         """
         self.config = config
         self.config.search_space.validate()
@@ -572,6 +589,21 @@ class ControllerTuner:
         # Output directory - validate to prevent path traversal
         output_dir_str = os.environ.get("TUNING_OUTPUT_DIR", config.output_dir)
         self.output_dir = _validate_output_dir(output_dir_str)
+
+        # CMA-ES specific state
+        self.cma_es = None
+        self._cma_param_spec: list[tuple[str, int, tuple]] = []
+        self._cma_checkpoint_path: Path | None = None
+
+        # Validate CMA-ES availability if needed
+        if config.strategy == "cma_es":
+            try:
+                import cma  # noqa: F401
+            except ImportError:
+                raise ImportError(
+                    "CMA-ES strategy requires the 'cma' package. "
+                    "Install it with: pip install cma"
+                )
 
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful interruption."""
@@ -867,10 +899,15 @@ class ControllerTuner:
         try:
             if self.config.strategy == "grid":
                 self._run_grid_search()
+            elif self.config.strategy == "cma_es":
+                self._run_cma_es_search()
             else:
                 self._run_random_search()
         finally:
             self._restore_signal_handlers()
+            # Save CMA-ES checkpoint on exit if applicable
+            if self.config.strategy == "cma_es" and self.cma_es is not None:
+                self._save_cma_checkpoint()
 
         # Create result
         result = TuningResult(
@@ -1056,3 +1093,264 @@ class ControllerTuner:
             result.best_config,
             self.output_dir,
         )
+
+    # =========================================================================
+    # CMA-ES Specific Methods
+    # =========================================================================
+
+    def _build_cma_param_spec(self) -> list[tuple[str, int, tuple]]:
+        """
+        Build parameter specification for CMA-ES optimization.
+
+        Returns a list of tuples (param_name, dimension, (min_bounds, max_bounds)).
+        This defines the mapping between the flat CMA-ES vector and controller config.
+
+        Returns:
+            List of (name, dimension, (min_list, max_list)) tuples.
+        """
+        space = self.config.search_space
+        spec: list[tuple[str, int, tuple]] = []
+
+        # PID parameters (3D vectors)
+        if space.kp_pos_range is not None:
+            spec.append(("kp_pos", 3, space.kp_pos_range))
+        if space.ki_pos_range is not None:
+            spec.append(("ki_pos", 3, space.ki_pos_range))
+        if space.kd_pos_range is not None:
+            spec.append(("kd_pos", 3, space.kd_pos_range))
+
+        # Feedforward parameters (3D vectors)
+        if space.ff_velocity_gain_range is not None:
+            spec.append(("ff_velocity_gain", 3, space.ff_velocity_gain_range))
+        if space.ff_acceleration_gain_range is not None:
+            spec.append(("ff_acceleration_gain", 3, space.ff_acceleration_gain_range))
+
+        # LQR/Riccati parameters (3D vectors)
+        if space.q_pos_range is not None:
+            spec.append(("q_pos", 3, space.q_pos_range))
+        if space.q_vel_range is not None:
+            spec.append(("q_vel", 3, space.q_vel_range))
+
+        # Scalar LQR parameters
+        if space.r_thrust_range is not None:
+            spec.append(("r_thrust", 1, space.r_thrust_range))
+        if space.r_rate_range is not None:
+            spec.append(("r_rate", 1, space.r_rate_range))
+
+        # Riccati-specific (4D vector)
+        if space.r_controls_range is not None:
+            spec.append(("r_controls", 4, space.r_controls_range))
+
+        return spec
+
+    def _get_cma_bounds(self) -> tuple[list[float], list[float]]:
+        """
+        Get lower and upper bounds for all CMA-ES parameters.
+
+        Returns:
+            Tuple of (lower_bounds, upper_bounds) as flat lists.
+        """
+        lower: list[float] = []
+        upper: list[float] = []
+
+        for name, dim, bounds in self._cma_param_spec:
+            if dim == 1:
+                # Scalar parameter
+                lower.append(bounds[0])
+                upper.append(bounds[1])
+            else:
+                # Vector parameter
+                lower.extend(bounds[0])
+                upper.extend(bounds[1])
+
+        return lower, upper
+
+    def _get_cma_x0(self) -> list[float]:
+        """
+        Get initial point for CMA-ES (center of bounds).
+
+        Returns:
+            Initial parameter vector (center of search space).
+        """
+        lower, upper = self._get_cma_bounds()
+        return [(lo + hi) / 2.0 for lo, hi in zip(lower, upper)]
+
+    def _vector_to_config(self, x: list[float]) -> dict:
+        """
+        Convert flat CMA-ES parameter vector to controller configuration.
+
+        Args:
+            x: Flat parameter vector from CMA-ES.
+
+        Returns:
+            Controller configuration dictionary.
+        """
+        config: dict = {}
+        idx = 0
+
+        for name, dim, _ in self._cma_param_spec:
+            if dim == 1:
+                config[name] = float(x[idx])
+                idx += 1
+            else:
+                config[name] = [float(x[idx + i]) for i in range(dim)]
+                idx += dim
+
+        # Add feedforward_enabled flag if feedforward gains are present
+        if "ff_velocity_gain" in config or "ff_acceleration_gain" in config:
+            config["feedforward_enabled"] = True
+
+        return config
+
+    def _cma_objective(self, x: list[float]) -> float:
+        """
+        CMA-ES objective function (minimization).
+
+        CMA-ES minimizes, but we want to maximize score, so we return -score.
+
+        Args:
+            x: Parameter vector from CMA-ES.
+
+        Returns:
+            Negative score (for minimization).
+        """
+        config = self._vector_to_config(x)
+        score, metrics = self._evaluate_config(config)
+        self._record_result(config, score, metrics)
+
+        logger.info(
+            "  Score: %.4f, On-target: %.1f%%, Error: %.3fm",
+            score,
+            metrics["mean_on_target_ratio"] * 100,
+            metrics["mean_tracking_error"],
+        )
+
+        # Return negative score since CMA-ES minimizes
+        return -score
+
+    def _run_cma_es_search(self) -> None:
+        """Run CMA-ES optimization over parameter space."""
+        import cma
+
+        # Build parameter specification
+        self._cma_param_spec = self._build_cma_param_spec()
+
+        if not self._cma_param_spec:
+            logger.warning("No parameters to tune. CMA-ES requires at least one range.")
+            return
+
+        # Get bounds and initial point
+        lower, upper = self._get_cma_bounds()
+        x0 = self._get_cma_x0()
+        dim = len(x0)
+
+        logger.info(
+            "CMA-ES search: %d parameters, sigma0=%.3f", dim, self.config.cma_sigma0
+        )
+
+        # Calculate scaled sigma based on parameter ranges
+        # Use sigma0 as a fraction of the range
+        ranges = [hi - lo for lo, hi in zip(lower, upper)]
+        sigma0 = self.config.cma_sigma0 * np.mean(ranges)
+
+        # CMA-ES options
+        opts: dict[str, Any] = {
+            "seed": self.config.seed,
+            "bounds": [lower, upper],
+            "maxfevals": self.config.max_iterations,
+            "verbose": -9,  # Suppress CMA-ES logging (we do our own)
+            "tolfun": 1e-11,  # Very tight tolerance (we use maxfevals as main limit)
+            "tolx": 1e-12,
+        }
+
+        if self.config.cma_popsize is not None:
+            opts["popsize"] = self.config.cma_popsize
+
+        # Try to resume from checkpoint
+        checkpoint_loaded = False
+        if self.config.resume_from:
+            resume_path = Path(self.config.resume_from)
+            checkpoint_path = resume_path.parent / "cma_checkpoint.pkl"
+            if checkpoint_path.exists():
+                try:
+                    with open(checkpoint_path, "rb") as f:
+                        self.cma_es = pickle.load(f)
+                    logger.info("Resumed CMA-ES state from %s", checkpoint_path)
+                    checkpoint_loaded = True
+                except Exception as e:
+                    logger.warning("Failed to load CMA-ES checkpoint: %s", e)
+
+        if not checkpoint_loaded:
+            self.cma_es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
+
+        # Set checkpoint path for saving
+        self._cma_checkpoint_path = self.output_dir / "cma_checkpoint.pkl"
+
+        # Run optimization
+        iteration = len(self.results)
+        while not self.cma_es.stop() and iteration < self.config.max_iterations:
+            if self.interrupted:
+                logger.info("CMA-ES interrupted after %d evaluations", iteration)
+                break
+
+            # Ask for new solutions
+            solutions = self.cma_es.ask()
+
+            # Evaluate solutions
+            fitness_values = []
+            for i, x in enumerate(solutions):
+                if self.interrupted:
+                    break
+
+                logger.info(
+                    "Iteration %d/%d: evaluating %s",
+                    iteration + i + 1,
+                    self.config.max_iterations,
+                    self._format_config_summary(self._vector_to_config(x)),
+                )
+
+                fitness = self._cma_objective(x)
+                fitness_values.append(fitness)
+                iteration += 1
+
+                if iteration >= self.config.max_iterations:
+                    break
+
+            # Tell CMA-ES about the fitness values
+            # CMA-ES requires at least mu solutions (popsize // 2) to update
+            mu = self.cma_es.sp.weights.mu
+            if len(fitness_values) >= mu:
+                if len(fitness_values) == len(solutions):
+                    self.cma_es.tell(solutions, fitness_values)
+                else:
+                    # Partial evaluation - only tell with enough solutions
+                    self.cma_es.tell(solutions[:len(fitness_values)], fitness_values)
+            else:
+                # Not enough solutions to update CMA-ES state
+                logger.info(
+                    "Not enough solutions (%d < mu=%d) to update CMA-ES",
+                    len(fitness_values),
+                    mu,
+                )
+
+        # Log CMA-ES statistics
+        if self.cma_es is not None:
+            logger.info(
+                "CMA-ES completed: %d evaluations, best fitness: %.4f",
+                self.cma_es.result.evaluations,
+                -self.best_score,  # Convert back to positive
+            )
+
+    def _save_cma_checkpoint(self) -> None:
+        """Save CMA-ES state for resumption."""
+        if self.cma_es is None or self._cma_checkpoint_path is None:
+            return
+
+        try:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            # Use pickle for CMA-ES state
+            with open(self._cma_checkpoint_path, "wb") as f:
+                pickle.dump(self.cma_es, f)
+            logger.info("Saved CMA-ES checkpoint to %s", self._cma_checkpoint_path)
+        except Exception as e:
+            logger.warning("Failed to save CMA-ES checkpoint: %s", e)

@@ -761,3 +761,290 @@ class TestRiccatiTuning:
         with open(results_files[0]) as f:
             data = json.load(f)
             assert data["config"]["controller_type"] == "riccati_lqr"
+
+
+class TestCMAESTuning:
+    """Tests for CMA-ES tuning strategy."""
+
+    def test_cma_es_strategy_valid(self):
+        """Test that cma_es strategy is accepted."""
+        config = TuningConfig(strategy="cma_es")
+        assert config.strategy == "cma_es"
+
+    def test_cma_sigma0_validation(self):
+        """Test that cma_sigma0 must be positive."""
+        with pytest.raises(ValueError, match="cma_sigma0 must be > 0"):
+            TuningConfig(strategy="cma_es", cma_sigma0=0)
+
+        with pytest.raises(ValueError, match="cma_sigma0 must be > 0"):
+            TuningConfig(strategy="cma_es", cma_sigma0=-0.5)
+
+    def test_cma_popsize_validation(self):
+        """Test that cma_popsize must be >= 2 if specified."""
+        # None is valid (auto-calculated)
+        config = TuningConfig(strategy="cma_es", cma_popsize=None)
+        assert config.cma_popsize is None
+
+        # Valid popsize
+        config = TuningConfig(strategy="cma_es", cma_popsize=10)
+        assert config.cma_popsize == 10
+
+        # Invalid popsize
+        with pytest.raises(ValueError, match="cma_popsize must be >= 2"):
+            TuningConfig(strategy="cma_es", cma_popsize=1)
+
+    def test_cma_es_config_from_dict(self):
+        """Test creating config with CMA-ES options from dictionary."""
+        config_dict = {
+            "controller_type": "pid",
+            "strategy": "cma_es",
+            "cma_sigma0": 0.5,
+            "cma_popsize": 12,
+            "max_iterations": 100,
+        }
+        config = TuningConfig.from_dict(config_dict)
+        assert config.strategy == "cma_es"
+        assert config.cma_sigma0 == 0.5
+        assert config.cma_popsize == 12
+
+    def test_cma_es_config_to_dict(self):
+        """Test converting config with CMA-ES options to dictionary."""
+        config = TuningConfig(
+            strategy="cma_es",
+            cma_sigma0=0.4,
+            cma_popsize=8,
+        )
+        d = config.to_dict()
+        assert d["strategy"] == "cma_es"
+        assert d["cma_sigma0"] == 0.4
+        assert d["cma_popsize"] == 8
+
+    def test_cma_es_tuner_initialization(self, tmp_path):
+        """Test CMA-ES tuner initializes correctly."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.01, 0.01, 4.0], [0.01, 0.01, 4.0]),  # Fixed
+            ),
+            strategy="cma_es",
+            max_iterations=5,
+            evaluation_episodes=1,
+            evaluation_horizon=100,
+            episode_length=1.0,
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+        )
+
+        tuner = ControllerTuner(config)
+        assert tuner.config.strategy == "cma_es"
+        assert tuner.cma_es is None  # Not initialized until tune() is called
+
+    def test_cma_es_build_param_spec(self, tmp_path):
+        """Test CMA-ES parameter specification building."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]),
+                kd_pos_range=([0.02, 0.02, 1.0], [0.15, 0.15, 3.0]),
+            ),
+            strategy="cma_es",
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        spec = tuner._build_cma_param_spec()
+
+        # Should have 2 parameters: kp_pos (3D) and kd_pos (3D)
+        assert len(spec) == 2
+        assert spec[0][0] == "kp_pos"
+        assert spec[0][1] == 3
+        assert spec[1][0] == "kd_pos"
+        assert spec[1][1] == 3
+
+    def test_cma_es_get_bounds(self, tmp_path):
+        """Test CMA-ES bounds extraction."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]),
+            ),
+            strategy="cma_es",
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        tuner._cma_param_spec = tuner._build_cma_param_spec()
+        lower, upper = tuner._get_cma_bounds()
+
+        assert lower == [0.005, 0.005, 2.0]
+        assert upper == [0.05, 0.05, 6.0]
+
+    def test_cma_es_vector_to_config(self, tmp_path):
+        """Test CMA-ES vector to config conversion."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]),
+                kd_pos_range=([0.02, 0.02, 1.0], [0.15, 0.15, 3.0]),
+            ),
+            strategy="cma_es",
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        tuner._cma_param_spec = tuner._build_cma_param_spec()
+
+        # Test vector: kp=[0.01, 0.01, 4.0], kd=[0.06, 0.06, 2.0]
+        x = [0.01, 0.01, 4.0, 0.06, 0.06, 2.0]
+        controller_config = tuner._vector_to_config(x)
+
+        assert "kp_pos" in controller_config
+        assert "kd_pos" in controller_config
+        assert controller_config["kp_pos"] == [0.01, 0.01, 4.0]
+        assert controller_config["kd_pos"] == [0.06, 0.06, 2.0]
+
+    def test_cma_es_with_scalar_params(self, tmp_path):
+        """Test CMA-ES with scalar parameters."""
+        config = TuningConfig(
+            controller_type="lqr",
+            search_space=GainSearchSpace(
+                r_thrust_range=(0.5, 2.0),
+                r_rate_range=(0.5, 2.0),
+            ),
+            strategy="cma_es",
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        tuner._cma_param_spec = tuner._build_cma_param_spec()
+        lower, upper = tuner._get_cma_bounds()
+
+        # Should have 2 scalar parameters
+        assert len(lower) == 2
+        assert len(upper) == 2
+        assert lower == [0.5, 0.5]
+        assert upper == [2.0, 2.0]
+
+        # Test vector to config
+        x = [1.0, 1.5]
+        controller_config = tuner._vector_to_config(x)
+        assert controller_config["r_thrust"] == 1.0
+        assert controller_config["r_rate"] == 1.5
+
+    def test_cma_es_tuner_runs(self, tmp_path):
+        """Test that CMA-ES tuner runs with minimal iterations."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.008, 0.008, 3.5], [0.012, 0.012, 4.5]),  # Small range
+            ),
+            strategy="cma_es",
+            max_iterations=3,  # Very small for fast testing
+            evaluation_episodes=1,
+            evaluation_horizon=100,
+            episode_length=1.0,
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+            cma_sigma0=0.1,
+        )
+
+        tuner = ControllerTuner(config)
+        result = tuner.tune()
+
+        # Should have completed at least some iterations
+        assert result.iterations_completed > 0
+        assert result.best_config is not None
+        assert not result.interrupted
+
+    def test_cma_es_feedforward_flag(self, tmp_path):
+        """Test that feedforward_enabled is set when FF gains are tuned."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.01, 0.01, 4.0], [0.01, 0.01, 4.0]),
+                ff_velocity_gain_range=([0.0, 0.0, 0.0], [0.1, 0.1, 0.1]),
+            ),
+            strategy="cma_es",
+            output_dir=str(tmp_path),
+        )
+
+        tuner = ControllerTuner(config)
+        tuner._cma_param_spec = tuner._build_cma_param_spec()
+
+        # Test vector with ff_velocity_gain
+        x = [0.01, 0.01, 4.0, 0.05, 0.05, 0.05]
+        controller_config = tuner._vector_to_config(x)
+
+        assert "feedforward_enabled" in controller_config
+        assert controller_config["feedforward_enabled"] is True
+
+    def test_cma_es_saves_checkpoint(self, tmp_path):
+        """Test that CMA-ES saves checkpoint on completion."""
+        config = TuningConfig(
+            controller_type="pid",
+            search_space=GainSearchSpace(
+                kp_pos_range=([0.008, 0.008, 3.5], [0.012, 0.012, 4.5]),
+            ),
+            strategy="cma_es",
+            max_iterations=3,
+            evaluation_episodes=1,
+            evaluation_horizon=100,
+            episode_length=1.0,
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+        )
+
+        tuner = ControllerTuner(config)
+        tuner.tune()
+
+        # Check checkpoint file was created
+        checkpoint_path = tmp_path / "tuning" / "cma_checkpoint.pkl"
+        assert checkpoint_path.exists()
+
+    def test_cma_es_deterministic_seeding(self, tmp_path):
+        """Test that CMA-ES produces deterministic results with same seed."""
+        def run_tuning(seed):
+            config = TuningConfig(
+                controller_type="pid",
+                search_space=GainSearchSpace(
+                    kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]),
+                ),
+                strategy="cma_es",
+                max_iterations=3,
+                evaluation_episodes=1,
+                evaluation_horizon=100,
+                episode_length=1.0,
+                output_dir=str(tmp_path / f"tuning_{seed}"),
+                seed=seed,
+            )
+            tuner = ControllerTuner(config)
+            return tuner.tune()
+
+        result1 = run_tuning(42)
+        result2 = run_tuning(42)
+
+        # Same seed should produce same results
+        assert result1.best_score == result2.best_score
+
+    def test_cma_es_riccati_controller(self, tmp_path):
+        """Test CMA-ES with Riccati-LQR controller."""
+        config = TuningConfig(
+            controller_type="riccati_lqr",
+            search_space=GainSearchSpace(
+                q_pos_range=([0.00008, 0.00008, 14.0], [0.00012, 0.00012, 18.0]),
+                r_controls_range=([0.8, 0.8, 0.8, 0.8], [1.2, 1.2, 1.2, 1.2]),
+            ),
+            strategy="cma_es",
+            max_iterations=3,
+            evaluation_episodes=1,
+            evaluation_horizon=100,
+            episode_length=1.0,
+            output_dir=str(tmp_path / "tuning"),
+            seed=42,
+        )
+
+        tuner = ControllerTuner(config)
+        result = tuner.tune()
+
+        assert result.iterations_completed > 0
+        assert result.best_config is not None
