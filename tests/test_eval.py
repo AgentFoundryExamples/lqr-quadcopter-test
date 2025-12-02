@@ -1067,8 +1067,9 @@ class TestLQIController:
         evaluator.run_episode(seed=42)
 
         # Check integral state after first episode - should have accumulated some error
-        integral_after_ep1 = controller.get_integral_state().copy()
-        # Just verify we can get the state, don't assert specific values
+        integral_after_ep1 = controller.get_integral_state()
+        assert not np.allclose(integral_after_ep1, [0, 0, 0]), \
+            f"Integral state should be non-zero after episode: {integral_after_ep1}"
 
         # Reset controller
         controller.reset()
@@ -1077,8 +1078,6 @@ class TestLQIController:
         integral_after_reset = controller.get_integral_state()
         assert np.allclose(integral_after_reset, [0, 0, 0]), \
             f"Integral state should be zero after reset, got {integral_after_reset}"
-        # Verify state changed from before reset
-        _ = integral_after_ep1  # Acknowledge we captured pre-reset state
 
 
 class TestLQILinearTrajectoryValidation:

@@ -501,8 +501,9 @@ def load_controller(
     elif controller_type == "riccati_lqr":
         return RiccatiLQRController(config=config)
     elif controller_type == "lqi":
+        from copy import deepcopy
         # LQI uses RiccatiLQRController with use_lqi=True
-        lqi_config = dict(config)
+        lqi_config = deepcopy(config)
         lqi_config["use_lqi"] = True
         # Set default q_int if not provided
         if "q_int" not in lqi_config:
