@@ -996,11 +996,9 @@ python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 
 | Motion Type | Controller | Expected On-Target Ratio |
 |-------------|------------|-------------------------|
-| Stationary | PID/LQR | >80% (verified) |
-| Stationary | Riccati-LQR | >80% (verified) |
+| Stationary | PID/LQR/Riccati-LQR | >80% (verified) |
 | Stationary | LQI | >80% (verified) |
-| Linear | PID/LQR | 70-90% |
-| Linear | Riccati-LQR | 70-90% |
+| Linear | PID/LQR/Riccati-LQR | 70-90% |
 | Linear | LQI | 75-95% (improved steady-state) |
 | Circular | PID/LQR | 70-90% |
 
