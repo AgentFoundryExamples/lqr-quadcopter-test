@@ -307,12 +307,17 @@ riccati_lqr:
   q_vel: [0.1, 0.1, 1.0]            # Velocity cost [vx, vy, vz]
   r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
   fallback_on_failure: true         # Fall back to heuristic LQR on solver failure
+  # Feedforward (optional, see below)
+  feedforward_enabled: false
+  ff_velocity_gain: [0.0, 0.0, 0.0]
+  ff_acceleration_gain: [0.0, 0.0, 0.0]
 ```
 
 **Use Cases:**
 - Serving as a strong teacher for deep imitation learning
 - Validating control performance against optimal baselines
 - Research on LQR-based quadcopter control
+- Tracking moving targets with feedforward enabled
 
 **Fallback Behavior:**
 If the DARE solver fails (e.g., due to ill-conditioned matrices), the controller
@@ -336,8 +341,9 @@ The controller validates input matrices:
 
 ### Feedforward Support (Optional)
 
-Both PID and LQR controllers support optional feedforward terms for improved
-tracking of moving targets. Feedforward is **disabled by default** to preserve
+PID, LQR, and Riccati-LQR controllers all support optional feedforward terms
+for improved tracking of moving targets. Feedforward is **disabled by default**
+to preserve
 baseline behavior and backward compatibility.
 
 ```mermaid
@@ -382,6 +388,14 @@ lqr:
   ff_acceleration_gain: [0.05, 0.05, 0.0]
   ff_max_velocity: 10.0
   ff_max_acceleration: 5.0
+
+riccati_lqr:
+  dt: 0.01  # Required for Riccati-LQR
+  feedforward_enabled: true
+  ff_velocity_gain: [0.1, 0.1, 0.1]
+  ff_acceleration_gain: [0.1, 0.1, 0.0]  # Slightly higher for optimal controller
+  ff_max_velocity: 10.0
+  ff_max_acceleration: 5.0
 ```
 
 **Recommended Feedforward Gains:**
@@ -413,6 +427,18 @@ print(components["i_term"])             # Integral contribution
 print(components["d_term"])             # Derivative contribution
 print(components["ff_velocity_term"])   # Velocity feedforward contribution
 print(components["ff_acceleration_term"]) # Acceleration feedforward contribution
+
+# Riccati-LQR also includes diagnostics with saturation tracking
+riccati = RiccatiLQRController(config={"dt": 0.01, "feedforward_enabled": True, ...})
+riccati.compute_action(observation)
+
+components = riccati.get_control_components()
+print(components["state_error"])         # 6D state error vector
+print(components["feedback_u"])          # Feedback control output
+print(components["ff_velocity_term"])    # Velocity feedforward contribution
+print(components["ff_acceleration_term"])# Acceleration feedforward contribution
+print(components["is_saturated"])        # Whether output was clamped
+print(riccati.get_saturation_count())    # Total saturation events
 ```
 
 **Coordinate Frame Warning:**

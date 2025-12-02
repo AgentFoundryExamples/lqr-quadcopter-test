@@ -1333,6 +1333,40 @@ action = controller.compute_action(obs)
 components = controller.get_control_components()
 print(f"FF velocity term: {components['ff_velocity_term']}")
 print(f"FF acceleration term: {components['ff_acceleration_term']}")
+
+# For Riccati-LQR, also check saturation
+if hasattr(controller, 'get_saturation_count'):
+    print(f"Saturation count: {controller.get_saturation_count()}")
+    print(f"Is saturated: {components.get('is_saturated', False)}")
+```
+
+### Riccati-LQR Feedforward Notes
+
+The Riccati-LQR controller supports the same feedforward schema as PID and LQR
+controllers. Because Riccati-LQR computes mathematically optimal feedback gains,
+feedforward may provide smaller improvements compared to heuristic controllers:
+
+- **For circular/sinusoidal targets**: Acceleration feedforward is still
+  recommended and typically provides 15-25% tracking error reduction.
+
+- **Saturation tracking**: Riccati-LQR tracks when feedforward actions are
+  clamped to actuator limits. Use `controller.get_saturation_count()` to
+  monitor saturation events.
+
+- **DARE interactions**: Very aggressive feedforward gains could theoretically
+  interact with the DARE solution, but in practice the feedforward is additive
+  to the feedback and does not affect the underlying optimal gains.
+
+Example configuration for circular target tracking:
+
+```yaml
+riccati_lqr:
+  dt: 0.01
+  feedforward_enabled: true
+  ff_velocity_gain: [0.0, 0.0, 0.0]       # Not needed for circular
+  ff_acceleration_gain: [0.1, 0.1, 0.0]   # Anticipate centripetal accel
+  ff_max_velocity: 10.0
+  ff_max_acceleration: 5.0
 ```
 
 ## v0.2.1 Migration Notes

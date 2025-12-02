@@ -273,23 +273,32 @@ def _validate_observation(observation: dict) -> None:
 
 class RiccatiLQRController(BaseController):
     """
-    Riccati-LQR Controller for quadcopter tracking.
+    Riccati-LQR Controller for quadcopter tracking with optional feedforward.
 
     Solves the discrete-time algebraic Riccati equation (DARE) to compute
     optimal feedback gains for the linearized quadcopter dynamics around hover.
     This provides a mathematically rigorous LQR solution rather than heuristic
     gains.
 
+    Optionally incorporates target velocity and acceleration feedforward
+    terms for improved tracking of moving targets.
+
     The controller is suitable for:
     - Serving as a strong teacher for deep imitation learning
     - Validating control performance against optimal baselines
     - Research on LQR-based quadcopter control
+    - Tracking moving targets with feedforward enabled
 
     State vector (6 dimensions):
         [x_error, y_error, z_error, vx_error, vy_error, vz_error]
 
     Control vector (4 dimensions):
         [thrust, roll_rate, pitch_rate, yaw_rate]
+
+    Feedforward (optional):
+    - Velocity feedforward: Scales target velocity to anticipate motion
+    - Acceleration feedforward: Scales target acceleration for dynamic tracking
+    - Both default to disabled (gains = 0) to preserve baseline behavior
 
     Attributes:
         dt (float): Simulation timestep.
@@ -300,7 +309,13 @@ class RiccatiLQRController(BaseController):
         K (ndarray): Optimal feedback gain matrix (4x6).
         P (ndarray): DARE solution matrix (6x6).
         hover_thrust (float): Thrust required to hover (mass * gravity).
+        feedforward_enabled (bool): Whether feedforward is enabled.
+        ff_velocity_gain (ndarray): Feedforward gains for target velocity.
+        ff_acceleration_gain (ndarray): Feedforward gains for target accel.
+        ff_max_velocity (float): Max velocity for feedforward clamping.
+        ff_max_acceleration (float): Max accel for feedforward clamping.
         fallback_controller: Heuristic LQR controller used on solver failure.
+        last_control_components (dict | None): Feedback/FF terms for diagnostics.
 
     Raises:
         ValueError: If Q/R matrices are invalid (not positive semi-definite/definite).
@@ -324,6 +339,14 @@ class RiccatiLQRController(BaseController):
                 - min_thrust: Minimum thrust in N (default: 0.0)
                 - max_rate: Maximum angular rate in rad/s (default: 3.0)
                 - fallback_on_failure: Fall back to heuristic LQR (default: True)
+                - feedforward_enabled: Enable feedforward for moving targets
+                  (default: False)
+                - ff_velocity_gain: Feedforward gains for target velocity
+                  [x, y, z] or scalar (default: [0.0, 0.0, 0.0] - disabled)
+                - ff_acceleration_gain: Feedforward gains for target acceleration
+                  [x, y, z] or scalar (default: [0.0, 0.0, 0.0] - disabled)
+                - ff_max_velocity: Max velocity for clamping (default: 10.0)
+                - ff_max_acceleration: Max acceleration for clamping (default: 5.0)
 
         Raises:
             ValueError: If required parameters are missing or matrices are invalid.
@@ -344,6 +367,21 @@ class RiccatiLQRController(BaseController):
 
         # Hover thrust
         self.hover_thrust = self.mass * self.gravity
+
+        # Feedforward configuration
+        # Default to disabled (gains = 0) to preserve baseline behavior
+        self.feedforward_enabled = config.get("feedforward_enabled", False)
+        ff_vel = config.get("ff_velocity_gain", [0.0, 0.0, 0.0])
+        ff_acc = config.get("ff_acceleration_gain", [0.0, 0.0, 0.0])
+        self.ff_velocity_gain = self._ensure_array(ff_vel)
+        self.ff_acceleration_gain = self._ensure_array(ff_acc)
+
+        # Feedforward clamping limits (to prevent oscillation from noisy inputs)
+        self.ff_max_velocity = config.get("ff_max_velocity", 10.0)
+        self.ff_max_acceleration = config.get("ff_max_acceleration", 5.0)
+
+        # Saturation tracking for diagnostics
+        self._saturation_count = 0
 
         # Build linearized system matrices
         self.A, self.B = build_linearized_system(
@@ -366,6 +404,22 @@ class RiccatiLQRController(BaseController):
 
         # Diagnostics
         self.last_control_components: dict | None = None
+
+    @staticmethod
+    def _ensure_array(value, size: int = 3) -> np.ndarray:
+        """
+        Convert a scalar or sequence to a numpy array.
+
+        Args:
+            value: Scalar or sequence of values.
+            size: Expected size of the output array.
+
+        Returns:
+            Numpy array of the specified size.
+        """
+        if np.isscalar(value):
+            return np.array([value] * size)
+        return np.array(value)
 
     def _build_Q_matrix(self, config: dict) -> np.ndarray:
         """
@@ -483,10 +537,22 @@ class RiccatiLQRController(BaseController):
 
     def compute_action(self, observation: dict) -> dict:
         """
-        Compute Riccati-LQR control action.
+        Compute Riccati-LQR control action with optional feedforward.
 
         If the DARE solver failed and fallback is enabled, delegates to the
         heuristic LQR controller.
+
+        The feedforward implementation uses ENU-aligned velocities/accelerations:
+        - Velocity feedforward scales the target velocity contribution in the
+          state error vector, allowing more aggressive velocity matching
+        - Acceleration feedforward adds target acceleration to anticipate motion
+
+        For constant velocity targets (linear motion), the Riccati-LQR naturally
+        tracks target velocity through the velocity error in the state vector.
+        The velocity feedforward gain scales this contribution.
+
+        For changing velocity targets (circular, sinusoidal), acceleration
+        feedforward helps anticipate velocity changes and reduces phase lag.
 
         Args:
             observation: Environment observation with quadcopter and target state.
@@ -512,29 +578,98 @@ class RiccatiLQRController(BaseController):
 
         quad_vel = np.array(quad["velocity"])
         target_vel = np.array(target["velocity"])
-        vel_error = target_vel - quad_vel
+
+        # Compute velocity error with optional feedforward scaling
+        ff_vel_term = np.zeros(3)
+        ff_acc_term = np.zeros(3)
+
+        # Compute effective target velocity (with optional clamping and FF scaling)
+        effective_target_vel = target_vel.copy()
+        if self.feedforward_enabled:
+            # Clamp target velocity magnitude for stability
+            vel_mag = np.linalg.norm(effective_target_vel)
+            if vel_mag > self.ff_max_velocity:
+                scale = self.ff_max_velocity / vel_mag
+                effective_target_vel = effective_target_vel * scale
+
+            # Velocity feedforward: scale target velocity in velocity error
+            # This integrates with the feedback rather than adding separately
+            unscaled_target_vel = effective_target_vel.copy()
+            effective_target_vel = (1.0 + self.ff_velocity_gain) * effective_target_vel
+
+            # Store the FF velocity contribution for diagnostics
+            # This represents the additional velocity term from feedforward scaling
+            ff_vel_term = self.ff_velocity_gain * unscaled_target_vel
+
+            # Acceleration feedforward: scale target acceleration (if available)
+            target_acc = target.get("acceleration", None)
+            if target_acc is not None:
+                ff_target_acc = np.array(target_acc)
+                # Clamp acceleration magnitude to prevent oscillation
+                acc_mag = np.linalg.norm(ff_target_acc)
+                if acc_mag > self.ff_max_acceleration and acc_mag > 0:
+                    ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
+                ff_acc_term = self.ff_acceleration_gain * ff_target_acc
+
+        # Compute velocity error uniformly
+        vel_error = effective_target_vel - quad_vel
 
         # Build state error vector (6D)
         state_error = np.concatenate([pos_error, vel_error])
 
         # Compute feedback control: u = K @ state_error
-        u = self.K @ state_error
+        u_feedback = self.K @ state_error
+
+        # Map feedforward acceleration to control outputs:
+        # Z -> thrust, X -> pitch, Y -> -roll
+        ff_thrust = ff_acc_term[2]
+        ff_pitch = ff_acc_term[0]
+        ff_roll = -ff_acc_term[1]
+
+        # Compute raw outputs before clamping
+        raw_thrust = self.hover_thrust + u_feedback[0] + ff_thrust
+        raw_roll = u_feedback[1] + ff_roll
+        raw_pitch = u_feedback[2] + ff_pitch
+        raw_yaw = u_feedback[3]
+
+        # Apply clamping and track saturation
+        thrust = float(np.clip(raw_thrust, self.min_thrust, self.max_thrust))
+        roll_rate = float(np.clip(raw_roll, -self.max_rate, self.max_rate))
+        pitch_rate = float(np.clip(raw_pitch, -self.max_rate, self.max_rate))
+        yaw_rate = float(np.clip(raw_yaw, -self.max_rate, self.max_rate))
+
+        # Check for saturation and log if it occurred
+        is_saturated = (
+            thrust != raw_thrust
+            or roll_rate != raw_roll
+            or pitch_rate != raw_pitch
+            or yaw_rate != raw_yaw
+        )
+        if is_saturated:
+            self._saturation_count += 1
+            logger.debug(
+                "Feedforward action saturated at step %d: "
+                "raw=[%.2f, %.2f, %.2f, %.2f], clamped=[%.2f, %.2f, %.2f, %.2f]",
+                self._saturation_count,
+                raw_thrust,
+                raw_roll,
+                raw_pitch,
+                raw_yaw,
+                thrust,
+                roll_rate,
+                pitch_rate,
+                yaw_rate,
+            )
 
         # Store control components for diagnostics
         self.last_control_components = {
             "state_error": state_error.copy(),
-            "feedback_u": u.copy(),
+            "feedback_u": u_feedback.copy(),
+            "ff_velocity_term": ff_vel_term.copy(),
+            "ff_acceleration_term": ff_acc_term.copy(),
             "K_matrix": self.K.copy(),
+            "is_saturated": is_saturated,
         }
-
-        # u[0] is thrust_delta (deviation from hover)
-        thrust = self.hover_thrust + u[0]
-        thrust = float(np.clip(thrust, self.min_thrust, self.max_thrust))
-
-        # u[1] is roll_rate, u[2] is pitch_rate, u[3] is yaw_rate
-        roll_rate = float(np.clip(u[1], -self.max_rate, self.max_rate))
-        pitch_rate = float(np.clip(u[2], -self.max_rate, self.max_rate))
-        yaw_rate = float(np.clip(u[3], -self.max_rate, self.max_rate))
 
         return {
             "thrust": thrust,
@@ -548,10 +683,23 @@ class RiccatiLQRController(BaseController):
         Get the last computed control term components for diagnostics.
 
         Returns:
-            Dictionary with state_error, feedback_u, and K_matrix,
+            Dictionary with state_error, feedback_u, ff_velocity_term,
+            ff_acceleration_term, K_matrix, and is_saturated,
             or None if compute_action hasn't been called yet.
         """
         return self.last_control_components
+
+    def get_saturation_count(self) -> int:
+        """
+        Get the count of saturated control actions.
+
+        This tracks how many times feedforward actions were clamped to
+        actuator limits since the controller was created or last reset.
+
+        Returns:
+            Number of saturated control actions.
+        """
+        return self._saturation_count
 
     def is_using_fallback(self) -> bool:
         """
@@ -581,7 +729,8 @@ class RiccatiLQRController(BaseController):
         return self.P if not self._using_fallback else None
 
     def reset(self) -> None:
-        """Reset controller state (no-op for Riccati-LQR as it's stateless)."""
+        """Reset controller state and diagnostics."""
         self.last_control_components = None
+        self._saturation_count = 0
         if self.fallback_controller is not None:
             self.fallback_controller.reset()

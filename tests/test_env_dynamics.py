@@ -3222,6 +3222,418 @@ class TestRiccatiLQRController:
         assert controller.get_control_components() is None
 
 
+class TestRiccatiLQRFeedforward:
+    """Tests for Riccati-LQR feedforward support.
+
+    These tests verify that the Riccati-LQR controller correctly implements
+    optional feedforward support matching the schema used by PID and LQR:
+    - Feedforward is disabled by default (gains = 0)
+    - Stationary targets remain stable with feedforward off
+    - Moving target tracking improves with appropriate feedforward gains
+    - Saturation is tracked and reported
+    - Diagnostics differentiate feedback vs feedforward terms
+    """
+
+    def test_riccati_lqr_feedforward_disabled_by_default(self):
+        """Test Riccati-LQR feedforward is disabled by default for backward compat."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        # Feedforward should be disabled by default
+        assert controller.feedforward_enabled is False
+        assert np.allclose(controller.ff_velocity_gain, [0.0, 0.0, 0.0])
+        assert np.allclose(controller.ff_acceleration_gain, [0.0, 0.0, 0.0])
+
+    def test_riccati_lqr_feedforward_can_be_enabled(self):
+        """Test Riccati-LQR feedforward can be enabled via config."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "feedforward_enabled": True,
+            "ff_velocity_gain": [0.1, 0.1, 0.1],
+            "ff_acceleration_gain": [0.05, 0.05, 0.05],
+        }
+        controller = RiccatiLQRController(config=config)
+
+        assert controller.feedforward_enabled is True
+        assert np.allclose(controller.ff_velocity_gain, [0.1, 0.1, 0.1])
+        assert np.allclose(controller.ff_acceleration_gain, [0.05, 0.05, 0.05])
+
+    def test_riccati_lqr_feedforward_scalar_gains(self):
+        """Test Riccati-LQR feedforward accepts scalar gains (broadcast)."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "feedforward_enabled": True,
+            "ff_velocity_gain": 0.15,
+            "ff_acceleration_gain": 0.08,
+        }
+        controller = RiccatiLQRController(config=config)
+
+        # Scalar gains should be broadcast to all axes
+        assert np.allclose(controller.ff_velocity_gain, [0.15, 0.15, 0.15])
+        assert np.allclose(controller.ff_acceleration_gain, [0.08, 0.08, 0.08])
+
+    def test_riccati_lqr_feedforward_clamping_defaults(self):
+        """Test Riccati-LQR feedforward clamping has expected defaults."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(config={"dt": 0.01})
+
+        assert controller.ff_max_velocity == 10.0
+        assert controller.ff_max_acceleration == 5.0
+
+    def test_riccati_lqr_feedforward_clamping_configurable(self):
+        """Test Riccati-LQR feedforward clamping is configurable."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = {
+            "dt": 0.01,
+            "ff_max_velocity": 15.0,
+            "ff_max_acceleration": 8.0,
+        }
+        controller = RiccatiLQRController(config=config)
+
+        assert controller.ff_max_velocity == 15.0
+        assert controller.ff_max_acceleration == 8.0
+
+    def test_riccati_lqr_feedforward_disabled_no_regression_stationary(self):
+        """Test Riccati-LQR with disabled feedforward matches baseline on stationary."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=5.0)
+        config.target = TargetParams(motion_type="stationary")
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        controller_baseline = RiccatiLQRController(
+            config={"dt": 0.01, "feedforward_enabled": False}
+        )
+
+        baseline_errors = []
+        for _ in range(300):
+            action = controller_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With feedforward enabled but gains = 0 (should be identical)
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        controller_ff = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.0, 0.0, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(300):
+            action = controller_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Feedforward with gain=0 should match baseline exactly
+        assert abs(ff_mean - baseline_mean) < 0.01, (
+            f"FF with gain=0 should match baseline. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
+    def test_riccati_lqr_default_init_matches_explicit_disabled(self):
+        """Test default init produces identical results to explicitly disabled.
+
+        This verifies backward compatibility by ensuring that:
+        1. Default config (no FF params) matches explicit feedforward_enabled=False
+        2. Both produce identical control actions for the same observations
+        """
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # Default initialization (no feedforward params specified)
+        controller_default = RiccatiLQRController(config={"dt": 0.01})
+
+        # Explicit disabled configuration
+        controller_explicit = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": False,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.0, 0.0, 0.0],
+            }
+        )
+
+        # Verify same configuration state
+        assert (
+            controller_default.feedforward_enabled
+            == controller_explicit.feedforward_enabled
+        )
+        assert np.allclose(
+            controller_default.ff_velocity_gain, controller_explicit.ff_velocity_gain
+        )
+        assert np.allclose(
+            controller_default.ff_acceleration_gain,
+            controller_explicit.ff_acceleration_gain,
+        )
+
+        # Test observation with moving target and acceleration
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([2.0, 1.0, 1.5]),
+                "velocity": np.array([1.0, 0.5, 0.0]),
+                "acceleration": np.array([0.5, 0.3, 0.0]),
+            },
+        }
+
+        # Compute actions from both controllers
+        action_default = controller_default.compute_action(obs)
+        action_explicit = controller_explicit.compute_action(obs)
+
+        # Actions should be identical
+        assert abs(action_default["thrust"] - action_explicit["thrust"]) < 1e-10
+        assert abs(action_default["roll_rate"] - action_explicit["roll_rate"]) < 1e-10
+        assert abs(action_default["pitch_rate"] - action_explicit["pitch_rate"]) < 1e-10
+        assert abs(action_default["yaw_rate"] - action_explicit["yaw_rate"]) < 1e-10
+
+    def test_riccati_lqr_acceleration_feedforward_improves_circular_tracking(self):
+        """Test Riccati-LQR acceleration feedforward improves circular tracking.
+
+        For circular motion, the target has centripetal acceleration that
+        the controller must anticipate. Acceleration feedforward helps
+        reduce phase lag.
+        """
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="circular", speed=1.0, radius=2.0)
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        controller_baseline = RiccatiLQRController(
+            config={"dt": 0.01, "feedforward_enabled": False}
+        )
+
+        baseline_errors = []
+        for _ in range(500):
+            action = controller_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With acceleration feedforward
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        controller_ff = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.1, 0.1, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(500):
+            action = controller_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Acceleration FF should improve tracking
+        assert ff_mean < baseline_mean, (
+            f"Acceleration FF should improve circular tracking. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
+    def test_riccati_lqr_feedforward_diagnostics_include_ff_terms(self):
+        """Test Riccati-LQR diagnostics include feedforward terms."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.1, 0.1, 0.1],
+                "ff_acceleration_gain": [0.05, 0.05, 0.0],
+            }
+        )
+
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([1.0, 0.0, 0.0]),  # Moving target
+                "acceleration": np.array([0.5, 0.0, 0.0]),  # Accelerating
+            },
+        }
+
+        controller.compute_action(obs)
+        components = controller.get_control_components()
+
+        # All expected diagnostic keys should be present
+        assert components is not None
+        assert "state_error" in components
+        assert "feedback_u" in components
+        assert "ff_velocity_term" in components
+        assert "ff_acceleration_term" in components
+        assert "K_matrix" in components
+        assert "is_saturated" in components
+
+        # FF velocity term should be non-zero (target has velocity)
+        assert not np.allclose(components["ff_velocity_term"], [0.0, 0.0, 0.0])
+
+        # FF acceleration term should be non-zero (target has acceleration)
+        assert not np.allclose(components["ff_acceleration_term"], [0.0, 0.0, 0.0])
+
+    def test_riccati_lqr_feedforward_saturation_tracking(self):
+        """Test Riccati-LQR tracks saturation when feedforward causes clipping."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [10.0, 10.0, 10.0],  # Very high gains
+                "ff_acceleration_gain": [10.0, 10.0, 10.0],  # Very high gains
+                "max_rate": 3.0,
+            }
+        )
+
+        # Create observation with high velocity to trigger saturation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([10.0, 10.0, 1.0]),  # Large position error
+                "velocity": np.array([5.0, 5.0, 0.0]),  # High velocity
+                "acceleration": np.array([2.0, 2.0, 0.0]),  # Significant accel
+            },
+        }
+
+        # Initial saturation count should be zero
+        assert controller.get_saturation_count() == 0
+
+        # Compute action - should saturate due to large errors and high gains
+        action = controller.compute_action(obs)
+
+        # Should report saturation occurred
+        components = controller.get_control_components()
+        assert components["is_saturated"], "Expected saturation to be True"
+        assert controller.get_saturation_count() >= 1
+
+        # Verify action is actually clipped
+        assert abs(action["roll_rate"]) <= 3.0
+        assert abs(action["pitch_rate"]) <= 3.0
+
+    def test_riccati_lqr_feedforward_reset_clears_saturation_count(self):
+        """Test Riccati-LQR reset clears saturation count."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [10.0, 10.0, 10.0],
+            }
+        )
+
+        # Trigger saturation
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([10.0, 10.0, 1.0]),
+                "velocity": np.array([5.0, 5.0, 0.0]),
+            },
+        }
+
+        controller.compute_action(obs)
+        assert controller.get_saturation_count() >= 1
+
+        # Reset should clear count
+        controller.reset()
+        assert controller.get_saturation_count() == 0
+        assert controller.get_control_components() is None
+
+    def test_riccati_lqr_feedforward_without_acceleration_data(self):
+        """Test Riccati-LQR feedforward works without acceleration data."""
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        controller = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.1, 0.1, 0.1],
+                "ff_acceleration_gain": [0.1, 0.1, 0.0],  # Non-zero, but no data
+            }
+        )
+
+        # Observation without acceleration key
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([1.0, 0.0, 1.0]),
+                "velocity": np.array([1.0, 0.0, 0.0]),
+                # No "acceleration" key
+            },
+        }
+
+        # Should not crash
+        action = controller.compute_action(obs)
+        assert "thrust" in action
+
+        # FF acceleration term should be zero
+        components = controller.get_control_components()
+        assert np.allclose(components["ff_acceleration_term"], [0.0, 0.0, 0.0])
+
+        # FF velocity term should be non-zero
+        assert not np.allclose(components["ff_velocity_term"], [0.0, 0.0, 0.0])
+
+
 class TestRiccatiLQRValidation:
     """Tests for Riccati-LQR matrix validation and error handling."""
 
