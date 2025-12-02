@@ -2577,7 +2577,8 @@ class TestFeedforwardSupport:
         leading to degraded tracking performance.
 
         The corrected implementation integrates velocity feedforward into
-        the D term calculation, preventing instability.
+        the D term calculation, preventing double-counting and maintaining
+        tracking performance.
         """
         from quadcopter_tracking.controllers import PIDController
 
@@ -2646,8 +2647,15 @@ class TestFeedforwardSupport:
 
         ff2_mean = np.mean(ff2_errors)
 
-        # Should not degrade by more than 50% (previously was 300%+ degradation)
-        max_acceptable_degradation = baseline_mean * 1.5
+        # Maximum acceptable degradation factor (1.5 = 50% worse than baseline)
+        # This threshold is chosen because:
+        # - The old buggy implementation caused 300%+ degradation (3x baseline)
+        # - Small velocity FF gains may slightly increase tracking error due to
+        #   more aggressive velocity matching, but shouldn't be catastrophic
+        # - 50% degradation is generous enough to avoid flaky tests while still
+        #   catching severe regressions
+        max_degradation_factor = 1.5
+        max_acceptable_degradation = baseline_mean * max_degradation_factor
         assert ff2_mean < max_acceptable_degradation, (
             f"FF with gain=0.1 degraded tracking too much. "
             f"Baseline: {baseline_mean:.3f}, FF: {ff2_mean:.3f}, "
