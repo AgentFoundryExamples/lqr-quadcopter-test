@@ -57,11 +57,20 @@ search_space:
   #   - [0.0, 0.0, 0.0]
   #   - [0.01, 0.01, 0.01]
 
-  # Feedforward velocity gains (recommended for linear motion)
-  # Enable by uncommenting and setting feedforward_enabled: true
+  # Feedforward velocity gains (optional for linear motion)
+  # NOTE: For constant-velocity (linear) targets, the D term naturally handles
+  # velocity tracking. Velocity feedforward provides marginal benefit but uses
+  # small gains (0.0-0.1) to avoid instability. The corrected implementation
+  # integrates velocity FF into the D term calculation, preventing double-counting.
+  #
+  # For circular/sinusoidal targets, use acceleration feedforward instead:
+  #   ff_acceleration_gain_range:
+  #     - [0.0, 0.0, 0.0]
+  #     - [0.2, 0.2, 0.0]  # Z=0 since altitude control already handles thrust
+  #
   # ff_velocity_gain_range:
   #   - [0.0, 0.0, 0.0]
-  #   - [0.2, 0.2, 0.1]
+  #   - [0.1, 0.1, 0.0]  # Use small gains; large values cause instability
 
 # =============================================================================
 # EVALUATION SETTINGS - Linear Motion
@@ -79,6 +88,10 @@ target_radius: 0.5
 # REPRODUCIBILITY
 # =============================================================================
 seed: 42
+
+# Feedforward is disabled by default for baseline comparison.
+# For linear targets, the D term handles velocity tracking adequately.
+# Enable with small velocity gains (0.0-0.1) if needed.
 feedforward_enabled: false
 
 # =============================================================================

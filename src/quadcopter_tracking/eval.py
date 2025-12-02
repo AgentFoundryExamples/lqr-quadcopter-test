@@ -758,8 +758,7 @@ def main() -> int:
         controller_type = eval_config["controller"]
         if controller_type not in VALID_CONTROLLER_TYPES:
             logger.error(
-                "Invalid controller type in config: '%s'. "
-                "Valid choices are: %s",
+                "Invalid controller type in config: '%s'. Valid choices are: %s",
                 controller_type,
                 ", ".join(VALID_CONTROLLER_TYPES),
             )
