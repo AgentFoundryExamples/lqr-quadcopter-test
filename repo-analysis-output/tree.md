@@ -14,24 +14,28 @@
   └── training.md
 ├── experiments
   └── configs
-    ├── comparison_default.yaml
-    ├── diagnostics_linear.yaml
-    ├── diagnostics_stationary.yaml
-    ├── eval_circular_baseline.yaml
-    ├── eval_linear_baseline.yaml
-    ├── eval_riccati_lqr_baseline.yaml
-    ├── eval_stationary_baseline.yaml
-    ├── training_default.yaml
-    ├── training_fast.yaml
-    ├── training_imitation.yaml
-    ├── training_large.yaml
-    ├── tuning_cma_es.yaml
-    ├── tuning_lqr.yaml
-    ├── tuning_lqr_linear.yaml
-    ├── tuning_pid.yaml
-    ├── tuning_pid_linear.yaml
-    ├── tuning_riccati.yaml
-    └── tuning_riccati_linear.yaml
+    ├── evaluation
+      ├── comparison_default.yaml
+      ├── eval_circular_baseline.yaml
+      ├── eval_linear_baseline.yaml
+      ├── eval_riccati_lqr_baseline.yaml
+      └── eval_stationary_baseline.yaml
+    ├── training
+      ├── diagnostics_linear.yaml
+      ├── diagnostics_stationary.yaml
+      ├── training_default.yaml
+      ├── training_fast.yaml
+      ├── training_imitation.yaml
+      └── training_large.yaml
+    ├── tuning
+      ├── tuning_cma_es.yaml
+      ├── tuning_lqr.yaml
+      ├── tuning_lqr_linear.yaml
+      ├── tuning_pid.yaml
+      ├── tuning_pid_linear.yaml
+      ├── tuning_riccati.yaml
+      └── tuning_riccati_linear.yaml
+    └── README.md
 ├── repo-analysis-output
   ├── dependencies.json
   ├── dependencies.md

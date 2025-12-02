@@ -67,76 +67,98 @@
           "name": "configs",
           "children": [
             {
-              "type": "file",
-              "name": "comparison_default.yaml"
+              "type": "directory",
+              "name": "evaluation",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "comparison_default.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "eval_circular_baseline.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "eval_linear_baseline.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "eval_riccati_lqr_baseline.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "eval_stationary_baseline.yaml"
+                }
+              ]
+            },
+            {
+              "type": "directory",
+              "name": "training",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "diagnostics_linear.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "diagnostics_stationary.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "training_default.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "training_fast.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "training_imitation.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "training_large.yaml"
+                }
+              ]
+            },
+            {
+              "type": "directory",
+              "name": "tuning",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "tuning_cma_es.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_lqr.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_lqr_linear.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_pid.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_pid_linear.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_riccati.yaml"
+                },
+                {
+                  "type": "file",
+                  "name": "tuning_riccati_linear.yaml"
+                }
+              ]
             },
             {
               "type": "file",
-              "name": "diagnostics_linear.yaml"
-            },
-            {
-              "type": "file",
-              "name": "diagnostics_stationary.yaml"
-            },
-            {
-              "type": "file",
-              "name": "eval_circular_baseline.yaml"
-            },
-            {
-              "type": "file",
-              "name": "eval_linear_baseline.yaml"
-            },
-            {
-              "type": "file",
-              "name": "eval_riccati_lqr_baseline.yaml"
-            },
-            {
-              "type": "file",
-              "name": "eval_stationary_baseline.yaml"
-            },
-            {
-              "type": "file",
-              "name": "training_default.yaml"
-            },
-            {
-              "type": "file",
-              "name": "training_fast.yaml"
-            },
-            {
-              "type": "file",
-              "name": "training_imitation.yaml"
-            },
-            {
-              "type": "file",
-              "name": "training_large.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_cma_es.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_lqr.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_lqr_linear.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_pid.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_pid_linear.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_riccati.yaml"
-            },
-            {
-              "type": "file",
-              "name": "tuning_riccati_linear.yaml"
+              "name": "README.md"
             }
           ]
         }
