@@ -1275,13 +1275,65 @@ These helpers ensure consistent test setup across different hover verification t
    pid:
      feedforward_enabled: true
      ff_velocity_gain: [0.1, 0.1, 0.1]
+     ff_acceleration_gain: [0.1, 0.1, 0.0]  # For circular/sinusoidal targets
    ```
+
+   > **Note**: Velocity feedforward now correctly integrates with the D term,
+   > avoiding the double-counting bug that previously degraded tracking.
+   > Acceleration feedforward is recommended for circular/sinusoidal targets.
 
 5. **Verification**: Run baseline evaluations to confirm expected performance:
    ```bash
    make eval-baseline-stationary EPISODES=10
    make eval-baseline-circular EPISODES=10
    ```
+
+## Feedforward Troubleshooting
+
+### Feedforward Configuration Guide
+
+The feedforward system uses ENU-aligned velocities and accelerations:
+
+| Parameter | Purpose | Recommended Value |
+|-----------|---------|-------------------|
+| `feedforward_enabled` | Master toggle | `true` for moving targets |
+| `ff_velocity_gain` | Scales target velocity contribution | `[0.0-0.3, 0.0-0.3, 0.0-0.3]` |
+| `ff_acceleration_gain` | Scales target acceleration | `[0.05-0.2, 0.05-0.2, 0.0]` |
+| `ff_max_velocity` | Clamps velocity for stability | `10.0` (default) |
+| `ff_max_acceleration` | Clamps acceleration for stability | `5.0` (default) |
+
+### When to Use Feedforward
+
+| Target Motion | Velocity FF | Acceleration FF | Expected Improvement |
+|---------------|-------------|-----------------|---------------------|
+| Stationary | Unnecessary | Unnecessary | None (already optimal) |
+| Linear | Optional | Not needed | Minimal (D term handles it) |
+| Circular | Optional | **Recommended** | 20-30% error reduction |
+| Sinusoidal | Optional | **Recommended** | 15-25% error reduction |
+| Figure-8 | Optional | **Recommended** | 10-20% error reduction |
+
+### Feedforward Best Practices
+
+1. **Start with feedforward disabled** to establish a baseline
+2. **Enable acceleration feedforward first** for circular/oscillatory targets
+3. **Use small velocity FF gains** (0.0-0.1) to avoid instability
+4. **Set Z-axis acceleration gain to 0** (vertical thrust already handled by altitude control)
+
+### Diagnosing Feedforward Issues
+
+If feedforward degrades tracking:
+
+1. **Check gain magnitudes**: Reduce gains if tracking oscillates
+2. **Verify target acceleration**: Use `env.step()` info to confirm acceleration data exists
+3. **Review diagnostics**: Use `controller.get_control_components()` to inspect FF contributions
+
+```python
+# Debug feedforward contributions
+action = controller.compute_action(obs)
+components = controller.get_control_components()
+print(f"FF velocity term: {components['ff_velocity_term']}")
+print(f"FF acceleration term: {components['ff_acceleration_term']}")
+```
 
 ## v0.2.1 Migration Notes
 

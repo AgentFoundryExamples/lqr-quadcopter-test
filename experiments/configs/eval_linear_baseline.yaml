@@ -34,11 +34,21 @@
 shared_q_pos: &shared_q_pos [0.0001, 0.0001, 16.0]  # Low XY position cost
 shared_q_vel: &shared_q_vel [0.0036, 0.0036, 4.0]   # Velocity cost for damping
 
-# Shared feedforward config (disabled by default)
+# Shared feedforward config (disabled by default for baseline comparison)
+# Note: For linear targets, the D term naturally handles velocity tracking.
+# Velocity feedforward is optional and should use small gains (0.0-0.1).
 shared_feedforward_disabled: &ff_disabled
   feedforward_enabled: false
   ff_velocity_gain: [0.0, 0.0, 0.0]
   ff_acceleration_gain: [0.0, 0.0, 0.0]
+
+# Shared feedforward config (enabled for improved tracking)
+# Velocity FF scales target velocity contribution in D term (avoid large gains)
+# Acceleration FF not needed for linear motion (zero target acceleration)
+shared_feedforward_enabled: &ff_enabled
+  feedforward_enabled: true
+  ff_velocity_gain: [0.0, 0.0, 0.0]  # Optional: use [0.05, 0.05, 0.0] for slight boost
+  ff_acceleration_gain: [0.0, 0.0, 0.0]  # Not needed for constant-velocity targets
 
 # =============================================================================
 # Evaluation Parameters

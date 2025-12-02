@@ -81,6 +81,7 @@ DEFAULT_CONTROL_SIGN_ERROR_THRESHOLD = 0.5
 # Frame Identification
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class CoordinateFrame:
     """Immutable descriptor for a coordinate frame convention."""

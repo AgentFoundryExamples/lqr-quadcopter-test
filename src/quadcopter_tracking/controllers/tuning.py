@@ -126,16 +126,19 @@ def _validate_output_dir(output_dir: str | Path) -> Path:
 # Delayed imports to avoid circular dependency
 def _get_pid_controller():
     from quadcopter_tracking.controllers import PIDController
+
     return PIDController
 
 
 def _get_lqr_controller():
     from quadcopter_tracking.controllers import LQRController
+
     return LQRController
 
 
 def _get_riccati_lqr_controller():
     from quadcopter_tracking.controllers import RiccatiLQRController
+
     return RiccatiLQRController
 
 
@@ -584,9 +587,7 @@ class ControllerTuner:
 
     def _handle_interrupt(self, signum: int, frame: Any) -> None:
         """Handle interrupt signals by setting interrupted flag."""
-        logger.warning(
-            "Received interrupt signal. Saving partial results..."
-        )
+        logger.warning("Received interrupt signal. Saving partial results...")
         self.interrupted = True
 
     def _sample_vector_param(
@@ -594,9 +595,7 @@ class ControllerTuner:
     ) -> list[float]:
         """Sample a 3D vector parameter from uniform distribution."""
         min_vals, max_vals = range_def
-        return [
-            float(rng.uniform(lo, hi)) for lo, hi in zip(min_vals, max_vals)
-        ]
+        return [float(rng.uniform(lo, hi)) for lo, hi in zip(min_vals, max_vals)]
 
     def _sample_scalar_param(
         self, rng: np.random.Generator, range_def: tuple[float, float]
@@ -610,9 +609,7 @@ class ControllerTuner:
     ) -> list[float]:
         """Sample a 4D vector parameter from uniform distribution."""
         min_vals, max_vals = range_def
-        return [
-            float(rng.uniform(lo, hi)) for lo, hi in zip(min_vals, max_vals)
-        ]
+        return [float(rng.uniform(lo, hi)) for lo, hi in zip(min_vals, max_vals)]
 
     def _generate_random_config(self) -> dict:
         """Generate a random controller configuration."""
@@ -668,7 +665,7 @@ class ControllerTuner:
         param_grids: dict[str, list[list[float]] | list[float]] = {}
 
         def make_vector_grid(
-            range_def: tuple[list[float], list[float]]
+            range_def: tuple[list[float], list[float]],
         ) -> list[list[float]]:
             """Create grid points for a vector parameter (any dimension)."""
             min_vals, max_vals = range_def
@@ -802,19 +799,21 @@ class ControllerTuner:
                 action = controller.compute_action(obs)
                 next_obs, reward, done, info = env.step(action)
 
-                episode_data.append({
-                    "time": info.get("time", step * env.dt),
-                    "quadcopter_position": obs["quadcopter"]["position"].tolist(),
-                    "target_position": obs["target"]["position"].tolist(),
-                    "action": [
-                        action["thrust"],
-                        action["roll_rate"],
-                        action["pitch_rate"],
-                        action["yaw_rate"],
-                    ],
-                    "tracking_error": info.get("tracking_error", 0.0),
-                    "on_target": info.get("on_target", False),
-                })
+                episode_data.append(
+                    {
+                        "time": info.get("time", step * env.dt),
+                        "quadcopter_position": obs["quadcopter"]["position"].tolist(),
+                        "target_position": obs["target"]["position"].tolist(),
+                        "action": [
+                            action["thrust"],
+                            action["roll_rate"],
+                            action["pitch_rate"],
+                            action["yaw_rate"],
+                        ],
+                        "tracking_error": info.get("tracking_error", 0.0),
+                        "on_target": info.get("on_target", False),
+                    }
+                )
 
                 obs = next_obs
                 step += 1

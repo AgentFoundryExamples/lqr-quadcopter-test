@@ -23,9 +23,7 @@ class TestGainSearchSpace:
 
     def test_valid_kp_range(self):
         """Test valid proportional gain range."""
-        space = GainSearchSpace(
-            kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0])
-        )
+        space = GainSearchSpace(kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]))
         space.validate()  # Should not raise
         assert "kp_pos" in space.get_active_parameters()
 
@@ -39,9 +37,7 @@ class TestGainSearchSpace:
 
     def test_negative_range_raises(self):
         """Test that negative ranges raise ValueError."""
-        space = GainSearchSpace(
-            kp_pos_range=([-0.1, 0.005, 2.0], [0.05, 0.05, 6.0])
-        )
+        space = GainSearchSpace(kp_pos_range=([-0.1, 0.005, 2.0], [0.05, 0.05, 6.0]))
         with pytest.raises(ValueError, match="negative minimum"):
             space.validate()
 
@@ -94,9 +90,7 @@ class TestGainSearchSpace:
 
     def test_to_dict(self):
         """Test converting search space to dictionary."""
-        space = GainSearchSpace(
-            kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0])
-        )
+        space = GainSearchSpace(kp_pos_range=([0.005, 0.005, 2.0], [0.05, 0.05, 6.0]))
         d = space.to_dict()
         assert d["kp_pos_range"] == ([0.005, 0.005, 2.0], [0.05, 0.05, 6.0])
         assert d["ki_pos_range"] is None

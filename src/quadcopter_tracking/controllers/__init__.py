@@ -244,6 +244,18 @@ class PIDController(BaseController):
         """
         Compute PID control action with optional feedforward.
 
+        The feedforward implementation uses ENU-aligned velocities/accelerations:
+        - Velocity feedforward scales the target velocity contribution in the D term
+        - Acceleration feedforward adds target acceleration to anticipate motion
+
+        For constant velocity targets (linear motion), the D term naturally tracks
+        target velocity through vel_error = target_vel - quad_vel. The velocity
+        feedforward gain scales the target velocity contribution, allowing more
+        aggressive velocity matching when needed.
+
+        For changing velocity targets (circular, sinusoidal), acceleration
+        feedforward helps anticipate velocity changes and reduces phase lag.
+
         Args:
             observation: Environment observation with quadcopter and target state.
 
@@ -266,7 +278,6 @@ class PIDController(BaseController):
         # Compute velocity error (for derivative term)
         quad_vel = np.array(quad["velocity"])
         target_vel = np.array(target["velocity"])
-        vel_error = target_vel - quad_vel
 
         # Update integral error with windup clamping (scaled by dt)
         current_time = observation.get("time", 0.0)
@@ -283,20 +294,35 @@ class PIDController(BaseController):
         # Compute PID terms
         p_term = self.kp_pos * pos_error
         i_term = self.ki_pos * self.integral_error
-        d_term = self.kd_pos * vel_error
 
-        # Compute feedforward terms (if enabled)
+        # Compute velocity error with optional feedforward scaling
+        # When feedforward is enabled, scale the target velocity contribution:
+        # vel_error = (1 + ff_velocity_gain) * target_vel - quad_vel
+        # This allows more aggressive velocity matching without double-counting
         ff_vel_term = np.zeros(3)
         ff_acc_term = np.zeros(3)
 
+        # Compute effective target velocity (with optional clamping and FF scaling)
+        effective_target_vel = target_vel.copy()
         if self.feedforward_enabled:
-            # Velocity feedforward: scale target velocity
-            ff_target_vel = target_vel.copy()
-            # Clamp velocity magnitude to prevent oscillation from noisy inputs
-            vel_mag = np.linalg.norm(ff_target_vel)
+            # Clamp target velocity magnitude for stability
+            vel_mag = np.linalg.norm(effective_target_vel)
             if vel_mag > self.ff_max_velocity and vel_mag > 0:
-                ff_target_vel = ff_target_vel / vel_mag * self.ff_max_velocity
-            ff_vel_term = self.ff_velocity_gain * ff_target_vel
+                scale = self.ff_max_velocity / vel_mag
+                effective_target_vel = effective_target_vel * scale
+
+            # Velocity feedforward: scale target velocity in velocity error
+            # This integrates with the D term rather than adding separately
+            effective_target_vel = (1.0 + self.ff_velocity_gain) * effective_target_vel
+
+            # Store the FF velocity contribution for diagnostics
+            # This is the portion of the D term resulting from feedforward
+            ff_vel_term = (
+                self.kd_pos
+                * self.ff_velocity_gain
+                * effective_target_vel
+                / (1.0 + self.ff_velocity_gain)
+            )
 
             # Acceleration feedforward: scale target acceleration (if available)
             target_acc = target.get("acceleration", None)
@@ -308,9 +334,14 @@ class PIDController(BaseController):
                     ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
                 ff_acc_term = self.ff_acceleration_gain * ff_target_acc
 
+        # Compute velocity error uniformly
+        vel_error = effective_target_vel - quad_vel
+        d_term = self.kd_pos * vel_error
+
         # Total desired correction (scaled by gains, not true acceleration)
-        # Combine P + I + D + FF_velocity + FF_acceleration
-        desired_correction = p_term + i_term + d_term + ff_vel_term + ff_acc_term
+        # Combine P + I + D + FF_acceleration
+        # Note: velocity FF is now integrated into the D term via scaled vel_error
+        desired_correction = p_term + i_term + d_term + ff_acc_term
 
         # Store control components for diagnostics
         self.last_control_components = {
@@ -546,6 +577,18 @@ class LQRController(BaseController):
         """
         Compute LQR control action with optional feedforward.
 
+        The feedforward implementation uses ENU-aligned velocities/accelerations:
+        - Velocity feedforward scales the target velocity contribution in the
+          state error vector, allowing more aggressive velocity matching
+        - Acceleration feedforward adds target acceleration to anticipate motion
+
+        For constant velocity targets (linear motion), the LQR naturally tracks
+        target velocity through the velocity error in the state vector. The
+        velocity feedforward gain scales this contribution.
+
+        For changing velocity targets (circular, sinusoidal), acceleration
+        feedforward helps anticipate velocity changes and reduces phase lag.
+
         Args:
             observation: Environment observation with quadcopter and target state.
 
@@ -567,26 +610,28 @@ class LQRController(BaseController):
 
         quad_vel = np.array(quad["velocity"])
         target_vel = np.array(target["velocity"])
-        vel_error = target_vel - quad_vel
 
-        # Build state error vector (6D)
-        state_error = np.concatenate([pos_error, vel_error])
-
-        # Compute feedback control: u = K @ state_error
-        u_feedback = self.K @ state_error
-
-        # Compute feedforward terms (if enabled)
+        # Compute velocity error with optional feedforward scaling
         ff_vel_term = np.zeros(3)
         ff_acc_term = np.zeros(3)
 
+        # Compute effective target velocity (with optional clamping and FF scaling)
+        effective_target_vel = target_vel.copy()
         if self.feedforward_enabled:
-            # Velocity feedforward: scale target velocity
-            ff_target_vel = target_vel.copy()
-            # Clamp velocity magnitude to prevent oscillation from noisy inputs
-            vel_mag = np.linalg.norm(ff_target_vel)
+            # Clamp target velocity magnitude for stability
+            vel_mag = np.linalg.norm(effective_target_vel)
             if vel_mag > self.ff_max_velocity and vel_mag > 0:
-                ff_target_vel = ff_target_vel / vel_mag * self.ff_max_velocity
-            ff_vel_term = self.ff_velocity_gain * ff_target_vel
+                scale = self.ff_max_velocity / vel_mag
+                effective_target_vel = effective_target_vel * scale
+
+            # Velocity feedforward: scale target velocity in velocity error
+            # This integrates with the LQR feedback rather than adding separately
+            unscaled_target_vel = effective_target_vel.copy()
+            effective_target_vel = (1.0 + self.ff_velocity_gain) * effective_target_vel
+
+            # Store the FF velocity contribution for diagnostics
+            # This represents the additional velocity term from feedforward scaling
+            ff_vel_term = self.ff_velocity_gain * unscaled_target_vel
 
             # Acceleration feedforward: scale target acceleration (if available)
             target_acc = target.get("acceleration", None)
@@ -598,6 +643,15 @@ class LQRController(BaseController):
                     ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
                 ff_acc_term = self.ff_acceleration_gain * ff_target_acc
 
+        # Compute velocity error uniformly
+        vel_error = effective_target_vel - quad_vel
+
+        # Build state error vector (6D)
+        state_error = np.concatenate([pos_error, vel_error])
+
+        # Compute feedback control: u = K @ state_error
+        u_feedback = self.K @ state_error
+
         # Store control components for diagnostics
         self.last_control_components = {
             "feedback_u": u_feedback.copy(),
@@ -605,12 +659,11 @@ class LQRController(BaseController):
             "ff_acceleration_term": ff_acc_term.copy(),
         }
 
-        # Combine feedback with feedforward
-        # Map feedforward to control outputs same way as PID:
+        # Map feedforward acceleration to control outputs:
         # Z -> thrust, X -> pitch, Y -> -roll
-        ff_thrust = ff_vel_term[2] + ff_acc_term[2]
-        ff_pitch = ff_vel_term[0] + ff_acc_term[0]
-        ff_roll = -(ff_vel_term[1] + ff_acc_term[1])
+        ff_thrust = ff_acc_term[2]
+        ff_pitch = ff_acc_term[0]
+        ff_roll = -ff_acc_term[1]
 
         # Extract and bound outputs
         # u_feedback[0] is thrust adjustment relative to hover

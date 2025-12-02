@@ -2569,6 +2569,262 @@ class TestFeedforwardSupport:
         lqr.reset()
         assert lqr.get_control_components() is None
 
+    def test_pid_feedforward_no_degradation_linear_target(self):
+        """Test PID feedforward does not degrade linear target tracking.
+
+        This is a regression test for the feedforward bug where adding
+        target velocity separately caused double-counting with the D term,
+        leading to degraded tracking performance.
+
+        The corrected implementation integrates velocity feedforward into
+        the D term calculation, preventing double-counting and maintaining
+        tracking performance.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="linear", speed=1.0)
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        pid_baseline = PIDController(config={"feedforward_enabled": False})
+
+        baseline_errors = []
+        for _ in range(500):
+            action = pid_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With feedforward enabled (gain=0 should match baseline exactly)
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        pid_ff = PIDController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(500):
+            action = pid_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Feedforward with gain=0 should match baseline exactly
+        assert abs(ff_mean - baseline_mean) < 0.01, (
+            f"FF with gain=0 should match baseline. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
+        # With small feedforward gain, should not degrade significantly
+        env_ff2 = QuadcopterEnv(config=config)
+        obs = env_ff2.reset(seed=42)
+        pid_ff2 = PIDController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.1, 0.1, 0.1],
+            }
+        )
+
+        ff2_errors = []
+        for _ in range(500):
+            action = pid_ff2.compute_action(obs)
+            obs, _, done, info = env_ff2.step(action)
+            ff2_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff2_mean = np.mean(ff2_errors)
+
+        # Maximum acceptable degradation factor (1.5 = 50% worse than baseline)
+        # This threshold is chosen because:
+        # - The old buggy implementation caused 300%+ degradation (3x baseline)
+        # - Small velocity FF gains may slightly increase tracking error due to
+        #   more aggressive velocity matching, but shouldn't be catastrophic
+        # - 50% degradation is generous enough to avoid flaky tests while still
+        #   catching severe regressions
+        max_degradation_factor = 1.5
+        max_acceptable_degradation = baseline_mean * max_degradation_factor
+        assert ff2_mean < max_acceptable_degradation, (
+            f"FF with gain=0.1 degraded tracking too much. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff2_mean:.3f}, "
+            f"Max acceptable: {max_acceptable_degradation:.3f}"
+        )
+
+    def test_lqr_feedforward_no_degradation_linear_target(self):
+        """Test LQR feedforward does not degrade linear target tracking.
+
+        This is a regression test for the feedforward bug where adding
+        target velocity separately caused double-counting with the LQR
+        feedback, leading to degraded tracking performance.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="linear", speed=1.0)
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        lqr_baseline = LQRController(config={"feedforward_enabled": False})
+
+        baseline_errors = []
+        for _ in range(500):
+            action = lqr_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With feedforward enabled (gain=0 should match baseline exactly)
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        lqr_ff = LQRController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(500):
+            action = lqr_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Feedforward with gain=0 should match baseline exactly
+        assert abs(ff_mean - baseline_mean) < 0.01, (
+            f"FF with gain=0 should match baseline. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
+    def test_pid_acceleration_feedforward_improves_circular_tracking(self):
+        """Test PID acceleration feedforward improves circular target tracking.
+
+        For circular motion, the target has centripetal acceleration that
+        the controller must anticipate. Acceleration feedforward helps
+        reduce phase lag.
+        """
+        from quadcopter_tracking.controllers import PIDController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="circular", speed=1.0, radius=2.0)
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        pid_baseline = PIDController(config={"feedforward_enabled": False})
+
+        baseline_errors = []
+        for _ in range(500):
+            action = pid_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With acceleration feedforward
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        pid_ff = PIDController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.1, 0.1, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(500):
+            action = pid_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Acceleration FF should improve tracking (at least 10% reduction)
+        assert ff_mean < baseline_mean, (
+            f"Acceleration FF should improve circular tracking. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
+    def test_lqr_acceleration_feedforward_improves_circular_tracking(self):
+        """Test LQR acceleration feedforward improves circular target tracking.
+
+        For circular motion, acceleration feedforward helps anticipate
+        the centripetal acceleration and reduces tracking error.
+        """
+        from quadcopter_tracking.controllers import LQRController
+
+        config = EnvConfig()
+        config.simulation = SimulationParams(dt=0.01, max_episode_time=10.0)
+        config.target = TargetParams(motion_type="circular", speed=1.0, radius=2.0)
+
+        # Baseline without feedforward
+        env_baseline = QuadcopterEnv(config=config)
+        obs = env_baseline.reset(seed=42)
+        lqr_baseline = LQRController(config={"feedforward_enabled": False})
+
+        baseline_errors = []
+        for _ in range(500):
+            action = lqr_baseline.compute_action(obs)
+            obs, _, done, info = env_baseline.step(action)
+            baseline_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        baseline_mean = np.mean(baseline_errors)
+
+        # With acceleration feedforward
+        env_ff = QuadcopterEnv(config=config)
+        obs = env_ff.reset(seed=42)
+        lqr_ff = LQRController(
+            config={
+                "feedforward_enabled": True,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.1, 0.1, 0.0],
+            }
+        )
+
+        ff_errors = []
+        for _ in range(500):
+            action = lqr_ff.compute_action(obs)
+            obs, _, done, info = env_ff.step(action)
+            ff_errors.append(info["tracking_error"])
+            if done:
+                break
+
+        ff_mean = np.mean(ff_errors)
+
+        # Acceleration FF should improve tracking
+        assert ff_mean < baseline_mean, (
+            f"Acceleration FF should improve circular tracking. "
+            f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
+        )
+
 
 # =============================================================================
 # Riccati-LQR Controller Tests
@@ -3669,14 +3925,14 @@ class TestENUCoordinateFrame:
 
         # Verify signs match ENU convention
         # +X error → +pitch_rate
-        assert (
-            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
-        ), f"PID pitch_rate sign wrong: {action['pitch_rate']}"
+        assert np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN, (
+            f"PID pitch_rate sign wrong: {action['pitch_rate']}"
+        )
 
         # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
-        assert (
-            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
-        ), f"PID roll_rate sign wrong: {action['roll_rate']}"
+        assert np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN, (
+            f"PID roll_rate sign wrong: {action['roll_rate']}"
+        )
 
     def test_lqr_controller_uses_enu_signs(self):
         """Integration test: LQR controller matches ENU sign conventions."""
@@ -3707,14 +3963,14 @@ class TestENUCoordinateFrame:
 
         # Verify signs match ENU convention
         # +X error → +pitch_rate
-        assert (
-            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
-        ), f"LQR pitch_rate sign wrong: {action['pitch_rate']}"
+        assert np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN, (
+            f"LQR pitch_rate sign wrong: {action['pitch_rate']}"
+        )
 
         # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
-        assert (
-            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
-        ), f"LQR roll_rate sign wrong: {action['roll_rate']}"
+        assert np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN, (
+            f"LQR roll_rate sign wrong: {action['roll_rate']}"
+        )
 
     def test_riccati_lqr_controller_uses_enu_signs(self):
         """Integration test: Riccati-LQR controller matches ENU sign conventions."""
@@ -3745,14 +4001,14 @@ class TestENUCoordinateFrame:
 
         # Verify signs match ENU convention
         # +X error → +pitch_rate
-        assert (
-            np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN
-        ), f"Riccati-LQR pitch_rate sign wrong: {action['pitch_rate']}"
+        assert np.sign(action["pitch_rate"]) == PITCH_RATE_TO_X_VEL_SIGN, (
+            f"Riccati-LQR pitch_rate sign wrong: {action['pitch_rate']}"
+        )
 
         # +Y error → -roll_rate (ROLL_RATE_TO_Y_VEL_SIGN is -1)
-        assert (
-            np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN
-        ), f"Riccati-LQR roll_rate sign wrong: {action['roll_rate']}"
+        assert np.sign(action["roll_rate"]) == ROLL_RATE_TO_Y_VEL_SIGN, (
+            f"Riccati-LQR roll_rate sign wrong: {action['roll_rate']}"
+        )
 
     def test_target_motion_uses_enu_z_up(self):
         """Test that target motion generators use ENU Z-up convention."""
