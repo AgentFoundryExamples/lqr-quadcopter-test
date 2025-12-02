@@ -43,6 +43,16 @@ shared_lqr_weights: &shared_lqr_weights
   r_thrust: 1.0
   r_rate: 1.0
 
+# Riccati-LQR weights with optional LQI configuration
+shared_riccati_weights: &shared_riccati_weights
+  dt: 0.01
+  q_pos: [0.0001, 0.0001, 16.0]
+  q_vel: [0.0036, 0.0036, 4.0]
+  r_controls: [1.0, 1.0, 1.0, 1.0]
+  # LQI settings (use_lqi: false preserves pure LQR behavior)
+  use_lqi: false
+  q_int: [0.0, 0.0, 0.0]
+
 # =============================================================================
 # Comparison Configuration
 # =============================================================================
@@ -63,6 +73,24 @@ configurations:
     <<: *shared_eval
     lqr:
       <<: *shared_lqr_weights
+
+  # Riccati-LQR Controller - DARE-solved optimal gains
+  # Uncomment to include in comparison
+  # - name: riccati_lqr_baseline
+  #   controller_type: riccati_lqr
+  #   <<: *shared_eval
+  #   riccati_lqr:
+  #     <<: *shared_riccati_weights
+
+  # Riccati-LQI Controller - LQR with integral action
+  # Uncomment for zero steady-state error tracking
+  # - name: riccati_lqi_baseline
+  #   controller_type: riccati_lqr
+  #   <<: *shared_eval
+  #   riccati_lqr:
+  #     <<: *shared_riccati_weights
+  #     use_lqi: true
+  #     q_int: [0.01, 0.01, 0.1]  # Integral cost weights per axis
 
   # Deep Controller - Neural network policy (requires trained checkpoint)
   # Uncomment and update checkpoint_path after training a model

@@ -473,11 +473,9 @@ class RiccatiLQRController(BaseController):
         # LQI mode configuration
         self.use_lqi = config.get("use_lqi", False)
         q_int = config.get("q_int", [0.0, 0.0, 0.0])
-        self.q_int = self._ensure_array(q_int)
 
-        # Validate q_int has correct length
-        if len(self.q_int) != 3:
-            raise ValueError(f"q_int must have 3 elements, got {len(self.q_int)}")
+        # Validate and process q_int
+        self.q_int = self._validate_q_int(q_int)
 
         self.integral_limit = config.get("integral_limit", 10.0)
         self.integral_zero_threshold = config.get("integral_zero_threshold", 0.01)
@@ -551,6 +549,55 @@ class RiccatiLQRController(BaseController):
         if np.isscalar(value):
             return np.array([value] * size)
         return np.array(value)
+
+    def _validate_q_int(self, q_int) -> np.ndarray:
+        """
+        Validate and convert q_int to a 3-element numpy array.
+
+        Performs the following validations:
+        - Scalar values are expanded to [value, value, value]
+        - Arrays must have exactly 3 elements (one per position axis)
+        - All weights must be non-negative
+
+        Args:
+            q_int: Scalar or sequence of integral cost weights.
+
+        Returns:
+            Validated 3-element numpy array.
+
+        Raises:
+            ValueError: If q_int has wrong length or contains negative weights.
+        """
+        # Handle scalar input by broadcasting to all axes
+        if np.isscalar(q_int):
+            logger.info(
+                "Scalar q_int=%.4f coerced to [%.4f, %.4f, %.4f] for all axes",
+                q_int, q_int, q_int, q_int
+            )
+            q_int_array = np.array([q_int, q_int, q_int])
+        else:
+            q_int_array = np.array(q_int)
+
+        # Validate dimension
+        if len(q_int_array) != 3:
+            raise ValueError(
+                f"q_int must have exactly 3 elements (one per position axis x, y, z), "
+                f"got {len(q_int_array)} elements. "
+                f"Provide a 3-element list like [0.01, 0.01, 0.1] or a scalar."
+            )
+
+        # Validate non-negative weights
+        if np.any(q_int_array < 0):
+            negative_indices = np.where(q_int_array < 0)[0]
+            axis_names = ["x", "y", "z"]
+            bad_axes = [f"{axis_names[i]}={q_int_array[i]:.4f}" for i in negative_indices]
+            raise ValueError(
+                f"q_int weights must be non-negative, but got negative values for: "
+                f"{', '.join(bad_axes)}. "
+                f"Use positive weights or zero to disable integral action on an axis."
+            )
+
+        return q_int_array
 
     def _build_Q_matrix(self, config: dict) -> np.ndarray:
         """
