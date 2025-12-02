@@ -3353,6 +3353,66 @@ class TestRiccatiLQRFeedforward:
             f"Baseline: {baseline_mean:.3f}, FF: {ff_mean:.3f}"
         )
 
+    def test_riccati_lqr_default_init_matches_explicit_disabled(self):
+        """Test default init produces identical results to explicitly disabled.
+
+        This verifies backward compatibility by ensuring that:
+        1. Default config (no FF params) matches explicit feedforward_enabled=False
+        2. Both produce identical control actions for the same observations
+        """
+        from quadcopter_tracking.controllers import RiccatiLQRController
+
+        # Default initialization (no feedforward params specified)
+        controller_default = RiccatiLQRController(config={"dt": 0.01})
+
+        # Explicit disabled configuration
+        controller_explicit = RiccatiLQRController(
+            config={
+                "dt": 0.01,
+                "feedforward_enabled": False,
+                "ff_velocity_gain": [0.0, 0.0, 0.0],
+                "ff_acceleration_gain": [0.0, 0.0, 0.0],
+            }
+        )
+
+        # Verify same configuration state
+        assert (
+            controller_default.feedforward_enabled
+            == controller_explicit.feedforward_enabled
+        )
+        assert np.allclose(
+            controller_default.ff_velocity_gain, controller_explicit.ff_velocity_gain
+        )
+        assert np.allclose(
+            controller_default.ff_acceleration_gain,
+            controller_explicit.ff_acceleration_gain,
+        )
+
+        # Test observation with moving target and acceleration
+        obs = {
+            "quadcopter": {
+                "position": np.array([0.0, 0.0, 1.0]),
+                "velocity": np.array([0.0, 0.0, 0.0]),
+                "attitude": np.array([0.0, 0.0, 0.0]),
+                "angular_velocity": np.array([0.0, 0.0, 0.0]),
+            },
+            "target": {
+                "position": np.array([2.0, 1.0, 1.5]),
+                "velocity": np.array([1.0, 0.5, 0.0]),
+                "acceleration": np.array([0.5, 0.3, 0.0]),
+            },
+        }
+
+        # Compute actions from both controllers
+        action_default = controller_default.compute_action(obs)
+        action_explicit = controller_explicit.compute_action(obs)
+
+        # Actions should be identical
+        assert abs(action_default["thrust"] - action_explicit["thrust"]) < 1e-10
+        assert abs(action_default["roll_rate"] - action_explicit["roll_rate"]) < 1e-10
+        assert abs(action_default["pitch_rate"] - action_explicit["pitch_rate"]) < 1e-10
+        assert abs(action_default["yaw_rate"] - action_explicit["yaw_rate"]) < 1e-10
+
     def test_riccati_lqr_acceleration_feedforward_improves_circular_tracking(self):
         """Test Riccati-LQR acceleration feedforward improves circular tracking.
 

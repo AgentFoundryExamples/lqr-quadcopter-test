@@ -607,7 +607,7 @@ class RiccatiLQRController(BaseController):
                 ff_target_acc = np.array(target_acc)
                 # Clamp acceleration magnitude to prevent oscillation
                 acc_mag = np.linalg.norm(ff_target_acc)
-                if acc_mag > self.ff_max_acceleration:
+                if acc_mag > self.ff_max_acceleration and acc_mag > 0:
                     ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
                 ff_acc_term = self.ff_acceleration_gain * ff_target_acc
 
