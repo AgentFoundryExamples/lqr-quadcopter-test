@@ -503,6 +503,9 @@ python scripts/controller_autotune.py --controller pid --max-iterations 50
 # Grid search with 3 points per dimension
 python scripts/controller_autotune.py --controller pid --strategy grid
 
+# CMA-ES black-box optimization (recommended for complex landscapes)
+python scripts/controller_autotune.py --controller pid --strategy cma_es --max-iterations 100
+
 # LQR auto-tuning
 python scripts/controller_autotune.py --controller lqr --max-iterations 30
 
@@ -526,10 +529,10 @@ python scripts/controller_autotune.py --controller riccati_lqr \
 
 ### Features
 
-- **Grid and random search strategies**
+- **Grid, random, and CMA-ES search strategies**
 - **Deterministic seeding** for reproducible results
 - **Graceful interruption** with partial results saved
-- **Resume capability** from previous runs
+- **Resume capability** from previous runs (including CMA-ES checkpoints)
 - **Feedforward gain tuning** (optional)
 - **Riccati-LQR support** with Q/R matrix tuning
 - **Configurable via environment variable** (`TUNING_OUTPUT_DIR`)
@@ -539,9 +542,11 @@ python scripts/controller_autotune.py --controller riccati_lqr \
 Tuning results are saved to `reports/tuning/` by default:
 - `tuning_pid_*_results.json` - Full results with all configurations
 - `tuning_pid_*_best_config.json` - Best configuration for easy loading
+- `cma_checkpoint.pkl` - CMA-ES state for resumption (when using cma_es strategy)
 
 See [docs/training.md](docs/training.md#pid-auto-tuning) for complete
-auto-tuning documentation including [Riccati-LQR tuning](docs/training.md#riccati-lqr-auto-tuning).
+auto-tuning documentation including [CMA-ES tuning](docs/training.md#cma-es-auto-tuning)
+and [Riccati-LQR tuning](docs/training.md#riccati-lqr-auto-tuning).
 
 ## Evaluating Controllers
 

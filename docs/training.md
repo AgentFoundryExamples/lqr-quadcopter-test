@@ -1198,12 +1198,13 @@ python scripts/controller_autotune.py --controller lqr --max-iterations 30
 
 ### Search Strategies
 
-The tuner supports two search strategies:
+The tuner supports three search strategies:
 
 | Strategy | Description | Use Case |
 |----------|-------------|----------|
 | `random` | Uniform random sampling | Fast exploration, large spaces |
 | `grid` | Exhaustive grid search | Precise, smaller spaces |
+| `cma_es` | CMA-ES black-box optimization | High-dimensional, complex landscapes |
 
 ### Custom Search Ranges
 
@@ -1299,15 +1300,136 @@ flowchart TD
     A[Define Search Space] --> B{Choose Strategy}
     B -->|Random| C[Sample Random Configs]
     B -->|Grid| D[Generate Grid Points]
-    C --> E[Evaluate Configuration]
-    D --> E
-    E --> F{Better than Best?}
-    F -->|Yes| G[Update Best Config]
-    F -->|No| H{More Iterations?}
-    G --> H
-    H -->|Yes| E
-    H -->|No| I[Save Results]
-    I --> J[Load Best Config into Experiment]
+    B -->|CMA-ES| E[Adaptive Sampling]
+    C --> F[Evaluate Configuration]
+    D --> F
+    E --> F
+    F --> G{Better than Best?}
+    G -->|Yes| H[Update Best Config]
+    G -->|No| I{More Iterations?}
+    H --> I
+    I -->|Yes| F
+    I -->|No| J[Save Results]
+    J --> K[Load Best Config into Experiment]
+```
+
+## CMA-ES Auto-Tuning
+
+CMA-ES (Covariance Matrix Adaptation Evolution Strategy) is a powerful black-box
+optimization algorithm for tuning controller gains. It adaptively learns the
+search distribution to efficiently find optimal parameters.
+
+### When to Use CMA-ES
+
+| Scenario | Recommended Strategy |
+|----------|---------------------|
+| Quick exploration, large space | `random` |
+| Small space, exact coverage | `grid` |
+| High-dimensional (>3 params) | `cma_es` |
+| Complex/non-convex landscape | `cma_es` |
+| Unknown optimal region | `cma_es` |
+
+### Quick Start
+
+```bash
+# CMA-ES auto-tuning for PID gains
+python scripts/controller_autotune.py --controller pid --strategy cma_es --max-iterations 50
+
+# CMA-ES with custom sigma0 (initial step size)
+python scripts/controller_autotune.py --controller pid --strategy cma_es \
+    --cma-sigma0 0.5 --max-iterations 100
+
+# CMA-ES for Riccati-LQR
+python scripts/controller_autotune.py --controller riccati_lqr --strategy cma_es \
+    --q-pos-range 0.00005,0.00005,10.0 0.0005,0.0005,25.0
+
+# Using YAML configuration
+python scripts/controller_autotune.py --config experiments/configs/tuning_cma_es.yaml
+```
+
+### CMA-ES Parameters
+
+| Parameter | CLI Flag | Description | Default |
+|-----------|----------|-------------|---------|
+| `cma_sigma0` | `--cma-sigma0` | Initial standard deviation (fraction of range) | 0.3 |
+| `cma_popsize` | `--cma-popsize` | Population size (solutions per generation) | auto |
+
+**Sigma0 guidance:**
+- Lower values (0.1-0.2): More local search, faster convergence if near optimum
+- Higher values (0.3-0.5): More exploration, better for unknown landscapes
+- Default (0.3): Balanced exploration/exploitation
+
+**Population size guidance:**
+- Default: Auto-calculated as `4 + floor(3*ln(n))` where n is dimension
+- Increase for noisy objectives or harder problems
+- Minimum: 4 (for very small dimensions)
+
+### Evaluation Budget
+
+CMA-ES requires more evaluations than random search for proper convergence:
+
+| Dimension (n) | Minimum | Recommended |
+|---------------|---------|-------------|
+| 3 params | 30 | 90 |
+| 6 params | 60 | 180 |
+| 10 params | 100 | 300 |
+
+Rule of thumb: At least `10 * n` evaluations for basic convergence, `30 * n` for good results.
+
+### Checkpointing and Resumption
+
+CMA-ES saves its internal state after each generation:
+
+```bash
+# Interrupt with Ctrl+C - state saved to cma_checkpoint.pkl
+
+# Resume from previous run
+python scripts/controller_autotune.py \
+    --resume reports/tuning/tuning_pid_20240101_120000_results.json \
+    --max-iterations 200  # Continue to 200 total
+```
+
+The checkpoint file (`cma_checkpoint.pkl`) is saved alongside the results JSON.
+
+### Edge Cases
+
+1. **Fixed parameters (min == max)**: CMA-ES requires `lb < ub`. Omit fixed
+   parameters from the search space.
+
+2. **Very small budgets**: With fewer than `mu` solutions (typically popsize/2),
+   CMA-ES cannot update its distribution. Use random search for very small budgets.
+
+3. **Deterministic seeding**: Use the `--seed` flag for reproducible results.
+   Same seed produces identical optimization trajectory.
+
+4. **Parallel evaluation**: Currently evaluations are sequential. Future versions
+   may support parallel objective evaluation.
+
+### Example Configuration
+
+```yaml
+# experiments/configs/tuning_cma_es.yaml
+controller_type: pid
+strategy: cma_es
+
+# CMA-ES options
+cma_sigma0: 0.3
+# cma_popsize: 12  # Uncomment to override auto-calculated
+
+max_iterations: 100
+
+search_space:
+  kp_pos_range:
+    - [0.005, 0.005, 2.0]
+    - [0.05, 0.05, 6.0]
+  kd_pos_range:
+    - [0.02, 0.02, 1.0]
+    - [0.15, 0.15, 3.0]
+
+evaluation_episodes: 5
+target_motion_type: stationary
+seed: 42
+output_dir: reports/tuning
 ```
 
 ## Riccati-LQR Auto-Tuning
