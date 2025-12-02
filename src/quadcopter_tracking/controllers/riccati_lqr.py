@@ -681,6 +681,8 @@ class RiccatiLQRController(BaseController):
             else:
                 # Standard LQR solve
                 self.P, self.K = solve_dare(self.A, self.B, self.Q, self.R)
+                self.K_pd = self.K
+                self.K_i = np.zeros((self.K.shape[0], 3))
                 logger.info("DARE solved successfully, K shape: %s", self.K.shape)
 
             self._using_fallback = False
@@ -820,13 +822,23 @@ class RiccatiLQRController(BaseController):
         # LQI mode: update integral state and compute augmented control
         integral_term = np.zeros(3)
         if self.use_lqi and self.integral_state is not None:
-            # Update integral state with zero-threshold handling
-            # Only accumulate when error is above threshold to prevent drift
+            # Update integral state with zero-threshold handling and anti-windup
             error_mag = np.linalg.norm(pos_error)
             if error_mag > self.integral_zero_threshold:
-                self.integral_state += self.dt * pos_error
+                # Conditional integration for anti-windup
+                for i in range(3):
+                    # Allow integration if not saturated or if error helps desaturate
+                    is_saturated = (
+                        abs(self.integral_state[i]) >= self.integral_limit > 0
+                    )
+                    is_worsening = (
+                        np.sign(self.integral_state[i]) == np.sign(pos_error[i])
+                    )
 
-            # Apply anti-windup clamping
+                    if not (is_saturated and is_worsening):
+                        self.integral_state[i] += self.dt * pos_error[i]
+
+            # Apply anti-windup clamping (serves as a safeguard)
             if self.integral_limit > 0:
                 self.integral_state = np.clip(
                     self.integral_state,

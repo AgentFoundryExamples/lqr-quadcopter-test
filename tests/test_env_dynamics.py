@@ -3655,8 +3655,12 @@ class TestRiccatiLQI:
         assert controller.use_lqi is False
         assert controller.is_lqi_mode() is False
         assert controller.integral_state is None
-        assert controller.K_pd is None
-        assert controller.K_i is None
+        # In LQR mode, K_pd is set to K and K_i is zeros for consistency
+        assert controller.K_pd is not None
+        assert controller.K_pd.shape == (4, 6)
+        assert controller.K_i is not None
+        assert controller.K_i.shape == (4, 3)
+        assert np.allclose(controller.K_i, 0.0)  # Zero integral gains in LQR mode
 
     def test_lqi_mode_can_be_enabled(self):
         """Test that LQI mode can be enabled via config."""
