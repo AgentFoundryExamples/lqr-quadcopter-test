@@ -5,6 +5,100 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-02
+
+### Added
+
+- **Configuration File Reorganization**: Configuration files have been reorganized into subdirectories for better discoverability:
+  - `experiments/configs/training/` - Deep controller training configs
+  - `experiments/configs/evaluation/` - Controller evaluation configs
+  - `experiments/configs/tuning/` - Auto-tuning configs (grid/random/CMA-ES)
+  
+  See [experiments/configs/README.md](experiments/configs/README.md) for the complete configuration index.
+
+- **Migration Guide**: Comprehensive old → new path mapping documentation in `experiments/configs/README.md`. If you use an old config path, you will receive a clear "file not found" error with guidance on the new path.
+
+- **Controller Capability Matrix**: Added to `experiments/configs/README.md` documenting which controllers support training, feedforward, DARE solver, and imitation teaching.
+
+- **CMA-ES Auto-Tuning Enhancements**: CMA-ES (Covariance Matrix Adaptation Evolution Strategy) support with:
+  - Checkpoint and resume capability for interrupted tuning runs
+  - Configurable population size and initial sigma
+  - Adaptive optimization for high-dimensional parameter spaces
+
+- **ENU Coordinate Frame Documentation**: Standardized ENU (East-North-Up) coordinate frame documentation across all configuration files and documentation. Added axis conventions and control sign mappings to `experiments/configs/README.md`.
+
+### Changed
+
+- **Config Path Structure**: All configuration files now reside in subdirectories. The Makefile targets have been updated internally but remain unchanged from a user perspective.
+
+- **`.env.example` Updates**: Added new environment variables for tuning and CMA-ES configuration.
+
+- **Documentation Updates**: README, docs/results.md, and experiments/configs/README.md updated to reference new config paths and provide quick-start examples.
+
+### Migration Notes
+
+#### From v0.3.x
+
+- **Config Path Changes**: Configuration files have moved to subdirectories. Update your commands:
+
+  | Old Path | New Path |
+  |----------|----------|
+  | `experiments/configs/training_default.yaml` | `experiments/configs/training/training_default.yaml` |
+  | `experiments/configs/eval_stationary_baseline.yaml` | `experiments/configs/evaluation/eval_stationary_baseline.yaml` |
+  | `experiments/configs/tuning_pid_linear.yaml` | `experiments/configs/tuning/tuning_pid_linear.yaml` |
+
+  See [experiments/configs/README.md](experiments/configs/README.md) for the complete mapping.
+
+- **Makefile Targets Unchanged**: All `make` commands (e.g., `make train-deep`, `make eval-baseline-stationary`, `make tune-pid-linear`) continue to work without modification.
+
+- **Environment Variables**: Copy [.env.example](.env.example) to `.env` and configure as needed. Key new variables:
+
+  ```bash
+  # Tuning output directory (default: reports/tuning)
+  TUNING_OUTPUT_DIR=reports/tuning
+
+  # CMA-ES optimization settings
+  TUNING_STRATEGY=cma_es
+  TUNING_CMA_SIGMA0=0.3
+  # TUNING_CMA_POPSIZE=  # Leave unset for auto-calculation
+
+  # Feedforward for moving targets (disabled by default)
+  QUADCOPTER_FEEDFORWARD_ENABLED=false
+  QUADCOPTER_FF_VELOCITY_GAIN=0.0,0.0,0.0
+  QUADCOPTER_FF_ACCELERATION_GAIN=0.0,0.0,0.0
+  ```
+
+- **No Breaking Changes to APIs**: All Python APIs, checkpoints, and controller configurations remain compatible.
+
+- **Verification**: Run baseline evaluations to confirm expected performance:
+
+  ```bash
+  # Verify version
+  pip show quadcopter-tracking | grep Version
+  # Should show: Version: 0.4.0
+
+  # Test with new config paths
+  python -m quadcopter_tracking.eval \
+      --config experiments/configs/evaluation/eval_stationary_baseline.yaml \
+      --episodes 5
+
+  # Run baseline evaluations
+  make eval-baseline-stationary EPISODES=10
+  ```
+
+- **Legacy Config Migration**: If you have custom configurations:
+  1. Move them to the appropriate subdirectory (`training/`, `evaluation/`, or `tuning/`)
+  2. Update any scripts that reference the old paths
+  3. Follow naming conventions: `training_*.yaml`, `eval_*.yaml`, `tuning_*.yaml`
+
+#### From v0.2.x
+
+All v0.3.x migration notes apply. Additionally:
+- Review the Riccati-LQR controller if you need mathematically optimal feedback gains
+- Consider using auto-tuning for gain optimization
+
+[0.4.0]: https://github.com/AgentFoundryExamples/lqr-quadcopter-test/releases/tag/v0.4.0
+
 ## [0.3.0] - 2025-12-01
 
 ### Added
