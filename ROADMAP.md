@@ -2,6 +2,20 @@
 
 This document contains detailed design proposals and pseudocode for planned future features. These are **not yet implemented** in the codebase.
 
+## Completed in v0.5
+
+The following features from the original roadmap have been implemented:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| LQI Controller | ✅ Complete | Linear Quadratic Integral with 9-state augmented system |
+| Integral Action | ✅ Complete | DARE-solved K_pd (4×6) and K_i (4×3) gains |
+| Anti-Windup Protection | ✅ Complete | Configurable integral_limit and zero_threshold |
+| LQI Evaluation | ✅ Complete | `--controller lqi` support in eval pipeline |
+| LQI Documentation | ✅ Complete | Architecture, results, and tuning guidance |
+
+**Milestone Summary**: The v0.5 release adds the LQI controller for zero steady-state tracking error. The controller augments the Riccati-LQR state vector with integral of position error, solving DARE on the 9-state system to compute optimal gains. All v0.4.x configurations remain compatible.
+
 ## Completed in v0.4
 
 The following features from the original roadmap have been implemented:
@@ -40,7 +54,7 @@ The following features from the original roadmap have been implemented:
 | Reproducible Workflows | ✅ Complete | Three documented workflows |
 | Controller Comparison | ✅ Complete | Automated comparison reports |
 
-## Next Focus Areas (v0.4+)
+## Next Focus Areas (v0.6+)
 
 The following features are prioritized for the next major release:
 
@@ -57,11 +71,11 @@ The following features are designed but not yet implemented:
 
 | Feature | Target | Reason for Deferral |
 |---------|--------|---------------------|
-| Observation Noise | v0.4+ | Requires environment modification |
-| State Estimation (Kalman) | v0.4+ | Depends on observation noise |
-| Recurrent Policies (LSTM/GRU) | v0.4+ | Research complexity |
-| Transfer Learning | v0.4+ | Trainer modification needed |
-| Reinforcement Learning (PPO/SAC) | v0.5+ | Significant implementation effort |
+| Observation Noise | v0.6+ | Requires environment modification |
+| State Estimation (Kalman) | v0.6+ | Depends on observation noise |
+| Recurrent Policies (LSTM/GRU) | v0.6+ | Research complexity |
+| Transfer Learning | v0.6+ | Trainer modification needed |
+| Reinforcement Learning (PPO/SAC) | v0.7+ | Significant implementation effort |
 
 ## Imperfect Information Controllers
 

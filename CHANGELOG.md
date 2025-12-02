@@ -5,6 +5,146 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-02
+
+### Added
+
+- **LQI Controller (Linear Quadratic Integral)**: New `lqi` controller type extending Riccati-LQR with integral action for zero steady-state tracking error. Key features:
+  - 9-state augmented system (position, velocity, integral of position error)
+  - DARE-solved optimal gains for the augmented system decomposed into K_pd (4×6) and K_i (4×3)
+  - Configurable `q_int` weights for tuning integral aggressiveness
+  - Anti-windup protection with `integral_limit` clamping
+  - Zero-error threshold (`integral_zero_threshold`) to prevent drift when on-target
+  - `reset_integral_state()` method for explicit integral reset between episodes or mode changes
+
+  See [docs/architecture.md](docs/architecture.md#lqi-mode-with-integral-action) for implementation details.
+
+- **LQI Configuration Parameters**: New YAML configuration options for LQI mode:
+  ```yaml
+  riccati_lqr:
+    use_lqi: true                     # Enable LQI mode
+    q_int: [0.01, 0.01, 0.1]          # Integral cost weights [ix, iy, iz]
+    integral_limit: 10.0              # Anti-windup clamp
+    integral_zero_threshold: 0.01    # Pause integration when error < threshold
+  ```
+
+- **LQI Evaluation Support**: The evaluation pipeline now supports `--controller lqi` for direct LQI evaluation:
+  ```bash
+  python -m quadcopter_tracking.eval --controller lqi --episodes 10
+  ```
+
+- **LQI Performance Metrics**: Added expected performance baselines for LQI:
+  - Stationary targets: >80% on-target ratio (verified)
+  - Linear targets: 75-95% on-target ratio (improved steady-state vs Riccati-LQR)
+  
+  See [docs/results.md](docs/results.md#lqi-controller-linear-quadratic-integral) for detailed performance analysis.
+
+- **LQI Diagnostics**: New diagnostic methods for LQI controllers:
+  - `is_lqi_mode()` - Check if LQI mode is active
+  - `get_integral_state()` - Access current integral state [ix, iy, iz]
+  - `get_pd_gains()` / `get_integral_gains()` - Access decomposed gain matrices
+  - Extended `get_control_components()` output with integral state and K_i gains
+
+- **LQI Testing**: Comprehensive test coverage for LQI mode including:
+  - Augmented system matrix construction
+  - DARE solver integration with 9-state system
+  - Anti-windup clamping behavior
+  - Zero-threshold pause logic
+  - Integration with existing evaluation workflows
+
+### Changed
+
+- **Documentation Updates**: README, docs/architecture.md, and docs/results.md updated with:
+  - LQI mode documentation and configuration examples
+  - Comparison table: LQI vs Riccati-LQR vs PID with integral
+  - Tuning guidance for `q_int` weights
+  - Performance expectations by motion type
+
+- **Controller Selection Guide**: Updated controller selection flowchart and comparison matrix to include LQI controller option.
+
+- **Expected Performance Tables**: Updated baseline performance tables to include LQI controller metrics alongside PID, LQR, and Riccati-LQR.
+
+### Migration Notes
+
+#### From v0.4.x
+
+- **No Breaking Changes**: All v0.4.x configurations and checkpoints remain compatible.
+
+- **LQI Mode**: To use the new LQI controller, add LQI-specific parameters to your `riccati_lqr` configuration block:
+
+  ```yaml
+  riccati_lqr:
+    dt: 0.01                          # Must match your simulation timestep
+    use_lqi: true                     # Enable LQI mode
+    q_pos: [0.0001, 0.0001, 16.0]     # Position cost weights [x, y, z]
+    q_vel: [0.0036, 0.0036, 4.0]      # Velocity cost weights [vx, vy, vz]
+    q_int: [0.001, 0.001, 0.01]       # Integral cost weights [ix, iy, iz]
+    r_controls: [1.0, 1.0, 1.0, 1.0]  # Control cost [thrust, roll, pitch, yaw]
+    integral_limit: 10.0              # Anti-windup clamp
+    integral_zero_threshold: 0.01    # Freeze integral below this error
+    fallback_on_failure: true         # Fall back to heuristic LQR on solver failure
+  ```
+
+- **When to Use LQI vs Riccati-LQR**:
+
+  | Scenario | Riccati-LQR | LQI |
+  |----------|-------------|-----|
+  | Stationary target hovering | Good | Excellent (zero steady-state error) |
+  | Fast-moving targets | Recommended | Avoid (integral windup risk) |
+  | Constant velocity tracking | Good | Better (eliminates bias) |
+  | Short episodes (< 5s) | Recommended | Avoid (insufficient integration time) |
+
+- **Tuning q_int (Integral Cost Weights)**:
+  - Start with conservative values: `[0.001, 0.001, 0.01]`
+  - Z-axis typically needs higher weight for tight altitude tracking
+  - Reduce if you observe oscillation or overshoot
+  - Increase if steady-state error persists
+
+- **Recommended Actions**:
+  1. Review the LQI controller documentation if you need zero steady-state tracking error.
+  2. For stationary or slow-moving targets, consider enabling LQI mode.
+  3. Use `integral_limit` to prevent windup during large transients.
+  4. Call `controller.reset_integral_state()` explicitly when switching target modes.
+
+- **Verification**: Run baseline evaluations to confirm expected performance:
+
+  ```bash
+  # Verify version
+  pip show quadcopter-tracking | grep Version
+  # Should show: Version: 0.5.0
+
+  # Test LQI controller on stationary target
+  python -m quadcopter_tracking.eval --controller lqi --episodes 5
+
+  # Run baseline evaluations
+  make eval-baseline-stationary EPISODES=10
+  ```
+
+- **Release Validation**: When preparing releases or regenerating baseline results, follow these steps to regenerate docs and plots:
+
+  ```bash
+  # 1. Regenerate all baseline metrics
+  make eval-baseline-stationary EPISODES=50
+  make eval-baseline-linear EPISODES=50
+  make eval-baseline-circular EPISODES=50
+
+  # 2. Run controller comparison for all motion types
+  make compare-controllers EPISODES=50 MOTION_TYPE=stationary
+  make compare-controllers EPISODES=50 MOTION_TYPE=linear
+  make compare-controllers EPISODES=50 MOTION_TYPE=circular
+
+  # 3. Generate comparison report
+  make generate-comparison-report
+
+  # 4. Verify hover thrust tests
+  python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
+  python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
+  ```
+
+  Results are saved to `reports/` and should be reviewed before tagging a release.
+
+[0.5.0]: https://github.com/AgentFoundryExamples/lqr-quadcopter-test/releases/tag/v0.5.0
+
 ## [0.4.0] - 2025-12-02
 
 ### Added
