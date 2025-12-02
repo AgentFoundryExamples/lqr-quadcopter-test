@@ -3493,7 +3493,7 @@ class TestRiccatiLQRFeedforward:
 
         # Should report saturation occurred
         components = controller.get_control_components()
-        assert components["is_saturated"] == True  # noqa: E712
+        assert components["is_saturated"], "Expected saturation to be True"
         assert controller.get_saturation_count() >= 1
 
         # Verify action is actually clipped
