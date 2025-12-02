@@ -8,17 +8,18 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 - **Total files**: 25
 - **Intra-repo dependencies**: 39
-- **External stdlib dependencies**: 23
+- **External stdlib dependencies**: 24
 - **External third-party dependencies**: 12
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 23 unique modules
+Total: 24 unique modules
 
 - `argparse`
 - `collections.abc.Callable`
+- `copy.deepcopy`
 - `csv`
 - `dataclasses.dataclass`
 - `dataclasses.field`
@@ -36,8 +37,7 @@ Total: 23 unique modules
 - `signal`
 - `sys`
 - `tempfile`
-- `typing.Any`
-- ... and 3 more (see JSON for full list)
+- ... and 4 more (see JSON for full list)
 
 ### Third-Party Packages
 

@@ -54,7 +54,7 @@ Total files: 25
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 28.98 KB  
+**Size:** 28.99 KB  
 **LOC:** 478  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
@@ -205,8 +205,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 26.14 KB  
-**LOC:** 665  
+**Size:** 26.54 KB  
+**LOC:** 673  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -217,8 +217,8 @@ Total files: 25
   - function _load_eval_config
   - function main
 **External Dependencies:**
-  - **Stdlib:** `argparse`, `collections.abc.Callable`, `datetime.datetime`, `datetime.timezone`, `json`
-    _(and 3 more)_
+  - **Stdlib:** `argparse`, `collections.abc.Callable`, `copy.deepcopy`, `datetime.datetime`, `datetime.timezone`
+    _(and 4 more)_
   - **Third-party:** `matplotlib`, `matplotlib.pyplot`, `numpy`, `yaml`
 
 ## src/quadcopter_tracking/train.py
@@ -399,10 +399,10 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 31.08 KB  
-**LOC:** 675  
+**Size:** 40.34 KB  
+**LOC:** 848  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 11  
+**Declarations:** 13  
 **Top-level declarations:**
   - class TestMetrics
   - class TestEpisodeMetrics
@@ -414,7 +414,7 @@ Total files: 25
   - class TestControllerSelectionEval
   - class TestActionSchema
   - class TestControllerConfigPropagation
-  - ... and 1 more
+  - ... and 3 more
 **External Dependencies:**
   - **Third-party:** `matplotlib.pyplot`, `numpy`, `pytest`
 

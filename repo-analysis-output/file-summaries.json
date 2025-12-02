@@ -106,7 +106,7 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 29674,
+        "size_bytes": 29681,
         "loc": 478,
         "todo_count": 0,
         "declaration_count": 4
@@ -418,8 +418,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 26764,
-        "loc": 665,
+        "size_bytes": 27181,
+        "loc": 673,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -440,6 +440,7 @@
           "stdlib": [
             "argparse",
             "collections.abc.Callable",
+            "copy.deepcopy",
             "datetime.datetime",
             "datetime.timezone",
             "json",
@@ -821,10 +822,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 31822,
-        "loc": 675,
+        "size_bytes": 41313,
+        "loc": 848,
         "todo_count": 0,
-        "declaration_count": 11
+        "declaration_count": 13
       },
       "structure": {
         "declarations": [
@@ -838,7 +839,9 @@
           "class TestControllerSelectionEval",
           "class TestActionSchema",
           "class TestControllerConfigPropagation",
-          "class TestRiccatiControllerSelection"
+          "class TestRiccatiControllerSelection",
+          "class TestLQIController",
+          "class TestLQILinearTrajectoryValidation"
         ]
       },
       "dependencies": {

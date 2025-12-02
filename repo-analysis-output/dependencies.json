@@ -180,6 +180,7 @@
         "stdlib": [
           "argparse",
           "collections.abc.Callable",
+          "copy.deepcopy",
           "datetime.datetime",
           "datetime.timezone",
           "json",
@@ -546,6 +547,7 @@
     "stdlib": [
       "argparse",
       "collections.abc.Callable",
+      "copy.deepcopy",
       "csv",
       "dataclasses.dataclass",
       "dataclasses.field",
@@ -582,7 +584,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 23,
+    "stdlib_count": 24,
     "third-party_count": 12
   }
 }
