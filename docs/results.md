@@ -1,8 +1,8 @@
-# Evaluation Results Documentation (v0.3.0)
+# Evaluation Results Documentation (v0.4.0)
 
 This document describes the evaluation framework for quadcopter tracking controllers and how to interpret results.
 
-> **v0.3.0 Update:** This version adds Riccati-LQR controller support, an auto-tuning framework, and optional feedforward capabilities. PID and LQR controllers continue to achieve >80% on-target ratio for stationary targets with correct hover thrust output. See [CHANGELOG.md](../CHANGELOG.md) for full release notes.
+> **v0.4.0 Update:** This version introduces configuration file reorganization into training/evaluation/tuning subdirectories. See [experiments/configs/README.md](../experiments/configs/README.md) for the migration guide. Previous versions' documentation for Riccati-LQR, auto-tuning, and feedforward remains applicable.
 
 ## Overview
 
@@ -986,7 +986,7 @@ python -m pytest tests/test_env_dynamics.py::TestHoverThrustIntegration -v
 python -m pytest tests/test_env_dynamics.py::TestAxisSignConventions -v
 ```
 
-### Expected Baseline Performance (v0.3.0)
+### Expected Baseline Performance (v0.4.0)
 
 | Motion Type | Controller | Expected On-Target Ratio |
 |-------------|------------|-------------------------|
@@ -1253,6 +1253,31 @@ These helpers ensure consistent test setup across different hover verification t
 - **Fast**: Each test completes in <1s
 - **CI-Ready**: Suitable for continuous integration workflows
 - **Parameterized**: Tests cover multiple mass/gravity configurations
+
+## v0.4.0 Migration Notes
+
+### Upgrading from v0.3.x
+
+1. **Config Path Changes**: Configuration files have been reorganized into subdirectories. Update your commands:
+   - Training configs: `experiments/configs/training/`
+   - Evaluation configs: `experiments/configs/evaluation/`
+   - Tuning configs: `experiments/configs/tuning/`
+
+   See [experiments/configs/README.md](../experiments/configs/README.md) for the complete old → new path mapping.
+
+2. **Makefile Targets Unchanged**: All `make` commands continue to work without modification.
+
+3. **Environment Variables**: Review [.env.example](../.env.example) for new variables:
+   - `TUNING_OUTPUT_DIR` - Customize tuning output directory
+   - CMA-ES settings (`TUNING_CMA_SIGMA0`, `TUNING_CMA_POPSIZE`)
+   - Feedforward configuration variables
+
+4. **Verification**: Run baseline evaluations with new config paths:
+   ```bash
+   python -m quadcopter_tracking.eval \
+       --config experiments/configs/evaluation/eval_stationary_baseline.yaml \
+       --episodes 5
+   ```
 
 ## v0.3.0 Migration Notes
 

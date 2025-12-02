@@ -1,6 +1,6 @@
 # Quadcopter Target Tracking Research
 
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -991,9 +991,16 @@ export MPLBACKEND=Agg
 python -m quadcopter_tracking.eval --controller pid --no-plots
 ```
 
-## v0.3.0 Status and Known Limitations
+## v0.4.0 Status and Known Limitations
 
-**Release Date:** December 1, 2025
+**Release Date:** December 2, 2025
+
+**New in v0.4.0:**
+- ✅ Configuration file reorganization into training/evaluation/tuning subdirectories
+- ✅ Comprehensive migration guide for old → new config paths
+- ✅ Controller capability matrix documentation
+- ✅ CMA-ES auto-tuning with checkpoint and resume support
+- ✅ ENU coordinate frame standardization across all documentation
 
 **New in v0.3.0:**
 - ✅ Riccati-LQR controller with DARE-solved optimal feedback gains
@@ -1028,12 +1035,19 @@ python -m quadcopter_tracking.eval --controller pid --no-plots
 - ⚠️ Experiment tracking integrations (WandB, MLflow) are placeholders only
 - ⚠️ Transfer learning not supported via Trainer class
 
-**Stubs / Future Work (v0.4+):**
+**Stubs / Future Work (v0.5+):**
 - 🔲 Observation noise and imperfect information
 - 🔲 State estimation (Kalman filter)
 - 🔲 Reinforcement learning (PPO/SAC)
 - 🔲 Hardware-in-the-loop support
 - 🔲 Distributed training
+
+**Upgrading from v0.3.x:**
+- Configuration files have been reorganized into subdirectories (`training/`, `evaluation/`, `tuning/`)
+- See [experiments/configs/README.md](experiments/configs/README.md) for the migration guide with old → new path mapping
+- Makefile targets remain unchanged and work with new paths automatically
+- Review [.env.example](.env.example) for new environment variables like `TUNING_OUTPUT_DIR`
+- Copy `.env.example` to `.env` and customize settings for your environment
 
 **Upgrading from v0.2.x:**
 - No breaking changes; all v0.2.x configurations and checkpoints remain compatible
