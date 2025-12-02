@@ -10,8 +10,8 @@ Total files: 25
 **Language:** Python  
 **Role:** script  
 **Role Justification:** located in 'scripts' directory  
-**Size:** 15.96 KB  
-**LOC:** 408  
+**Size:** 16.40 KB  
+**LOC:** 422  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 8  
 **Top-level declarations:**
@@ -119,8 +119,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 38.56 KB  
-**LOC:** 847  
+**Size:** 50.35 KB  
+**LOC:** 1076  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 9  
 **Top-level declarations:**
@@ -135,8 +135,8 @@ Total files: 25
   - class ControllerTuner
 **External Dependencies:**
   - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `datetime.datetime`, `datetime.timezone`, `itertools.product`
-    _(and 6 more)_
-  - **Third-party:** `numpy`
+    _(and 7 more)_
+  - **Third-party:** `cma`, `numpy`
 
 ## src/quadcopter_tracking/env/__init__.py
 **Language:** Python  
@@ -443,10 +443,10 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 27.83 KB  
-**LOC:** 616  
+**Size:** 37.87 KB  
+**LOC:** 850  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 6  
+**Declarations:** 7  
 **Top-level declarations:**
   - class TestGainSearchSpace
   - class TestTuningConfig
@@ -454,6 +454,7 @@ Total files: 25
   - class TestControllerTuner
   - class TestTuningIntegration
   - class TestRiccatiTuning
+  - class TestCMAESTuning
 **External Dependencies:**
   - **Stdlib:** `json`
   - **Third-party:** `pytest`

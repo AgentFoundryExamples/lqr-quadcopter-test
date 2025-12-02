@@ -8,14 +8,14 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 - **Total files**: 25
 - **Intra-repo dependencies**: 39
-- **External stdlib dependencies**: 21
-- **External third-party dependencies**: 11
+- **External stdlib dependencies**: 22
+- **External third-party dependencies**: 12
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 21 unique modules
+Total: 22 unique modules
 
 - `argparse`
 - `collections.abc.Callable`
@@ -31,18 +31,19 @@ Total: 21 unique modules
 - `math`
 - `os`
 - `pathlib.Path`
+- `pickle`
 - `signal`
 - `sys`
 - `tempfile`
 - `typing.Any`
 - `typing.Literal`
-- `typing.Protocol`
-- ... and 1 more (see JSON for full list)
+- ... and 2 more (see JSON for full list)
 
 ### Third-Party Packages
 
-Total: 11 unique packages
+Total: 12 unique packages
 
+- `cma`
 - `dotenv.load_dotenv`
 - `matplotlib`
 - `matplotlib.pyplot`

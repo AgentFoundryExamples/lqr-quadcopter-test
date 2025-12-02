@@ -25,6 +25,7 @@
     ├── training_fast.yaml
     ├── training_imitation.yaml
     ├── training_large.yaml
+    ├── tuning_cma_es.yaml
     ├── tuning_lqr.yaml
     ├── tuning_lqr_linear.yaml
     ├── tuning_pid.yaml

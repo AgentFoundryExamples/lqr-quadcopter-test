@@ -112,6 +112,10 @@
             },
             {
               "type": "file",
+              "name": "tuning_cma_es.yaml"
+            },
+            {
+              "type": "file",
               "name": "tuning_lqr.yaml"
             },
             {

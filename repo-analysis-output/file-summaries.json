@@ -9,8 +9,8 @@
       "role": "script",
       "role_justification": "located in 'scripts' directory",
       "metrics": {
-        "size_bytes": 16344,
-        "loc": 408,
+        "size_bytes": 16795,
+        "loc": 422,
         "todo_count": 0,
         "declaration_count": 8
       },
@@ -240,8 +240,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 39483,
-        "loc": 847,
+        "size_bytes": 51563,
+        "loc": 1076,
         "todo_count": 0,
         "declaration_count": 9
       },
@@ -272,10 +272,12 @@
             "logging",
             "os",
             "pathlib.Path",
+            "pickle",
             "signal",
             "typing.Any"
           ],
           "third-party": [
+            "cma",
             "numpy"
           ]
         }
@@ -898,10 +900,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 28501,
-        "loc": 616,
+        "size_bytes": 38774,
+        "loc": 850,
         "todo_count": 0,
-        "declaration_count": 6
+        "declaration_count": 7
       },
       "structure": {
         "declarations": [
@@ -910,7 +912,8 @@
           "class TestTuningResult",
           "class TestControllerTuner",
           "class TestTuningIntegration",
-          "class TestRiccatiTuning"
+          "class TestRiccatiTuning",
+          "class TestCMAESTuning"
         ]
       },
       "dependencies": {

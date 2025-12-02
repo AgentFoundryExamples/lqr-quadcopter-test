@@ -111,10 +111,12 @@
           "logging",
           "os",
           "pathlib.Path",
+          "pickle",
           "signal",
           "typing.Any"
         ],
         "third-party": [
+          "cma",
           "numpy"
         ]
       }
@@ -554,6 +556,7 @@
       "math",
       "os",
       "pathlib.Path",
+      "pickle",
       "signal",
       "sys",
       "tempfile",
@@ -563,6 +566,7 @@
       "unittest.mock"
     ],
     "third-party": [
+      "cma",
       "dotenv.load_dotenv",
       "matplotlib",
       "matplotlib.pyplot",
@@ -575,7 +579,7 @@
       "torch.optim",
       "yaml"
     ],
-    "stdlib_count": 21,
-    "third-party_count": 11
+    "stdlib_count": 22,
+    "third-party_count": 12
   }
 }
