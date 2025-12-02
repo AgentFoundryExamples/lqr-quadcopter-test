@@ -302,21 +302,27 @@ class PIDController(BaseController):
         ff_vel_term = np.zeros(3)
         ff_acc_term = np.zeros(3)
 
+        # Compute effective target velocity (with optional clamping and FF scaling)
+        effective_target_vel = target_vel.copy()
         if self.feedforward_enabled:
             # Clamp target velocity magnitude for stability
-            ff_target_vel = target_vel.copy()
-            vel_mag = np.linalg.norm(ff_target_vel)
+            vel_mag = np.linalg.norm(effective_target_vel)
             if vel_mag > self.ff_max_velocity and vel_mag > 0:
-                ff_target_vel = ff_target_vel / vel_mag * self.ff_max_velocity
+                scale = self.ff_max_velocity / vel_mag
+                effective_target_vel = effective_target_vel * scale
 
             # Velocity feedforward: scale target velocity in velocity error
             # This integrates with the D term rather than adding separately
-            scaled_target_vel = (1.0 + self.ff_velocity_gain) * ff_target_vel
-            vel_error = scaled_target_vel - quad_vel
+            effective_target_vel = (1.0 + self.ff_velocity_gain) * effective_target_vel
 
             # Store the FF velocity contribution for diagnostics
-            # (difference from baseline vel_error)
-            ff_vel_term = self.ff_velocity_gain * ff_target_vel
+            # This is the portion of the D term resulting from feedforward
+            ff_vel_term = (
+                self.kd_pos
+                * self.ff_velocity_gain
+                * effective_target_vel
+                / (1.0 + self.ff_velocity_gain)
+            )
 
             # Acceleration feedforward: scale target acceleration (if available)
             target_acc = target.get("acceleration", None)
@@ -327,9 +333,9 @@ class PIDController(BaseController):
                 if acc_mag > self.ff_max_acceleration and acc_mag > 0:
                     ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
                 ff_acc_term = self.ff_acceleration_gain * ff_target_acc
-        else:
-            vel_error = target_vel - quad_vel
 
+        # Compute velocity error uniformly
+        vel_error = effective_target_vel - quad_vel
         d_term = self.kd_pos * vel_error
 
         # Total desired correction (scaled by gains, not true acceleration)
@@ -609,20 +615,23 @@ class LQRController(BaseController):
         ff_vel_term = np.zeros(3)
         ff_acc_term = np.zeros(3)
 
+        # Compute effective target velocity (with optional clamping and FF scaling)
+        effective_target_vel = target_vel.copy()
         if self.feedforward_enabled:
             # Clamp target velocity magnitude for stability
-            ff_target_vel = target_vel.copy()
-            vel_mag = np.linalg.norm(ff_target_vel)
+            vel_mag = np.linalg.norm(effective_target_vel)
             if vel_mag > self.ff_max_velocity and vel_mag > 0:
-                ff_target_vel = ff_target_vel / vel_mag * self.ff_max_velocity
+                scale = self.ff_max_velocity / vel_mag
+                effective_target_vel = effective_target_vel * scale
 
             # Velocity feedforward: scale target velocity in velocity error
             # This integrates with the LQR feedback rather than adding separately
-            scaled_target_vel = (1.0 + self.ff_velocity_gain) * ff_target_vel
-            vel_error = scaled_target_vel - quad_vel
+            unscaled_target_vel = effective_target_vel.copy()
+            effective_target_vel = (1.0 + self.ff_velocity_gain) * effective_target_vel
 
             # Store the FF velocity contribution for diagnostics
-            ff_vel_term = self.ff_velocity_gain * ff_target_vel
+            # This represents the additional velocity term from feedforward scaling
+            ff_vel_term = self.ff_velocity_gain * unscaled_target_vel
 
             # Acceleration feedforward: scale target acceleration (if available)
             target_acc = target.get("acceleration", None)
@@ -633,8 +642,9 @@ class LQRController(BaseController):
                 if acc_mag > self.ff_max_acceleration and acc_mag > 0:
                     ff_target_acc = ff_target_acc / acc_mag * self.ff_max_acceleration
                 ff_acc_term = self.ff_acceleration_gain * ff_target_acc
-        else:
-            vel_error = target_vel - quad_vel
+
+        # Compute velocity error uniformly
+        vel_error = effective_target_vel - quad_vel
 
         # Build state error vector (6D)
         state_error = np.concatenate([pos_error, vel_error])
