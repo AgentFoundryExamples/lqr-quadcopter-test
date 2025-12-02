@@ -1167,13 +1167,32 @@ class ControllerTuner:
 
     def _get_cma_x0(self) -> list[float]:
         """
-        Get initial point for CMA-ES (center of bounds).
+        Get initial point for CMA-ES.
+
+        Uses geometric mean for log-scale parameters (e.g., Q/R weights) and
+        arithmetic mean for others.
 
         Returns:
-            Initial parameter vector (center of search space).
+            Initial parameter vector for the search.
         """
         lower, upper = self._get_cma_bounds()
-        return [(lo + hi) / 2.0 for lo, hi in zip(lower, upper)]
+        x0 = []
+        idx = 0
+        log_scale_params = {"q_pos", "q_vel", "r_controls"}
+
+        for name, dim, _ in self._cma_param_spec:
+            is_log_scale = name in log_scale_params
+            for i in range(dim):
+                lo = lower[idx]
+                hi = upper[idx]
+                if is_log_scale and lo > 0 and hi > 0:
+                    # Geometric mean for log-scale parameters
+                    x0.append(np.sqrt(lo * hi))
+                else:
+                    # Arithmetic mean for linear-scale parameters
+                    x0.append((lo + hi) / 2.0)
+                idx += 1
+        return x0
 
     def _vector_to_config(self, x: list[float]) -> dict:
         """
@@ -1250,8 +1269,14 @@ class ControllerTuner:
 
         # Calculate scaled sigma based on parameter ranges
         # Use sigma0 as a fraction of the range
-        ranges = [hi - lo for lo, hi in zip(lower, upper)]
-        sigma0 = self.config.cma_sigma0 * np.mean(ranges)
+        ranges = [hi - lo for lo, hi in zip(lower, upper) if hi > lo]
+        if not ranges:
+            # All parameters are fixed, though this should be caught earlier.
+            # Set a small default sigma to avoid errors.
+            sigma0 = 1e-5
+        else:
+            # Use geometric mean of ranges to be robust to different scales
+            sigma0 = self.config.cma_sigma0 * float(np.exp(np.mean(np.log(ranges))))
 
         # CMA-ES options
         opts: dict[str, Any] = {
@@ -1317,19 +1342,16 @@ class ControllerTuner:
                 if num_evals >= self.config.max_iterations:
                     break
 
-            # Tell CMA-ES about the fitness values
-            # CMA-ES requires at least mu solutions (popsize // 2) to update
+            # Tell CMA-ES about the fitness values.
+            # CMA-ES requires at least mu solutions (typically popsize // 2).
+            # If fewer, skip the tell - the results are still recorded.
             mu = self.cma_es.sp.weights.mu
             if len(fitness_values) >= mu:
-                if len(fitness_values) == len(solutions):
-                    self.cma_es.tell(solutions, fitness_values)
-                else:
-                    # Partial evaluation - only tell with enough solutions
-                    self.cma_es.tell(solutions[:len(fitness_values)], fitness_values)
-            else:
-                # Not enough solutions to update CMA-ES state
-                logger.info(
-                    "Not enough solutions (%d < mu=%d) to update CMA-ES",
+                self.cma_es.tell(solutions[:len(fitness_values)], fitness_values)
+            elif len(fitness_values) > 0:
+                # Not enough solutions for CMA-ES update, but we have results
+                logger.debug(
+                    "Skipping CMA-ES update: %d solutions < mu=%d",
                     len(fitness_values),
                     mu,
                 )
