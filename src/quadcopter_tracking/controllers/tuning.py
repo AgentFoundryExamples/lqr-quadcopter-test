@@ -163,6 +163,8 @@ class GainSearchSpace:
         r_thrust_range: LQR thrust cost weight range (min, max) scalar
         r_rate_range: LQR rate cost weight range (min, max) scalar
         r_controls_range: Riccati control cost weights range [thrust, roll, pitch, yaw]
+        q_int_range: LQI integral state cost weights range [ix, iy, iz]
+        use_lqi: Enable LQI mode when tuning Riccati-LQR with q_int_range
     """
 
     # PID gains
@@ -182,6 +184,12 @@ class GainSearchSpace:
 
     # Riccati-specific: 4D control cost weights [thrust, roll, pitch, yaw]
     r_controls_range: tuple[list[float], list[float]] | None = None
+
+    # LQI-specific: 3D integral state cost weights [ix, iy, iz]
+    q_int_range: tuple[list[float], list[float]] | None = None
+
+    # LQI mode flag (auto-enabled when q_int_range is set)
+    use_lqi: bool = False
 
     def validate(self) -> None:
         """
@@ -266,6 +274,29 @@ class GainSearchSpace:
                         f"{lo}. Cost weights should be non-negative."
                     )
 
+        # LQI q_int_range (3D vector for integral state costs)
+        if self.q_int_range is not None:
+            min_vals, max_vals = self.q_int_range
+            if len(min_vals) != 3 or len(max_vals) != 3:
+                raise ValueError(
+                    f"q_int_range must have exactly 3 values for "
+                    f"[ix, iy, iz] (position integral axes), "
+                    f"got min={len(min_vals)}, max={len(max_vals)}"
+                )
+            axis_names = ["ix", "iy", "iz"]
+            for i, (lo, hi) in enumerate(zip(min_vals, max_vals)):
+                if lo > hi:
+                    raise ValueError(
+                        f"q_int_range[{axis_names[i]}] has inverted range: "
+                        f"min={lo} > max={hi}. "
+                        f"Swap values or use equal values for fixed parameter."
+                    )
+                if lo < 0:
+                    raise ValueError(
+                        f"q_int_range[{axis_names[i]}] has negative minimum: "
+                        f"{lo}. Integral cost weights must be non-negative."
+                    )
+
     def get_active_parameters(self) -> list[str]:
         """Get list of parameter names that have search ranges defined."""
         params = []
@@ -289,6 +320,8 @@ class GainSearchSpace:
             params.append("r_rate")
         if self.r_controls_range is not None:
             params.append("r_controls")
+        if self.q_int_range is not None:
+            params.append("q_int")
         return params
 
     @classmethod
@@ -305,6 +338,8 @@ class GainSearchSpace:
             r_thrust_range=config.get("r_thrust_range"),
             r_rate_range=config.get("r_rate_range"),
             r_controls_range=config.get("r_controls_range"),
+            q_int_range=config.get("q_int_range"),
+            use_lqi=config.get("use_lqi", False),
         )
 
     def to_dict(self) -> dict:
@@ -320,6 +355,8 @@ class GainSearchSpace:
             "r_thrust_range": self.r_thrust_range,
             "r_rate_range": self.r_rate_range,
             "r_controls_range": self.r_controls_range,
+            "q_int_range": self.q_int_range,
+            "use_lqi": self.use_lqi,
         }
 
 
@@ -686,6 +723,15 @@ class ControllerTuner:
                 self.rng, space.r_controls_range
             )
 
+        # LQI-specific: q_int (3D vector for integral state costs)
+        if space.q_int_range is not None:
+            config["q_int"] = self._sample_vector_param(self.rng, space.q_int_range)
+            config["use_lqi"] = True
+        elif space.use_lqi:
+            # use_lqi flag set but no q_int_range - use default q_int
+            config["use_lqi"] = True
+            config["q_int"] = [0.0, 0.0, 0.0]
+
         return config
 
     def _generate_grid_configs(self) -> list[dict]:
@@ -754,6 +800,12 @@ class ControllerTuner:
         # Riccati-specific: r_controls (4D vector)
         if space.r_controls_range is not None:
             param_grids["r_controls"] = make_vector_grid(space.r_controls_range)
+        # LQI-specific: q_int (3D vector)
+        if space.q_int_range is not None:
+            param_grids["q_int"] = make_vector_grid(space.q_int_range)
+        elif space.use_lqi:
+            # If LQI is enabled but q_int is not tuned, fix it to default [0,0,0]
+            param_grids["q_int"] = [[0.0, 0.0, 0.0]]
 
         if not param_grids:
             return []
@@ -770,6 +822,9 @@ class ControllerTuner:
             # Add feedforward_enabled if feedforward gains are being tuned
             if "ff_velocity_gain" in config or "ff_acceleration_gain" in config:
                 config["feedforward_enabled"] = True
+            # Add use_lqi if q_int is being tuned or explicitly enabled
+            if "q_int" in config or space.use_lqi:
+                config["use_lqi"] = True
             configs.append(config)
 
         return configs
@@ -1141,6 +1196,10 @@ class ControllerTuner:
         if space.r_controls_range is not None:
             spec.append(("r_controls", 4, space.r_controls_range))
 
+        # LQI-specific (3D vector for integral state costs)
+        if space.q_int_range is not None:
+            spec.append(("q_int", 3, space.q_int_range))
+
         return spec
 
     def _get_cma_bounds(self) -> tuple[list[float], list[float]]:
@@ -1178,7 +1237,7 @@ class ControllerTuner:
         lower, upper = self._get_cma_bounds()
         x0 = []
         idx = 0
-        log_scale_params = {"q_pos", "q_vel", "r_controls"}
+        log_scale_params = {"q_pos", "q_vel", "r_controls", "q_int"}
 
         for name, dim, _ in self._cma_param_spec:
             is_log_scale = name in log_scale_params
@@ -1218,6 +1277,10 @@ class ControllerTuner:
         # Add feedforward_enabled flag if feedforward gains are present
         if "ff_velocity_gain" in config or "ff_acceleration_gain" in config:
             config["feedforward_enabled"] = True
+
+        # Add use_lqi flag if q_int is present or explicitly enabled in search space
+        if "q_int" in config or self.config.search_space.use_lqi:
+            config["use_lqi"] = True
 
         return config
 
