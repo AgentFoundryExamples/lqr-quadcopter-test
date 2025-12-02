@@ -52,8 +52,8 @@ Total files: 25
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
-**Size:** 26.24 KB  
-**LOC:** 450  
+**Size:** 28.98 KB  
+**LOC:** 478  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -119,8 +119,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 38.53 KB  
-**LOC:** 851  
+**Size:** 38.56 KB  
+**LOC:** 847  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 9  
 **Top-level declarations:**
@@ -202,8 +202,8 @@ Total files: 25
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 26.16 KB  
-**LOC:** 666  
+**Size:** 26.14 KB  
+**LOC:** 665  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**
@@ -373,8 +373,8 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 135.86 KB  
-**LOC:** 2739  
+**Size:** 145.29 KB  
+**LOC:** 2930  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 17  
 **Top-level declarations:**
@@ -443,8 +443,8 @@ Total files: 25
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 27.90 KB  
-**LOC:** 622  
+**Size:** 27.83 KB  
+**LOC:** 616  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 6  
 **Top-level declarations:**

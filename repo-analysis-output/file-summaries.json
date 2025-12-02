@@ -104,8 +104,8 @@
       "role": "module-init",
       "role_justification": "module initialization file '__init__'",
       "metrics": {
-        "size_bytes": 26866,
-        "loc": 450,
+        "size_bytes": 29674,
+        "loc": 478,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -240,8 +240,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 39459,
-        "loc": 851,
+        "size_bytes": 39483,
+        "loc": 847,
         "todo_count": 0,
         "declaration_count": 9
       },
@@ -413,8 +413,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 26783,
-        "loc": 666,
+        "size_bytes": 26764,
+        "loc": 665,
         "todo_count": 0,
         "declaration_count": 6
       },
@@ -546,7 +546,7 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 14062,
+        "size_bytes": 14063,
         "loc": 277,
         "todo_count": 0,
         "declaration_count": 10
@@ -769,8 +769,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 139123,
-        "loc": 2739,
+        "size_bytes": 148779,
+        "loc": 2930,
         "todo_count": 0,
         "declaration_count": 17
       },
@@ -897,8 +897,8 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 28567,
-        "loc": 622,
+        "size_bytes": 28501,
+        "loc": 616,
         "todo_count": 0,
         "declaration_count": 6
       },
